@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/errors/app_exceptions.dart';
+import '../../../core/utils/onboarding_maps.dart';
+import '../../../providers/core_providers.dart';
+import '../../../providers/profile_provider.dart';
 import 'basics_screen6.dart';
 
-class BasicsScreen5 extends StatefulWidget {
+class BasicsScreen5 extends ConsumerStatefulWidget {
   const BasicsScreen5({super.key});
 
   @override
-  State<BasicsScreen5> createState() => _BasicsScreen5State();
+  ConsumerState<BasicsScreen5> createState() => _BasicsScreen5State();
 }
 
-class _BasicsScreen5State extends State<BasicsScreen5> {
+class _BasicsScreen5State extends ConsumerState<BasicsScreen5> {
   String? _selectedRadius;
   bool _isLoading = false;
 
@@ -22,20 +28,47 @@ class _BasicsScreen5State extends State<BasicsScreen5> {
 
   Future<void> _onAllow() async {
     setState(() => _isLoading = true);
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        _showSnack('Please turn on location services and try again.');
+        return;
+      }
 
-    // TODO: LocationService.requestPermission()
-    // TODO: LocationService.getCurrentLocation()
-    // TODO: ProfileService.updateRadius(_selectedRadius)
-    await Future.delayed(const Duration(milliseconds: 600));
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        _showSnack('Location permission is needed to find people near you.');
+        return;
+      }
 
-    setState(() => _isLoading = false);
+      final position = await Geolocator.getCurrentPosition();
+      final me = await ref.read(onboardingRepositoryProvider).updateLocation(
+            latitude: position.latitude,
+            longitude: position.longitude,
+            preferredBand: normalizeDistanceBand(_selectedRadius),
+          );
+      ref.read(meProvider.notifier).setMe(me);
 
-    if (mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const BasicsScreen6()),
-      );
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const BasicsScreen6()),
+        );
+      }
+    } on AppException catch (e) {
+      _showSnack(e.message);
+    } catch (e) {
+      _showSnack('Could not get your location. Please try again.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override

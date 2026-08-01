@@ -1,43 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/constants/app_colors.dart';
+import '../../../data/models/message_model.dart';
+import '../../../providers/chat_provider.dart';
+import '../../../providers/realtime_provider.dart';
 import './chat_detail_screen.dart';
 
-class RequestsScreen extends StatefulWidget {
+const List<Color> _avatarColors = [
+  Color(0xFFB5A89A),
+  Color(0xFF4A4A5A),
+  Color(0xFF8B6F6F),
+  Color(0xFF6B7A8B),
+];
+
+class RequestsScreen extends ConsumerStatefulWidget {
   const RequestsScreen({super.key});
 
   @override
-  State<RequestsScreen> createState() => _RequestsScreenState();
+  ConsumerState<RequestsScreen> createState() => _RequestsScreenState();
 }
 
-class _RequestsScreenState extends State<RequestsScreen>
+class _RequestsScreenState extends ConsumerState<RequestsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
-  // Mock data — replace with API call
-  final List<Map<String, dynamic>> _vibingList = [
-    {
-      'id': 'mock-1',
-      'name': 'Julian',
-      'lastMessage': 'That gallery opening next ...',
-      'time': '12m',
-      'online': true,
-      'color': const Color(0xFFB5A89A),
-      'unread': false,
-    },
-    {
-      'id': 'mock-2',
-      'name': 'Elena',
-      'lastMessage': "I've actually never been th...",
-      'time': '2h',
-      'online': true,
-      'color': const Color(0xFF4A4A5A),
-      'unread': false,
-    },
-  ];
-
-  final List<Map<String, dynamic>> _newEnergyList = [
-    // TODO: ChatService.getNewRequests()
-  ];
 
   @override
   void initState() {
@@ -55,7 +41,6 @@ class _RequestsScreenState extends State<RequestsScreen>
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Top bar
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Row(
@@ -71,8 +56,8 @@ class _RequestsScreenState extends State<RequestsScreen>
                       border: Border.all(color: AppColors.textDark, width: 2),
                     ),
                     child: const Center(
-                      child: Icon(Icons.circle,
-                          size: 10, color: AppColors.primary),
+                      child:
+                          Icon(Icons.circle, size: 10, color: AppColors.primary),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -86,22 +71,9 @@ class _RequestsScreenState extends State<RequestsScreen>
                   ),
                 ],
               ),
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.inputBorder),
-                ),
-                child: const Icon(Icons.tune,
-                    size: 20, color: AppColors.textDark),
-              ),
             ],
           ),
         ),
-
-        // Tabs
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 20),
           decoration: const BoxDecoration(
@@ -115,71 +87,109 @@ class _RequestsScreenState extends State<RequestsScreen>
             unselectedLabelColor: AppColors.textGrey,
             indicatorColor: AppColors.primary,
             indicatorWeight: 2,
-            labelStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-            unselectedLabelStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.normal,
-            ),
+            labelStyle:
+                const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             tabs: const [
               Tab(text: 'Vibing'),
               Tab(text: 'New Energy'),
             ],
           ),
         ),
-
-        // Tab content
         Expanded(
           child: TabBarView(
             controller: _tabController,
-            children: [
-              _buildChatList(_vibingList),
-              _buildChatList(_newEnergyList),
+            children: const [
+              _ConversationList(state: 'vibing'),
+              _ConversationList(state: 'new_energy'),
             ],
           ),
         ),
       ],
     );
   }
+}
 
-  Widget _buildChatList(List<Map<String, dynamic>> list) {
-    if (list.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.inbox_outlined,
-                size: 48, color: AppColors.textGrey.withOpacity(0.4)),
-            const SizedBox(height: 12),
-            const Text(
-              'Nothing here yet',
-              style: TextStyle(fontSize: 15, color: AppColors.textGrey),
+class _ConversationList extends ConsumerWidget {
+  const _ConversationList({required this.state});
+
+  final String state;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(conversationsProvider(state));
+    final presence = ref.watch(presenceProvider);
+
+    return async.when(
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      ),
+      error: (err, _) => _empty("Couldn't load conversations."),
+      data: (items) {
+        if (items.isEmpty) return _empty('Nothing here yet');
+        return RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: () =>
+              ref.read(conversationsProvider(state).notifier).refresh(),
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (_, index) => _tile(
+              context,
+              items[index],
+              index,
+              presence[items[index].otherUser.id] ??
+                  items[index].otherUser.isOnline,
             ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      itemCount: list.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (_, index) => _chatTile(list[index]),
+          ),
+        );
+      },
     );
   }
 
-  Widget _chatTile(Map<String, dynamic> user) {
+  Widget _empty(String text) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.inbox_outlined,
+              size: 48, color: AppColors.textGrey.withOpacity(0.4)),
+          const SizedBox(height: 12),
+          Text(text,
+              style: const TextStyle(fontSize: 15, color: AppColors.textGrey)),
+        ],
+      ),
+    );
+  }
+
+  Widget _tile(
+    BuildContext context,
+    ConversationSummary conv,
+    int index,
+    bool online,
+  ) {
+    final other = conv.otherUser;
+    final name = other.displayName ?? 'Someone';
+    final color = _avatarColors[index % _avatarColors.length];
+
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => ChatDetailScreen(user: user),
-    ),
-  );
-      },
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatDetailScreen(
+            conversationId: conv.id,
+            user: {
+              'id': other.id,
+              'name': name,
+              'age': other.age,
+              'distance': '',
+              'online': online,
+              'color': color,
+              'photoUrl': other.primaryPhotoUrl,
+            },
+          ),
+        ),
+      ),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
@@ -189,26 +199,20 @@ class _RequestsScreenState extends State<RequestsScreen>
         ),
         child: Row(
           children: [
-            // Avatar with online dot
             Stack(
               children: [
                 Container(
                   width: 52,
                   height: 52,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: user['color'] as Color,
-                  ),
-                  child: user['photoUrl'] != null
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+                  child: other.primaryPhotoUrl != null
                       ? ClipOval(
-                          child: Image.network(
-                            user['photoUrl'] as String,
-                            fit: BoxFit.cover,
-                          ),
+                          child: Image.network(other.primaryPhotoUrl!,
+                              fit: BoxFit.cover),
                         )
                       : Center(
                           child: Text(
-                            (user['name'] as String)[0].toUpperCase(),
+                            name.isNotEmpty ? name[0].toUpperCase() : '?',
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -217,34 +221,29 @@ class _RequestsScreenState extends State<RequestsScreen>
                           ),
                         ),
                 ),
-                // Online + verified badge
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: Colors.green,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.white, width: 1.5),
+                if (online)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.white, width: 1.5),
+                      ),
                     ),
-                    child: const Icon(Icons.check,
-                        size: 9, color: AppColors.white),
                   ),
-                ),
               ],
             ),
-
             const SizedBox(width: 12),
-
-            // Name + last message
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    user['name'] as String,
+                    name,
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
@@ -253,39 +252,54 @@ class _RequestsScreenState extends State<RequestsScreen>
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    user['lastMessage'] as String,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textGrey,
-                    ),
+                    conv.lastMessage?.snippet ?? 'Say hello',
+                    style: const TextStyle(fontSize: 13, color: AppColors.textGrey),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-
             const SizedBox(width: 8),
-
-            // Time + options
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  user['time'] as String,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textGrey,
-                  ),
+                  _ago(conv.lastMessageAt),
+                  style: const TextStyle(fontSize: 12, color: AppColors.textGrey),
                 ),
                 const SizedBox(height: 6),
-                const Icon(Icons.more_vert,
-                    size: 18, color: AppColors.textGrey),
+                if (conv.unread > 0)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '${conv.unread}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ],
         ),
       ),
     );
+  }
+
+  String _ago(DateTime? dt) {
+    if (dt == null) return '';
+    final d = DateTime.now().difference(dt.toLocal());
+    if (d.inMinutes < 1) return 'now';
+    if (d.inMinutes < 60) return '${d.inMinutes}m';
+    if (d.inHours < 24) return '${d.inHours}h';
+    return '${d.inDays}d';
   }
 }

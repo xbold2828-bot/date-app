@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/errors/app_exceptions.dart';
+import '../../../providers/core_providers.dart';
+import '../../../providers/profile_provider.dart';
 import 'basics_screen1.dart';
 
-class AgeScreen extends StatefulWidget {
+class AgeScreen extends ConsumerStatefulWidget {
   const AgeScreen({super.key});
 
   @override
-  State<AgeScreen> createState() => _AgeScreenState();
+  ConsumerState<AgeScreen> createState() => _AgeScreenState();
 }
 
-class _AgeScreenState extends State<AgeScreen> {
+class _AgeScreenState extends ConsumerState<AgeScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _dayController = TextEditingController();
   final TextEditingController _monthController = TextEditingController();
@@ -34,15 +38,24 @@ Future<void> _onContinue() async {
     }
 
     setState(() => _isLoading = true);
-    // TODO: ProfileService.updateAge()
-    await Future.delayed(const Duration(milliseconds: 500));
-    setState(() => _isLoading = false);
+    try {
+      final dob = _selectedDate!.toIso8601String().split('T').first;
+      final me = await ref.read(onboardingRepositoryProvider).updateAge(dob);
+      ref.read(meProvider.notifier).setMe(me);
 
-    if (mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const BasicsScreen()),
-      );
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                BasicsScreen(displayName: _nameController.text.trim()),
+          ),
+        );
+      }
+    } on AppException catch (e) {
+      _showSnack(e.message);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

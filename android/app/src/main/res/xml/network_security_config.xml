@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Permits cleartext (http://) traffic ONLY to the backend hosts we actually use
+  during development. The rest of the app stays HTTPS-only.
+
+  Tighten or remove this once the backend is served over HTTPS.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Hosted Radius backend -->
+        <domain includeSubdomains="true">65.2.220.189</domain>
+        <!-- Android emulator alias for the host machine -->
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <!-- iOS simulator / local runs -->
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>

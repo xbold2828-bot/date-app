@@ -62,9 +62,16 @@ dependencies:
 
   google_sign_in: ^6.2.1
 
+  # Device location for discovery ("Near you") + onboarding location step
+  geolocator: ^13.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+  # Testing the data layer without a live server
+  mocktail: ^1.0.4
+  http_mock_adapter: ^0.6.1
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

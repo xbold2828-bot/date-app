@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/errors/app_exceptions.dart';
+import '../../../providers/chat_provider.dart';
+import '../../../providers/match_provider.dart';
 
-class ProfileDetailSheet extends StatefulWidget {
+class ProfileDetailSheet extends ConsumerStatefulWidget {
   final Map<String, dynamic> user;
 
   const ProfileDetailSheet({super.key, required this.user});
 
   @override
-  State<ProfileDetailSheet> createState() => _ProfileDetailSheetState();
+  ConsumerState<ProfileDetailSheet> createState() =>
+      _ProfileDetailSheetState();
 }
 
-class _ProfileDetailSheetState extends State<ProfileDetailSheet> {
+class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet> {
   final TextEditingController _openerController = TextEditingController();
   bool _isSending = false;
 
@@ -20,35 +25,73 @@ class _ProfileDetailSheetState extends State<ProfileDetailSheet> {
     super.dispose();
   }
 
+  String? get _userId => widget.user['id'] as String?;
+
   Future<void> _sendOpener() async {
     final text = _openerController.text.trim();
-    if (text.isEmpty) return;
+    final userId = _userId;
+    if (text.isEmpty || userId == null) return;
 
     setState(() => _isSending = true);
-
-    // TODO: ChatService.sendMessage(
-    //   toUserId: widget.user['id'],
-    //   message: text,
-    // )
-    await Future.delayed(const Duration(milliseconds: 600));
-
-    setState(() => _isSending = false);
-    _openerController.clear();
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Opener sent!')),
-      );
-      Navigator.pop(context);
+    try {
+      await ref.read(chatActionsProvider).open(userId, text);
+      _openerController.clear();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Opener sent!')),
+        );
+        Navigator.pop(context);
+      }
+    } on VerificationRequiredException {
+      _showGate('Verify your identity to start messaging.');
+    } on EntitlementRequiredException catch (e) {
+      _showGate(e.message);
+    } on AppException catch (e) {
+      _snack(e.message);
+    } finally {
+      if (mounted) setState(() => _isSending = false);
     }
   }
 
-  void _onLike() {
-    // TODO: MatchService.likeUser(widget.user['id'])
+  Future<void> _onLike() async {
+    final userId = _userId;
+    if (userId == null) return;
+    try {
+      final result = await ref.read(likeActionsProvider).react(userId, 'like');
+      _snack(
+        result.isMatch
+            ? "It's a match with ${widget.user['name']}!"
+            : 'You liked ${widget.user['name']}!',
+      );
+    } on AppException catch (e) {
+      _snack(e.message);
+    }
+  }
+
+  void _snack(String msg) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('You liked ${widget.user['name']}!'),
-        backgroundColor: AppColors.primary,
+      SnackBar(content: Text(msg), backgroundColor: AppColors.primary),
+    );
+  }
+
+  void _showGate(String message) {
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.white,
+        title: const Text('One more step',
+            style: TextStyle(color: AppColors.textDark)),
+        content: Text(message,
+            style: const TextStyle(color: AppColors.textGrey)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK',
+                style: TextStyle(color: AppColors.primary)),
+          ),
+        ],
       ),
     );
   }

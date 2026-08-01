@@ -1,27 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../providers/core_providers.dart';
+import '../../../providers/profile_provider.dart';
 import '../../auth/screens/login_screen.dart';
 import './premium_screen.dart';
 
-class YouScreen extends StatefulWidget {
+class YouScreen extends ConsumerStatefulWidget {
   const YouScreen({super.key});
 
   @override
-  State<YouScreen> createState() => _YouScreenState();
+  ConsumerState<YouScreen> createState() => _YouScreenState();
 }
 
-class _YouScreenState extends State<YouScreen> {
-  // Mock data — replace with ProfileService.getMyProfile()
-  final Map<String, dynamic> _profile = {
-    'name': 'Elena',
-    'age': 29,
-    'location': 'Brooklyn, NY',
-    'isPremium': true,
-    'isVerified': true,
-    'bio': 'Seeking genuine connections and shared architectural walks. I value space, slow mornings, and the perfect espresso.',
-    'vibes': ['Curator', 'Early Bird', 'Wine Collector'],
-    'photos': [null, null, null, null], // TODO: replace with real photo URLs
+class _YouScreenState extends ConsumerState<YouScreen> {
+  // Populated from meProvider at the top of build().
+  Map<String, dynamic> _profile = {
+    'name': '',
+    'age': null,
+    'location': '',
+    'isPremium': false,
+    'isVerified': false,
+    'bio': '',
+    'vibes': <String>[],
+    'photos': [null, null, null, null],
   };
 
   Future<void> _onSignOut() async {
@@ -85,19 +88,40 @@ class _YouScreenState extends State<YouScreen> {
     );
 
     if (confirm == true && mounted) {
-      // TODO: AuthService.deleteAccount()
-      // TODO: ProfileService.deleteProfile()
+      try {
+        await ref.read(profileRepositoryProvider).deleteAccount();
+      } catch (_) {
+        // Even if the server call fails, sign out locally.
+      }
       await AuthService().signOut();
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-        (route) => false,
-      );
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final me = ref.watch(meProvider).valueOrNull;
+    if (me == null) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+    _profile = {
+      'name': me.displayName ?? 'You',
+      'age': me.age,
+      'location': me.location?.city ?? '',
+      'isPremium': me.premium.isActive,
+      'isVerified': me.verified,
+      'bio': me.profile.bio ?? '',
+      'vibes': me.profile.personalityTags,
+      'photos': const [null, null, null, null],
+    };
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

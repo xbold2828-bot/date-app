@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
-import 'age_screen.dart';
+import 'authed_bootstrap.dart';
 import '../../../data/services/auth_service.dart';
 
 class OtpScreen extends StatefulWidget {
@@ -42,9 +42,10 @@ Future<void> _onVerify() async {
     );
 
     if (response.user != null && mounted) {
-      Navigator.push(
+      Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const AgeScreen()),
+        MaterialPageRoute(builder: (_) => const AuthedBootstrap()),
+        (route) => false,
       );
     }
   } catch (e) {
@@ -66,11 +67,21 @@ Future<void> _onVerify() async {
     }
   }
 
-  void _onResendCode() {
-    // TODO: AuthService.sendOtp(widget.phoneNumber)
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('OTP resent!')),
-    );
+  Future<void> _onResendCode() async {
+    try {
+      await _authService.sendOtp(widget.phoneNumber);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('OTP resent!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to resend: ${e.toString()}')),
+        );
+      }
+    }
   }
 
   @override

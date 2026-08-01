@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/errors/app_exceptions.dart';
+import '../../../core/utils/onboarding_maps.dart';
+import '../../../providers/core_providers.dart';
+import '../../../providers/profile_provider.dart';
 import 'basics_screen2.dart';
 
-class BasicsScreen extends StatefulWidget {
-  const BasicsScreen({super.key});
+class BasicsScreen extends ConsumerStatefulWidget {
+  const BasicsScreen({super.key, this.displayName = ''});
+
+  /// Carried over from the age screen (persisted here with the rest of basics).
+  final String displayName;
 
   @override
-  State<BasicsScreen> createState() => _BasicsScreenState();
+  ConsumerState<BasicsScreen> createState() => _BasicsScreenState();
 }
 
-class _BasicsScreenState extends State<BasicsScreen> {
+class _BasicsScreenState extends ConsumerState<BasicsScreen> {
   final TextEditingController _bioController = TextEditingController();
 
   final List<String> _genderOptions = [
@@ -31,18 +39,35 @@ class _BasicsScreenState extends State<BasicsScreen> {
     }
 
     setState(() => _isLoading = true);
+    try {
+      final pronounValue = kPronounValues[_selectedPronoun];
+      final bio = _bioController.text.trim();
+      final me = await ref.read(onboardingRepositoryProvider).updateBasics(
+            displayName: widget.displayName,
+            gender: kGenderValues[_selectedGender]!,
+            pronouns: pronounValue == null ? const [] : [pronounValue],
+            // The UI has no "show me" step yet; default to everyone so
+            // onboarding can proceed (the backend requires a non-empty list).
+            showMe: const ['everyone'],
+            bio: bio.isEmpty ? null : bio,
+          );
+      ref.read(meProvider.notifier).setMe(me);
 
-    // TODO: ProfileService.updateBasics(gender, pronoun, bio)
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    setState(() => _isLoading = false);
-
-    if (mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const BasicsScreen2()),
-      );
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const BasicsScreen2()),
+        );
+      }
+    } on AppException catch (e) {
+      _showSnack(e.message);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override

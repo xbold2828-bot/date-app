@@ -1,84 +1,113 @@
-import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
+import 'dart:async';
 
-class ChatDetailScreen extends StatefulWidget {
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/constants/app_colors.dart';
+import '../../../core/errors/app_exceptions.dart';
+import '../../../data/models/message_model.dart';
+import '../../../providers/chat_provider.dart';
+import '../../../providers/realtime_provider.dart';
+
+class ChatDetailScreen extends ConsumerStatefulWidget {
+  /// The conversation this thread renders.
+  final String conversationId;
+
+  /// Display info for the other participant: id, name, age, distance, photoUrl,
+  /// color, online.
   final Map<String, dynamic> user;
 
-  const ChatDetailScreen({super.key, required this.user});
+  const ChatDetailScreen({
+    super.key,
+    required this.conversationId,
+    required this.user,
+  });
 
   @override
-  State<ChatDetailScreen> createState() => _ChatDetailScreenState();
+  ConsumerState<ChatDetailScreen> createState() => _ChatDetailScreenState();
 }
 
-class _ChatDetailScreenState extends State<ChatDetailScreen> {
+class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final List<StreamSubscription<dynamic>> _subs = [];
+  Timer? _typingTimer;
   bool _isTyping = false;
+  bool _sending = false;
 
-  // Mock messages — replace with ChatService.getMessages(userId)
-  final List<Map<String, dynamic>> _messages = [
-    {
-      'id': '1',
-      'text': 'I saw you were nearby at the gallery earlier! What did you think of the new installation?',
-      'isMine': false,
-      'time': '2:41 PM',
-      'status': null,
-    },
-    {
-      'id': '2',
-      'text': 'The scale of it was incredible. I loved how they used the negative space. Are you a regular there?',
-      'isMine': true,
-      'time': '2:43 PM',
-      'status': 'read', // null, 'sent', 'delivered', 'read'
-    },
-    {
-      'id': '3',
-      'text': 'I try to go once a month. It\'s one of my favorite "radius" spots. We should grab a coffee nearby sometime soon and compare notes?',
-      'isMine': false,
-      'time': '2:45 PM',
-      'status': null,
-    },
-  ];
+  String get _convId => widget.conversationId;
+  String? get _otherId => widget.user['id'] as String?;
 
   @override
   void initState() {
     super.initState();
-    // Simulate typing indicator
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _isTyping = true);
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onOpen());
+  }
+
+  Future<void> _onOpen() async {
+    try {
+      await ref.read(chatActionsProvider).markRead(_convId);
+    } catch (_) {}
+
+    final chat = ref.read(chatServiceProvider);
+    _subs.add(chat.messages.listen((incoming) {
+      if (incoming.conversationId != _convId) return;
+      ref.read(messagesProvider(_convId).notifier).addIncoming(incoming.message);
+      ref.read(chatActionsProvider).markRead(_convId);
+      _scrollToBottom();
+    }));
+    _subs.add(chat.reads.listen((receipt) {
+      if (receipt.conversationId != _convId) return;
+      ref.read(messagesProvider(_convId).notifier).markMineRead();
+    }));
+    _subs.add(chat.typing.listen((event) {
+      if (event.conversationId != _convId) return;
+      setState(() => _isTyping = true);
+      _typingTimer?.cancel();
+      _typingTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _isTyping = false);
+      });
+    }));
   }
 
   @override
   void dispose() {
+    for (final s in _subs) {
+      s.cancel();
+    }
+    _typingTimer?.cancel();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  void _sendMessage() {
+  Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
-    if (text.isEmpty) return;
-
-    setState(() {
-      _messages.add({
-        'id': DateTime.now().millisecondsSinceEpoch.toString(),
-        'text': text,
-        'isMine': true,
-        'time': _formatTime(DateTime.now()),
-        'status': 'sent',
-      });
-      _isTyping = false;
-    });
-
+    if (text.isEmpty || _sending) return;
     _messageController.clear();
+    setState(() => _sending = true);
+    try {
+      await ref.read(chatActionsProvider).send(_convId, text);
+      _scrollToBottom();
+    } on AppException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
 
-    // TODO: ChatService.sendMessage(
-    //   toUserId: widget.user['id'],
-    //   message: text,
-    // )
+  void _onInputChanged(String _) {
+    final toUserId = _otherId;
+    if (toUserId == null) return;
+    ref
+        .read(chatServiceProvider)
+        .sendTyping(toUserId: toUserId, conversationId: _convId);
+  }
 
-    // Scroll to bottom
+  void _scrollToBottom() {
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -90,25 +119,39 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     });
   }
 
-  String _formatTime(DateTime dt) {
-    final hour = dt.hour > 12 ? dt.hour - 12 : dt.hour;
-    final minute = dt.minute.toString().padLeft(2, '0');
-    final period = dt.hour >= 12 ? 'PM' : 'AM';
+  String _formatTime(DateTime? dt) {
+    if (dt == null) return '';
+    final local = dt.toLocal();
+    final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    final minute = local.minute.toString().padLeft(2, '0');
+    final period = local.hour >= 12 ? 'PM' : 'AM';
     return '$hour:$minute $period';
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = widget.user;
+    final messagesAsync = ref.watch(messagesProvider(_convId));
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
-            _buildTopBar(user),
+            _buildTopBar(widget.user),
             Expanded(
-              child: _buildMessageList(),
+              child: messagesAsync.when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                ),
+                error: (err, _) => Center(
+                  child: Text(
+                    "Couldn't load messages.\n$err",
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppColors.textGrey),
+                  ),
+                ),
+                data: (messages) => _buildMessageList(messages),
+              ),
             ),
             if (_isTyping) _buildTypingIndicator(),
             _buildInputBar(),
@@ -119,9 +162,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Widget _buildTopBar(Map<String, dynamic> user) {
+    final name = (user['name'] as String?) ?? 'Someone';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.white,
         border: Border(
           bottom: BorderSide(color: AppColors.inputBorder, width: 1),
@@ -129,75 +173,48 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       ),
       child: Row(
         children: [
-          // Back button
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: const Icon(Icons.arrow_back, color: AppColors.textDark),
           ),
-
           const SizedBox(width: 10),
-
-          // Avatar
-          Stack(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: user['color'] as Color? ?? AppColors.inputBorder,
-                ),
-                child: user['photoUrl'] != null
-                    ? ClipOval(
-                        child: Image.network(
-                          user['photoUrl'] as String,
-                          fit: BoxFit.cover,
-                        ),
-                      )
-                    : Center(
-                        child: Text(
-                          (user['name'] as String)[0].toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.white,
-                          ),
-                        ),
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: user['color'] as Color? ?? AppColors.inputBorder,
+            ),
+            child: user['photoUrl'] != null
+                ? ClipOval(
+                    child: Image.network(
+                      user['photoUrl'] as String,
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                : Center(
+                    child: Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.white,
                       ),
-              ),
-            ],
+                    ),
+                  ),
           ),
-
           const SizedBox(width: 10),
-
-          // Name, age, distance
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Text(
-                      '${user['name']}, ${user['age']}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    // Verified badge
-                    Container(
-                      width: 18,
-                      height: 18,
-                      decoration: const BoxDecoration(
-                        color: Colors.green,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.check,
-                          size: 11, color: AppColors.white),
-                    ),
-                  ],
+                Text(
+                  user['age'] != null ? '$name, ${user['age']}' : name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
                 ),
                 Row(
                   children: [
@@ -216,23 +233,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               ],
             ),
           ),
-
-          // Action icons
-          Row(
-            children: [
-              _topBarIcon(Icons.phone_outlined, () {
-                // TODO: initiate voice call
-              }),
-              const SizedBox(width: 4),
-              _topBarIcon(Icons.videocam_outlined, () {
-                // TODO: initiate video call
-              }),
-              const SizedBox(width: 4),
-              _topBarIcon(Icons.more_vert, () {
-                _showOptionsMenu();
-              }),
-            ],
-          ),
+          _topBarIcon(Icons.more_vert, _showOptionsMenu),
         ],
       ),
     );
@@ -244,7 +245,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       child: Container(
         width: 36,
         height: 36,
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AppColors.background,
           shape: BoxShape.circle,
         ),
@@ -253,15 +254,22 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
-  Widget _buildMessageList() {
+  Widget _buildMessageList(List<Message> messages) {
+    if (messages.isEmpty) {
+      return const Center(
+        child: Text(
+          'Say hello 👋',
+          style: TextStyle(color: AppColors.textGrey),
+        ),
+      );
+    }
     return ListView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: _messages.length + 1, // +1 for date header
+      itemCount: messages.length + 1,
       itemBuilder: (_, index) {
         if (index == 0) return _buildDateHeader('TODAY');
-        final msg = _messages[index - 1];
-        return _buildMessageBubble(msg);
+        return _buildMessageBubble(messages[index - 1]);
       },
     );
   }
@@ -289,9 +297,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
-  Widget _buildMessageBubble(Map<String, dynamic> msg) {
-    final isMine = msg['isMine'] as bool;
-
+  Widget _buildMessageBubble(Message msg) {
+    final isMine = msg.fromMe;
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Column(
@@ -303,14 +310,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              if (!isMine) const SizedBox(width: 4),
               Flexible(
                 child: Container(
                   constraints: BoxConstraints(
                     maxWidth: MediaQuery.of(context).size.width * 0.72,
                   ),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: isMine ? AppColors.primary : AppColors.white,
                     borderRadius: BorderRadius.only(
@@ -319,12 +325,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       bottomLeft: Radius.circular(isMine ? 18 : 4),
                       bottomRight: Radius.circular(isMine ? 4 : 18),
                     ),
-                    border: isMine
-                        ? null
-                        : Border.all(color: AppColors.inputBorder),
+                    border:
+                        isMine ? null : Border.all(color: AppColors.inputBorder),
                   ),
                   child: Text(
-                    msg['text'] as String,
+                    msg.body,
                     style: TextStyle(
                       fontSize: 14,
                       color: isMine ? AppColors.white : AppColors.textDark,
@@ -335,8 +340,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               ),
             ],
           ),
-
-          // Time + read status
           Padding(
             padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
             child: Row(
@@ -344,37 +347,24 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
               children: [
                 Text(
-                  msg['time'] as String,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: AppColors.textGrey,
-                  ),
+                  _formatTime(msg.sentAt),
+                  style: const TextStyle(fontSize: 10, color: AppColors.textGrey),
                 ),
-                if (isMine && msg['status'] != null) ...[
+                if (isMine) ...[
                   const SizedBox(width: 4),
-                  _readStatus(msg['status'] as String),
+                  Icon(
+                    msg.read ? Icons.done_all : Icons.check,
+                    size: 12,
+                    color: msg.read ? Colors.blue : AppColors.textGrey,
+                  ),
                 ],
               ],
             ),
           ),
-
           const SizedBox(height: 8),
         ],
       ),
     );
-  }
-
-  Widget _readStatus(String status) {
-    switch (status) {
-      case 'sent':
-        return const Icon(Icons.check, size: 12, color: AppColors.textGrey);
-      case 'delivered':
-        return const Icon(Icons.done_all, size: 12, color: AppColors.textGrey);
-      case 'read':
-        return const Icon(Icons.done_all, size: 12, color: Colors.blue);
-      default:
-        return const SizedBox.shrink();
-    }
   }
 
   Widget _buildTypingIndicator() {
@@ -389,23 +379,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: AppColors.inputBorder),
             ),
-            child: Row(
-              children: [
-                _dot(0),
-                const SizedBox(width: 4),
-                _dot(1),
-                const SizedBox(width: 4),
-                _dot(2),
-                const SizedBox(width: 8),
-                Text(
-                  '${widget.user['name']} is typing...',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textGrey,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
+            child: Text(
+              '${widget.user['name'] ?? 'They'} is typing...',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textGrey,
+                fontStyle: FontStyle.italic,
+              ),
             ),
           ),
         ],
@@ -413,45 +393,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
-  Widget _dot(int index) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.4, end: 1.0),
-      duration: Duration(milliseconds: 400 + (index * 150)),
-      builder: (_, value, __) => Opacity(
-        opacity: value,
-        child: Container(
-          width: 6,
-          height: 6,
-          decoration: const BoxDecoration(
-            color: AppColors.textGrey,
-            shape: BoxShape.circle,
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildInputBar() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.white,
-        border: Border(
-          top: BorderSide(color: AppColors.inputBorder, width: 1),
-        ),
+        border: Border(top: BorderSide(color: AppColors.inputBorder, width: 1)),
       ),
       child: Row(
         children: [
-          // Emoji button
-          GestureDetector(
-            onTap: () {},
-            child: const Icon(Icons.sentiment_satisfied_alt_outlined,
-                size: 24, color: AppColors.textGrey),
-          ),
-
-          const SizedBox(width: 10),
-
-          // Text input
           Expanded(
             child: Container(
               constraints: const BoxConstraints(maxHeight: 120),
@@ -463,24 +413,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               child: TextField(
                 controller: _messageController,
                 maxLines: null,
-                style: const TextStyle(
-                    fontSize: 14, color: AppColors.textDark),
+                onChanged: _onInputChanged,
+                style: const TextStyle(fontSize: 14, color: AppColors.textDark),
                 decoration: const InputDecoration(
                   hintText: 'Say something nice...',
-                  hintStyle:
-                      TextStyle(color: AppColors.textGrey, fontSize: 14),
+                  hintStyle: TextStyle(color: AppColors.textGrey, fontSize: 14),
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 10),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 ),
                 onSubmitted: (_) => _sendMessage(),
               ),
             ),
           ),
-
           const SizedBox(width: 10),
-
-          // Send button
           GestureDetector(
             onTap: _sendMessage,
             child: Container(
@@ -490,8 +436,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 color: AppColors.primary,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.send,
-                  color: AppColors.white, size: 18),
+              child: _sending
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: CircularProgressIndicator(
+                          color: AppColors.white, strokeWidth: 2),
+                    )
+                  : const Icon(Icons.send, color: AppColors.white, size: 18),
             ),
           ),
         ],
@@ -500,7 +451,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   void _showOptionsMenu() {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.white,
       shape: const RoundedRectangleBorder(
@@ -511,17 +462,23 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            _optionTile(Icons.archive_outlined, 'Archive chat', AppColors.textDark,
+                () async {
+              Navigator.pop(context);
+              await ref.read(chatActionsProvider).archive(_convId);
+              if (mounted) Navigator.pop(context);
+            }),
             _optionTile(Icons.block_outlined, 'Block user', Colors.red, () {
               Navigator.pop(context);
-              // TODO: UserService.blockUser(widget.user['id'])
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Blocking arrives in the next update.')),
+              );
             }),
             _optionTile(Icons.flag_outlined, 'Report', Colors.orange, () {
               Navigator.pop(context);
-              // TODO: UserService.reportUser(widget.user['id'])
-            }),
-            _optionTile(Icons.delete_outline, 'Delete chat', Colors.red, () {
-              Navigator.pop(context);
-              // TODO: ChatService.deleteChat(widget.user['id'])
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Reporting arrives in the next update.')),
+              );
             }),
           ],
         ),

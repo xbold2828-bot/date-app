@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/errors/app_exceptions.dart';
+import '../../../core/utils/onboarding_maps.dart';
+import '../../../providers/core_providers.dart';
+import '../../../providers/profile_provider.dart';
 import 'basics_screen3.dart';
 
-class BasicsScreen2 extends StatefulWidget {
+class BasicsScreen2 extends ConsumerStatefulWidget {
   const BasicsScreen2({super.key});
 
   @override
-  State<BasicsScreen2> createState() => _BasicsScreen2State();
+  ConsumerState<BasicsScreen2> createState() => _BasicsScreen2State();
 }
 
-class _BasicsScreen2State extends State<BasicsScreen2> {
-  final List<String> _intents = ['Right Now', 'Requests', 'Favorites', 'You'];
+class _BasicsScreen2State extends ConsumerState<BasicsScreen2> {
+  final List<String> _intents =
+      kIntentOptions.map((e) => e.key).toList();
   final List<String> _atmospheres = [
     'Quietly Confident', 'Adventurous',
     'Artistic', 'Deep Conversationalist',
@@ -29,22 +35,30 @@ class _BasicsScreen2State extends State<BasicsScreen2> {
       return;
     }
 
-    if (mounted) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const BasicsScreen3()),
-  );
-}
-
     setState(() => _isLoading = true);
+    try {
+      final intentValue = kIntentOptions
+          .firstWhere((e) => e.key == _selectedIntent)
+          .value;
+      final me = await ref
+          .read(onboardingRepositoryProvider)
+          .updateIntent([intentValue]);
+      ref.read(meProvider.notifier).setMe(me);
+      // NOTE: "Your Atmosphere" tags aren't persisted yet — they map to the
+      // personality catalogue (GET /tags?category=personality), a Pass-2 rework.
 
-    // TODO: ProfileService.updateRadius(intent, atmospheres)
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    setState(() => _isLoading = false);
-
-    // TODO: Navigate to next onboarding step or home
-    // GoRouter.of(context).go('/home');
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const BasicsScreen3()),
+        );
+      }
+    } on AppException catch (e) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'presentation/auth/screens/login_screen.dart';
-import 'presentation/home/screens/home_screen.dart';
-import 'presentation/auth/screens/age_screen.dart';
+
+import 'core/constants/app_colors.dart';
 import 'core/constants/env.dart';
+import 'presentation/auth/screens/authed_bootstrap.dart';
+import 'presentation/auth/screens/login_screen.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -12,7 +15,7 @@ void main() async {
     anonKey: Env.supabaseAnonKey,
   );
 
-  runApp(const MyApp());
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 final supabase = Supabase.instance.client;
@@ -25,57 +28,63 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Radius',
       debugShowCheckedModeBanner: false,
-      home: const AuthGate(),
+      home: Env.hasSupabaseAnonKey ? const AuthGate() : const _MissingConfig(),
     );
   }
 }
 
-// Checks session on app launch
-class AuthGate extends StatefulWidget {
+/// Decides the launch route: an existing session boots into the app (loading
+/// the domain user), otherwise the login screen. Post-login navigation is
+/// handled by the auth screens pushing [AuthedBootstrap].
+class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
   @override
-  State<AuthGate> createState() => _AuthGateState();
+  Widget build(BuildContext context) {
+    final session = supabase.auth.currentSession;
+    if (session != null) return const AuthedBootstrap();
+    return const LoginScreen();
+  }
 }
 
-class _AuthGateState extends State<AuthGate> {
-  @override
-  void initState() {
-    super.initState();
-    // Listen for auth changes and navigate accordingly
-    supabase.auth.onAuthStateChange.listen((data) {
-      final session = data.session;
-      final event = data.event;
-
-      if (session != null && mounted) {
-        if (event == AuthChangeEvent.signedIn ||
-            event == AuthChangeEvent.tokenRefreshed) {
-          // Check if new or existing user
-          final createdAt = session.user.createdAt;
-          final updatedAt = session.user.updatedAt;
-          final isNewUser = createdAt == updatedAt;
-
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-              builder: (_) => isNewUser
-                  ? const AgeScreen()   // new user → onboarding
-                  : const HomeScreen(), // existing user → home
-            ),
-            (route) => false,
-          );
-        }
-      }
-    });
-  }
+/// Shown when the Supabase anon key hasn't been configured yet, so the failure
+/// is obvious instead of a cryptic auth error.
+class _MissingConfig extends StatelessWidget {
+  const _MissingConfig();
 
   @override
   Widget build(BuildContext context) {
-    // Check existing session on app launch
-    final session = supabase.auth.currentSession;
-    if (session != null) {
-      return const HomeScreen();
-    }
-    return const LoginScreen();
+    return const Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.key_off, size: 48, color: AppColors.textGrey),
+                SizedBox(height: 16),
+                Text(
+                  'Supabase not configured',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Set the Supabase anon key in lib/core/constants/env.dart '
+                  '(or pass --dart-define=SUPABASE_ANON_KEY=...) and restart.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: AppColors.textGrey),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

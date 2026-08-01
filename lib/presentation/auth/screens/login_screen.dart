@@ -3,8 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
 import 'otp_screen.dart';
 import '../../../data/services/auth_service.dart';
-import 'age_screen.dart';
-import '../../home/screens/home_screen.dart'; 
+import 'authed_bootstrap.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -82,17 +81,11 @@ Future<void> _onContinue() async {
     }
 
     if (response.user != null && mounted) {
-      // Check if new user or existing
-      final isNewUser = response.session?.user.createdAt ==
-          response.session?.user.updatedAt;
-
+      // Real onboarding-vs-home routing happens in AuthedBootstrap once the
+      // domain user (/users/me) is loaded.
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(
-          builder: (_) => isNewUser
-              ? const AgeScreen()    // new user → onboarding
-              : const HomeScreen(),  // existing user → home
-        ),
+        MaterialPageRoute(builder: (_) => const AuthedBootstrap()),
         (route) => false,
       );
     }

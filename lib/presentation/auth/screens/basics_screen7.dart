@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/errors/app_exceptions.dart';
+import '../../../providers/core_providers.dart';
+import '../../../providers/profile_provider.dart';
+import '../../home/screens/home_screen.dart';
 
-class BasicsScreen7 extends StatefulWidget {
+class BasicsScreen7 extends ConsumerStatefulWidget {
   const BasicsScreen7({super.key});
 
   @override
-  State<BasicsScreen7> createState() => _BasicsScreen7State();
+  ConsumerState<BasicsScreen7> createState() => _BasicsScreen7State();
 }
 
-class _BasicsScreen7State extends State<BasicsScreen7> {
+class _BasicsScreen7State extends ConsumerState<BasicsScreen7> {
   final List<Map<String, dynamic>> _agreements = [
     {'text': "I'm 18 or older", 'checked': false},
     {'text': "I'll be respectful", 'checked': false},
@@ -24,12 +29,23 @@ class _BasicsScreen7State extends State<BasicsScreen7> {
     if (!_allChecked) return;
 
     setState(() => _isLoading = true);
+    try {
+      final me = await ref.read(onboardingRepositoryProvider).acceptAgreement();
+      ref.read(meProvider.notifier).setMe(me);
 
-    // TODO: AuthService.acceptVibeAgreement()
-    // TODO: GoRouter.of(context).go('/home')
-    await Future.delayed(const Duration(milliseconds: 600));
-
-    setState(() => _isLoading = false);
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (route) => false,
+        );
+      }
+    } on AppException catch (e) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
