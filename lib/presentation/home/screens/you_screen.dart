@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/errors/app_exceptions.dart';
+import '../../../data/models/media_model.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../providers/core_providers.dart';
 import '../../../providers/profile_provider.dart';
 import '../../auth/screens/login_screen.dart';
+import '../widgets/profile_edit_sheets.dart';
 import './premium_screen.dart';
 
 class YouScreen extends ConsumerStatefulWidget {
@@ -26,6 +30,90 @@ class _YouScreenState extends ConsumerState<YouScreen> {
     'vibes': <String>[],
     'photos': [null, null, null, null],
   };
+
+  bool _isUploadingPhoto = false;
+
+  Future<void> _onEditBio() async {
+    final saved = await showEditBioSheet(context, _profile['bio'] as String);
+    if (saved && mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Bio updated')));
+    }
+  }
+
+  Future<void> _onEditVibes() async {
+    final saved = await showEditVibesSheet(
+      context,
+      List<String>.from(_profile['vibes'] as List),
+    );
+    if (saved && mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Vibe updated')));
+    }
+  }
+
+  /// Pick and upload one gallery photo. Upload failures surface as a message
+  /// rather than an exception — object storage may be unreachable.
+  Future<void> _onAddPhoto() async {
+    if (_isUploadingPhoto) return;
+
+    // The server rejects the 6th photo, so say so here rather than letting the
+    // upload run and fail — and point at the way out.
+    final current = _publicPhotos(
+      ref.read(myMediaProvider).valueOrNull,
+      null,
+    ).length;
+    if (current >= kMaxPublicPhotos) {
+      _snack('You can have $kMaxPublicPhotos photos. '
+          'Tap one to delete it, then add a new one.');
+      return;
+    }
+
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1080,
+      );
+      if (file == null) return;
+
+      final bytes = await file.readAsBytes();
+      final name = file.name.toLowerCase();
+      final contentType = name.endsWith('.png')
+          ? 'image/png'
+          : name.endsWith('.webp')
+              ? 'image/webp'
+              : 'image/jpeg';
+
+      setState(() => _isUploadingPhoto = true);
+      final result = await ref.read(mediaRepositoryProvider).uploadPhoto(
+            bytes: bytes,
+            contentType: contentType,
+            type: MediaKind.publicPhoto,
+          );
+
+      if (!mounted) return;
+      if (result.succeeded) {
+        ref.invalidate(myMediaProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Photo uploaded — moderation pending')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Photo couldn't be uploaded. Please try again."),
+          ),
+        );
+      }
+    } on AppException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _isUploadingPhoto = false);
+    }
+  }
 
   Future<void> _onSignOut() async {
     final confirm = await showDialog<bool>(
@@ -120,7 +208,8 @@ class _YouScreenState extends ConsumerState<YouScreen> {
       'isVerified': me.verified,
       'bio': me.profile.bio ?? '',
       'vibes': me.profile.personalityTags,
-      'photos': const [null, null, null, null],
+      // The avatar shows the profile photo; the gallery below renders the rest.
+      'avatarUrl': _primaryPhotoUrl(me.primaryPhotoId),
     };
     return SingleChildScrollView(
       child: Column(
@@ -187,10 +276,14 @@ class _YouScreenState extends ConsumerState<YouScreen> {
                             color: AppColors.white, width: 3),
                       ),
                       child: ClipOval(
-                        child: _profile['photos'][0] != null
+                        child: _profile['avatarUrl'] != null
                             ? Image.network(
-                                _profile['photos'][0] as String,
+                                _profile['avatarUrl'] as String,
                                 fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.person,
+                                    size: 40,
+                                    color: AppColors.white),
                               )
                             : const Icon(Icons.person,
                                 size: 40, color: AppColors.white),
@@ -302,11 +395,9 @@ class _YouScreenState extends ConsumerState<YouScreen> {
                   ),
                 ),
                 GestureDetector(
-                  onTap: () {
-                    // TODO: Navigate to edit photos screen
-                  },
+                  onTap: _onAddPhoto,
                   child: const Text(
-                    'Edit All',
+                    'Add photo',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -320,45 +411,9 @@ class _YouScreenState extends ConsumerState<YouScreen> {
 
           const SizedBox(height: 12),
 
-          // Photo grid
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Primary large photo
-                Expanded(
-                  flex: 5,
-                  child: _photoSlot(0, height: 200, isPrimary: true),
-                ),
-                const SizedBox(width: 8),
-                // Two small + two add slots
-                Expanded(
-                  flex: 4,
-                  child: Column(
-                    children: [
-                      _photoSlot(1, height: 96),
-                      const SizedBox(height: 8),
-                      _photoSlot(2, height: 96),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          // Two add slots row
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Expanded(child: _addSlot()),
-                const SizedBox(width: 8),
-                Expanded(child: _addSlot()),
-              ],
-            ),
+            child: _gallery(me.primaryPhotoId),
           ),
 
           const SizedBox(height: 24),
@@ -389,9 +444,7 @@ class _YouScreenState extends ConsumerState<YouScreen> {
                         ),
                       ),
                       GestureDetector(
-                        onTap: () {
-                          // TODO: Navigate to edit vibes screen
-                        },
+                        onTap: _onEditVibes,
                         child: const Icon(Icons.edit_outlined,
                             size: 16, color: AppColors.textGrey),
                       ),
@@ -454,9 +507,7 @@ class _YouScreenState extends ConsumerState<YouScreen> {
                         ),
                       ),
                       GestureDetector(
-                        onTap: () {
-                          // TODO: Navigate to edit bio screen
-                        },
+                        onTap: _onEditBio,
                         child: const Icon(Icons.edit_outlined,
                             size: 16, color: AppColors.textGrey),
                       ),
@@ -563,12 +614,17 @@ class _YouScreenState extends ConsumerState<YouScreen> {
                       Icon(Icons.radio_button_checked,
                           size: 20, color: AppColors.primary),
                       SizedBox(width: 8),
-                      Text(
-                        'Radius Premium',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.white,
+                      // Unconstrained text in a Row overflows the card on a
+                      // narrow screen (and at larger system font scales); let
+                      // it take the remaining width instead.
+                      Expanded(
+                        child: Text(
+                          'Radius Premium',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.white,
+                          ),
                         ),
                       ),
                     ],
@@ -664,54 +720,267 @@ class _YouScreenState extends ConsumerState<YouScreen> {
     );
   }
 
-  Widget _photoSlot(int index, {required double height, bool isPrimary = false}) {
-    final photos = _profile['photos'] as List;
-    final hasPhoto = index < photos.length && photos[index] != null;
 
-    return Container(
-      height: height,
-      decoration: BoxDecoration(
-        color: hasPhoto ? null : const Color(0xFF6B7A8B),
-        borderRadius: BorderRadius.circular(12),
-        border: hasPhoto ? null : Border.all(color: AppColors.inputBorder),
-      ),
-      child: hasPhoto
-          ? ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                photos[index] as String,
-                fit: BoxFit.cover,
-                width: double.infinity,
-              ),
-            )
-          : Center(
-              child: Icon(
-                isPrimary ? Icons.person : Icons.add_a_photo_outlined,
-                size: isPrimary ? 36 : 24,
-                color: AppColors.white.withOpacity(0.7),
-              ),
-            ),
+  /// URL of the photo marked as the profile picture, if it's loaded and still
+  /// present (it may have just been deleted).
+  String? _primaryPhotoUrl(String? primaryId) {
+    if (primaryId == null) return null;
+    for (final asset in ref.watch(myMediaProvider).valueOrNull ?? const []) {
+      if (asset.id == primaryId) return asset.url;
+    }
+    return null;
+  }
+
+  /// My public photos, profile photo first so it reads as the main one.
+  List<MediaAsset> _publicPhotos(List<MediaAsset>? media, String? primaryId) {
+    final photos =
+        (media ?? const <MediaAsset>[]).where((m) => m.isPublicPhoto).toList();
+    photos.sort((a, b) {
+      if (a.id == primaryId) return -1;
+      if (b.id == primaryId) return 1;
+      return 0;
+    });
+    return photos;
+  }
+
+  /// A 3-up grid of my photos plus one "+" tile, capped at [kMaxPublicPhotos]
+  /// to match the server. Tapping a photo opens its actions.
+  Widget _gallery(String? primaryId) {
+    final photos =
+        _publicPhotos(ref.watch(myMediaProvider).valueOrNull, primaryId);
+    final atCap = photos.length >= kMaxPublicPhotos;
+
+    return GridView.count(
+      crossAxisCount: 3,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      crossAxisSpacing: 8,
+      mainAxisSpacing: 8,
+      childAspectRatio: 0.8,
+      children: [
+        for (final photo in photos)
+          _photoTile(photo, isPrimary: photo.id == primaryId),
+        if (!atCap) _addTile(),
+      ],
     );
   }
 
-  Widget _addSlot() {
+  Widget _photoTile(MediaAsset photo, {required bool isPrimary}) {
     return GestureDetector(
-      onTap: () {
-        // TODO: Open image picker to add photo
-      },
+      onTap: () => _showPhotoActions(photo, isPrimary: isPrimary),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(
+              photo.url,
+              fit: BoxFit.cover,
+              // Presigned URLs expire, and photos uploaded before storage was
+              // configured point at keys that no longer exist. Show a quiet
+              // placeholder instead of the browser's broken-image glyph.
+              errorBuilder: (_, __, ___) => Container(
+                color: AppColors.inputBorder,
+                child: const Center(
+                  child: Icon(Icons.broken_image_outlined,
+                      size: 22, color: AppColors.textGrey),
+                ),
+              ),
+              loadingBuilder: (context, child, progress) => progress == null
+                  ? child
+                  : Container(
+                      color: AppColors.inputBorder,
+                      child: const Center(
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ),
+            ),
+            if (isPrimary)
+              Positioned(
+                left: 6,
+                bottom: 6,
+                child: _tag('PROFILE', AppColors.primary),
+              )
+            else if (photo.isPending)
+              Positioned(
+                left: 6,
+                bottom: 6,
+                child: _tag('PENDING', Colors.black54),
+              ),
+            const Positioned(
+              top: 6,
+              right: 6,
+              child: Icon(Icons.more_horiz, size: 18, color: AppColors.white),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tag(String label, Color color) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            color: AppColors.white,
+            letterSpacing: 0.5,
+          ),
+        ),
+      );
+
+  Widget _addTile() {
+    return GestureDetector(
+      onTap: _onAddPhoto,
       child: Container(
-        height: 52,
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.inputBorder),
         ),
-        child: const Center(
-          child: Icon(Icons.add, size: 22, color: AppColors.textGrey),
+        child: Center(
+          child: _isUploadingPhoto
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.primary,
+                  ),
+                )
+              : const Icon(Icons.add, size: 24, color: AppColors.textGrey),
         ),
       ),
     );
   }
+
+  /// Set-as-profile / delete. Deleting is the way to make room once the gallery
+  /// is full, so the sheet is also where the cap gets resolved.
+  Future<void> _showPhotoActions(
+    MediaAsset photo, {
+    required bool isPrimary,
+  }) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.inputBorder,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (!isPrimary)
+              ListTile(
+                leading: const Icon(Icons.account_circle_outlined,
+                    color: AppColors.textDark),
+                title: const Text('Make this my profile photo'),
+                subtitle: photo.isApproved
+                    ? null
+                    : const Text('Available once moderation approves it'),
+                enabled: photo.isApproved,
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _setPrimary(photo);
+                },
+              )
+            else
+              const ListTile(
+                leading: Icon(Icons.check_circle, color: AppColors.primary),
+                title: Text('This is your profile photo'),
+              ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text('Delete photo',
+                  style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _deletePhoto(photo);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _setPrimary(MediaAsset photo) async {
+    try {
+      await ref.read(mediaRepositoryProvider).setPrimary(photo.id);
+      // The primary id lives on the user, the badge on the media list.
+      await ref.read(meProvider.notifier).refresh();
+      ref.invalidate(myMediaProvider);
+      if (mounted) _snack('Profile photo updated');
+    } on AppException catch (e) {
+      if (mounted) _snack(e.message);
+    }
+  }
+
+  Future<void> _deletePhoto(MediaAsset photo) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.white,
+        title: const Text('Delete photo?'),
+        content: const Text(
+          'This removes it from your profile and from storage. '
+          'It cannot be undone.',
+          style: TextStyle(color: AppColors.textGrey),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.textGrey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await ref.read(mediaRepositoryProvider).delete(photo.id);
+      ref.invalidate(myMediaProvider);
+      // Deleting the profile photo clears the pointer on the user.
+      await ref.read(meProvider.notifier).refresh();
+      if (mounted) _snack('Photo deleted');
+    } on AppException catch (e) {
+      if (mounted) _snack(e.message);
+    }
+  }
+
+  void _snack(String msg) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+
 
   Widget _menuTile({
     required IconData icon,

@@ -1,0 +1,253 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/constants/app_colors.dart';
+import '../../../core/errors/app_exceptions.dart';
+import '../../../data/models/tag_model.dart';
+import '../../../providers/profile_provider.dart';
+import '../../auth/widgets/onboarding_widgets.dart';
+
+/// Post-onboarding profile edits. Both sheets write through
+/// `PATCH /users/me/profile`, which is the only editable surface after the
+/// funnel — onboarding endpoints are for the funnel itself.
+
+/// Edit the bio. Returns true when saved.
+Future<bool> showEditBioSheet(BuildContext context, String initial) async {
+  final saved = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _EditBioSheet(initial: initial),
+  );
+  return saved ?? false;
+}
+
+/// Edit the "My vibe" personality tags. Returns true when saved.
+Future<bool> showEditVibesSheet(
+  BuildContext context,
+  List<String> initial,
+) async {
+  final saved = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _EditVibesSheet(initial: initial),
+  );
+  return saved ?? false;
+}
+
+/// Rounded sheet chrome shared by both editors.
+class _SheetShell extends StatelessWidget {
+  const _SheetShell({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.inputBorder,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
+              ),
+            ),
+            const SizedBox(height: 16),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditBioSheet extends ConsumerStatefulWidget {
+  const _EditBioSheet({required this.initial});
+
+  final String initial;
+
+  @override
+  ConsumerState<_EditBioSheet> createState() => _EditBioSheetState();
+}
+
+class _EditBioSheetState extends ConsumerState<_EditBioSheet> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.initial);
+  bool _isSaving = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() => _isSaving = true);
+    try {
+      await ref
+          .read(meProvider.notifier)
+          .updateProfile(bio: _controller.text.trim());
+      if (mounted) Navigator.pop(context, true);
+    } on AppException catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _SheetShell(
+      title: 'Edit bio',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _controller,
+            maxLength: 150,
+            maxLines: 5,
+            autofocus: true,
+            style: const TextStyle(fontSize: 14, color: AppColors.textDark),
+            decoration: InputDecoration(
+              hintText: 'Say something worth replying to...',
+              hintStyle: const TextStyle(color: AppColors.textGrey),
+              filled: true,
+              fillColor: AppColors.white,
+              contentPadding: const EdgeInsets.all(16),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.inputBorder),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.inputBorder),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide:
+                    const BorderSide(color: AppColors.primary, width: 1.5),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          OnboardingButton(
+            label: 'Save',
+            isLoading: _isSaving,
+            onPressed: _save,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditVibesSheet extends ConsumerStatefulWidget {
+  const _EditVibesSheet({required this.initial});
+
+  final List<String> initial;
+
+  @override
+  ConsumerState<_EditVibesSheet> createState() => _EditVibesSheetState();
+}
+
+class _EditVibesSheetState extends ConsumerState<_EditVibesSheet> {
+  late final Set<String> _selected = {...widget.initial};
+  bool _isSaving = false;
+
+  Future<void> _save() async {
+    setState(() => _isSaving = true);
+    try {
+      await ref
+          .read(meProvider.notifier)
+          .updateProfile(personalityTags: _selected.toList());
+      if (mounted) Navigator.pop(context, true);
+    } on AppException catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tags = ref.watch(tagsByCategoryProvider);
+
+    return _SheetShell(
+      title: 'My vibe',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Pick the qualities that describe you.',
+            style: TextStyle(fontSize: 13, color: AppColors.textGrey),
+          ),
+          const SizedBox(height: 16),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.4,
+            ),
+            child: SingleChildScrollView(
+              child: tags.when(
+                loading: () => const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  ),
+                ),
+                error: (err, _) => const Text(
+                  "Couldn't load the options. Please try again.",
+                  style: TextStyle(fontSize: 13, color: AppColors.textGrey),
+                ),
+                data: (grouped) => TagChipGroup(
+                  tags: grouped[TagCategories.personality] ?? const <Tag>[],
+                  selected: _selected,
+                  onToggle: (slug) => setState(() {
+                    _selected.contains(slug)
+                        ? _selected.remove(slug)
+                        : _selected.add(slug);
+                  }),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          OnboardingButton(
+            label: 'Save',
+            isLoading: _isSaving,
+            onPressed: _save,
+          ),
+        ],
+      ),
+    );
+  }
+}

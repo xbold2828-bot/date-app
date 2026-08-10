@@ -18,19 +18,108 @@ class DiscoveryRepository {
     int limit = 20,
     String? intent,
     String? band,
+    List<String>? genders,
+    int? minAge,
+    int? maxAge,
     bool? verifiedOnly,
     bool? onlineOnly,
+    bool? recentlyActive,
+    List<String>? relationshipStatus,
+    List<String>? personalityTags,
+    List<String>? preferenceTags,
   }) async {
+    final data = await _api.get(
+      ApiConstants.discoveryNearby,
+      query: nearbyQuery(
+        page: page,
+        limit: limit,
+        intent: intent,
+        band: band,
+        genders: genders,
+        minAge: minAge,
+        maxAge: maxAge,
+        verifiedOnly: verifiedOnly,
+        onlineOnly: onlineOnly,
+        recentlyActive: recentlyActive,
+        relationshipStatus: relationshipStatus,
+        personalityTags: personalityTags,
+        preferenceTags: preferenceTags,
+      ),
+    );
+    return NearbyPage.fromJson(Map<String, dynamic>.from(data as Map));
+  }
+
+  /// `GET /discovery/nearby/count` — how many people match, for the filter
+  /// sheet's "Show N people" button. Costs no free view and spends no credits.
+  Future<int> nearbyCount({
+    String? intent,
+    String? band,
+    List<String>? genders,
+    int? minAge,
+    int? maxAge,
+    bool? verifiedOnly,
+    bool? onlineOnly,
+    bool? recentlyActive,
+    List<String>? relationshipStatus,
+    List<String>? personalityTags,
+    List<String>? preferenceTags,
+  }) async {
+    final data = await _api.get(
+      ApiConstants.discoveryNearbyCount,
+      query: nearbyQuery(
+        intent: intent,
+        band: band,
+        genders: genders,
+        minAge: minAge,
+        maxAge: maxAge,
+        verifiedOnly: verifiedOnly,
+        onlineOnly: onlineOnly,
+        recentlyActive: recentlyActive,
+        relationshipStatus: relationshipStatus,
+        personalityTags: personalityTags,
+        preferenceTags: preferenceTags,
+      ),
+    );
+    return ((data as Map)['total'] as num?)?.toInt() ?? 0;
+  }
+
+  /// Shared query builder so the count and the page can never drift apart.
+  /// Lists go over the wire comma-joined; empty values are omitted entirely.
+  static Map<String, dynamic> nearbyQuery({
+    int? page,
+    int? limit,
+    String? intent,
+    String? band,
+    List<String>? genders,
+    int? minAge,
+    int? maxAge,
+    bool? verifiedOnly,
+    bool? onlineOnly,
+    bool? recentlyActive,
+    List<String>? relationshipStatus,
+    List<String>? personalityTags,
+    List<String>? preferenceTags,
+  }) {
+    void addList(Map<String, dynamic> q, String key, List<String>? values) {
+      if (values != null && values.isNotEmpty) q[key] = values.join(',');
+    }
+
     final query = <String, dynamic>{
-      'page': page,
-      'limit': limit,
+      if (page != null) 'page': page,
+      if (limit != null) 'limit': limit,
       if (intent != null) 'intent': intent,
       if (band != null) 'band': band,
+      if (minAge != null) 'minAge': minAge,
+      if (maxAge != null) 'maxAge': maxAge,
       if (verifiedOnly == true) 'verifiedOnly': true,
       if (onlineOnly == true) 'onlineOnly': true,
+      if (recentlyActive == true) 'recentlyActive': true,
     };
-    final data = await _api.get(ApiConstants.discoveryNearby, query: query);
-    return NearbyPage.fromJson(Map<String, dynamic>.from(data as Map));
+    addList(query, 'genders', genders);
+    addList(query, 'relationshipStatus', relationshipStatus);
+    addList(query, 'personalityTags', personalityTags);
+    addList(query, 'preferenceTags', preferenceTags);
+    return query;
   }
 
   /// `GET /entitlements/me` — premium + credits + free daily allowances.

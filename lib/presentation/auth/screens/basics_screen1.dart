@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../core/utils/onboarding_maps.dart';
+import '../../../data/models/user_model.dart';
 import '../../../providers/core_providers.dart';
 import '../../../providers/profile_provider.dart';
 import 'basics_screen2.dart';
@@ -10,7 +11,9 @@ import 'basics_screen2.dart';
 class BasicsScreen extends ConsumerStatefulWidget {
   const BasicsScreen({super.key, this.displayName = ''});
 
-  /// Carried over from the age screen (persisted here with the rest of basics).
+  /// Carried over from the age screen. Empty when the funnel resumes straight
+  /// into this step after a refresh, in which case the field below is seeded
+  /// from the server (or typed in fresh).
   final String displayName;
 
   @override
@@ -19,6 +22,8 @@ class BasicsScreen extends ConsumerStatefulWidget {
 
 class _BasicsScreenState extends ConsumerState<BasicsScreen> {
   final TextEditingController _bioController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
+  bool _seededFromServer = false;
 
   final List<String> _genderOptions = [
     'Woman', 'Man', 'Non-binary',
@@ -30,11 +35,48 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
   String? _selectedPronoun;
   bool _isLoading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _nameController.text = widget.displayName;
+  }
+
+  /// On resume the age screen never ran, so fall back to whatever the server
+  /// already knows before asking the user to retype it.
+  void _seed(MeUser me) {
+    if (_seededFromServer) return;
+    _seededFromServer = true;
+
+    if (_nameController.text.trim().isEmpty) {
+      _nameController.text = me.profile.displayName ?? '';
+    }
+    if (_bioController.text.isEmpty) {
+      _bioController.text = me.profile.bio ?? '';
+    }
+    for (final entry in kGenderValues.entries) {
+      if (entry.value == me.profile.gender) {
+        _selectedGender = entry.key;
+        break;
+      }
+    }
+    if (me.profile.pronouns.isNotEmpty) {
+      for (final entry in kPronounValues.entries) {
+        if (entry.value == me.profile.pronouns.first) {
+          _selectedPronoun = entry.key;
+          break;
+        }
+      }
+    }
+  }
+
   Future<void> _onContinue() async {
+    final displayName = _nameController.text.trim();
+    if (displayName.length < 2) {
+      _showSnack('Please enter a display name of at least 2 characters');
+      return;
+    }
     if (_selectedGender == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select your gender')),
-      );
+      _showSnack('Please select your gender');
       return;
     }
 
@@ -43,7 +85,7 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
       final pronounValue = kPronounValues[_selectedPronoun];
       final bio = _bioController.text.trim();
       final me = await ref.read(onboardingRepositoryProvider).updateBasics(
-            displayName: widget.displayName,
+            displayName: displayName,
             gender: kGenderValues[_selectedGender]!,
             pronouns: pronounValue == null ? const [] : [pronounValue],
             // The UI has no "show me" step yet; default to everyone so
@@ -73,11 +115,15 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
   @override
   void dispose() {
     _bioController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final me = ref.watch(meProvider).valueOrNull;
+    if (me != null) _seed(me);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -147,6 +193,45 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
                     ),
 
                     const SizedBox(height: 24),
+
+                    // Display name — required by the API (min 2 chars), and the
+                    // only place to set it when the funnel resumes here.
+                    const Text(
+                      'Display name',
+                      style: TextStyle(fontSize: 13, color: AppColors.textGrey),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _nameController,
+                      textCapitalization: TextCapitalization.words,
+                      style: const TextStyle(
+                          fontSize: 15, color: AppColors.textDark),
+                      decoration: InputDecoration(
+                        hintText: 'How should we call you?',
+                        hintStyle: const TextStyle(color: AppColors.textGrey),
+                        filled: true,
+                        fillColor: AppColors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide:
+                              const BorderSide(color: AppColors.inputBorder),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide:
+                              const BorderSide(color: AppColors.inputBorder),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                              color: AppColors.primary, width: 1.5),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 28),
 
                     // Gender
                     const Text(

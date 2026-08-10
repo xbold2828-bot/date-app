@@ -50,14 +50,20 @@ final chatServiceProvider = Provider<ChatService>((ref) {
   return service;
 });
 
-/// Global chat realtime side-effects: bump the unread badge and refresh the
-/// inbox when a message arrives anywhere. Watch this once high in the tree
-/// (HomeScreen) to activate it. The active chat screen listens to
-/// [chatServiceProvider] directly for the open conversation.
+/// Global chat realtime side-effects: light up the unread badge and refresh the
+/// inbox the moment a message arrives anywhere. Watch this once high in the
+/// tree (HomeScreen) so the Requests dot is live regardless of which tab the
+/// user is on. The open chat screen listens to [chatServiceProvider] directly
+/// for its own conversation.
 final chatRealtimeProvider = Provider<void>((ref) {
   final service = ref.watch(chatServiceProvider);
-  final sub = service.messages.listen((_) {
-    ref.read(unreadCountProvider.notifier).bump();
+  final sub = service.messages.listen((incoming) {
+    // A message in the thread that's currently open is marked read on arrival,
+    // so counting it here would leave a dot that never clears.
+    final active = ref.read(activeConversationProvider);
+    if (incoming.conversationId != active) {
+      ref.read(unreadCountProvider.notifier).bump();
+    }
     ref.invalidate(conversationsProvider);
   });
   ref.onDispose(sub.cancel);

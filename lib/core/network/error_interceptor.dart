@@ -39,6 +39,8 @@ class ErrorInterceptor extends Interceptor {
         break;
       case DioExceptionType.badResponse:
         break;
+      default:
+        throw Exception('Unknown error');
     }
 
     final response = err.response;

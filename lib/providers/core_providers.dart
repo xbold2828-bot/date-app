@@ -5,8 +5,11 @@ import '../data/repositories/auth_repository.dart';
 import '../data/repositories/chat_repository.dart';
 import '../data/repositories/discovery_repository.dart';
 import '../data/repositories/match_repository.dart';
+import '../data/repositories/media_repository.dart';
 import '../data/repositories/onboarding_repository.dart';
 import '../data/repositories/profile_repository.dart';
+import '../data/repositories/subscription_repository.dart';
+import '../data/repositories/verification_repository.dart';
 import '../data/services/api_service.dart';
 import '../data/services/auth_service.dart';
 
@@ -44,6 +47,18 @@ final matchRepositoryProvider = Provider<MatchRepository>(
 
 final chatRepositoryProvider = Provider<ChatRepository>(
   (ref) => ChatRepository(ref.watch(apiClientProvider)),
+);
+
+final mediaRepositoryProvider = Provider<MediaRepository>(
+  (ref) => MediaRepository(ref.watch(apiClientProvider)),
+);
+
+final verificationRepositoryProvider = Provider<VerificationRepository>(
+  (ref) => VerificationRepository(ref.watch(apiClientProvider)),
+);
+
+final subscriptionRepositoryProvider = Provider<SubscriptionRepository>(
+  (ref) => SubscriptionRepository(ref.watch(apiClientProvider)),
 );
 
 /// Streams Supabase auth changes (sign-in / sign-out / token refresh).

@@ -74,6 +74,15 @@ class OnboardingRepository {
     return _me(await _api.patch(ApiConstants.onboardingHardNos, body: body));
   }
 
+  /// Step 8 — `PATCH /onboarding/photo`.
+  ///
+  /// A successful media upload already completes this step server-side; call
+  /// this when the user skipped or the upload failed, so the funnel can finish
+  /// and photos can be added later from the profile screen.
+  Future<MeUser> completePhotoStep({bool skipped = false}) async =>
+      _me(await _api.patch(ApiConstants.onboardingPhoto,
+          body: {'skipped': skipped}));
+
   /// Step 9 — `PATCH /location`.
   Future<MeUser> updateLocation({
     required double latitude,

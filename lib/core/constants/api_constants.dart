@@ -33,13 +33,38 @@ class ApiConstants {
   static const String onboardingPersonality = '/onboarding/personality';
   static const String onboardingPreferences = '/onboarding/preferences';
   static const String onboardingHardNos = '/onboarding/hard-nos';
+
+  /// Step 8 · finishes the photo step even when nothing was uploaded
+  /// (skipped, or storage unavailable) so the funnel never dead-ends.
+  static const String onboardingPhoto = '/onboarding/photo';
   static const String onboardingAgreement = '/onboarding/agreement';
 
   // ── Location (onboarding step 9) ────────────────────────────────────────
   static const String location = '/location';
 
+  // ── Media (onboarding step 8 · two-phase direct-to-storage upload) ───────
+  static const String media = '/media';
+  static const String mediaUploadUrl = '/media/upload-url';
+  static String mediaComplete(String id) => '/media/$id/complete';
+  static String mediaPrimary(String id) => '/media/$id/primary';
+  static String mediaItem(String id) => '/media/$id';
+
+  // ── Identity verification (unlocks the adult layer) ─────────────────────
+  static const String verificationSession = '/verification/session';
+  static const String verificationMe = '/verification/me';
+  static String verificationComplete(String sessionId) =>
+      '/verification/session/$sessionId/complete';
+
+  // ── Premium subscription ────────────────────────────────────────────────
+  static const String subscriptionPlans = '/subscription/plans';
+  static const String subscriptionMe = '/subscription/me';
+  static const String subscriptionCheckout = '/subscription/checkout';
+  static const String subscriptionRestore = '/subscription/restore';
+  static const String subscriptionCancel = '/subscription/cancel';
+
   // ── Discovery / Entitlements ────────────────────────────────────────────
   static const String discoveryNearby = '/discovery/nearby';
+  static const String discoveryNearbyCount = '/discovery/nearby/count';
   static const String entitlementsMe = '/entitlements/me';
 
   // ── Likes / Favorites / Liked-you ───────────────────────────────────────

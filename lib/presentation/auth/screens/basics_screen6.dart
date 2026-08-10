@@ -1,17 +1,30 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:math';
 import 'package:camera/camera.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/errors/app_exceptions.dart';
+import '../../../providers/core_providers.dart';
+import '../../../providers/profile_provider.dart';
 import 'basics_screen7.dart';
 
-class BasicsScreen6 extends StatefulWidget {
+/// Identity verification (the live face check).
+///
+/// This is not one of the ten funnel steps — it unlocks the adult layer and
+/// messaging, and is always skippable. The on-device animation drives a real
+/// `POST /verification/session`; with the mock provider the session is then
+/// approved via `POST /verification/session/:id/complete`, while a real
+/// provider decides asynchronously by webhook (which returns 403 here, so that
+/// case is treated as "pending", not an error).
+class BasicsScreen6 extends ConsumerStatefulWidget {
   const BasicsScreen6({super.key});
 
   @override
-  State<BasicsScreen6> createState() => _BasicsScreen6State();
+  ConsumerState<BasicsScreen6> createState() => _BasicsScreen6State();
 }
 
-class _BasicsScreen6State extends State<BasicsScreen6>
+class _BasicsScreen6State extends ConsumerState<BasicsScreen6>
     with TickerProviderStateMixin {
   late AnimationController _arcController;
   late AnimationController _stepController;
@@ -23,6 +36,11 @@ class _BasicsScreen6State extends State<BasicsScreen6>
   int _currentStep = 0;
   bool _isDone = false;
   bool _isStarted = false;
+
+  /// Set when the backend confirmed the user as verified. When the check ran
+  /// but the provider hasn't decided yet, this stays false and the UI says so.
+  bool _verified = false;
+  String? _verificationNote;
 
   final List<Map<String, dynamic>> _steps = [
     {'icon': Icons.arrow_back, 'text': 'Turn your head slowly to the left'},
@@ -100,15 +118,47 @@ class _BasicsScreen6State extends State<BasicsScreen6>
       if (_currentStep == 3) {
         _arcController.stop();
         setState(() => _isDone = true);
-        // TODO: Send captured frames to backend for real face verification
-        // BackendService.verifyFace(frames);
+        unawaited(_submitVerification());
       } else {
         _runNextStep();
       }
     });
   }
 
-  void _onSkip() {
+  /// Records the completed live check against the backend. Never blocks the
+  /// funnel: verification is optional, so failures downgrade to a note.
+  Future<void> _submitVerification() async {
+    final repo = ref.read(verificationRepositoryProvider);
+    try {
+      var status = await repo.startSession();
+
+      final session = status.session;
+      if (!status.verified && session != null && session.isMock) {
+        try {
+          status = await repo.completeSession(session.sessionId);
+        } on AppException {
+          // Real provider wired up — the webhook decides. Leave it pending.
+        }
+      }
+
+      // Refresh the self-view so `verified` (which gates the adult layer) is
+      // current on the screens after this one.
+      await ref.read(meProvider.notifier).refresh();
+
+      if (!mounted) return;
+      setState(() {
+        _verified = status.verified;
+        _verificationNote = status.verified
+            ? null
+            : "We've got your check — verification finishes shortly.";
+      });
+    } on AppException catch (e) {
+      if (!mounted) return;
+      setState(() => _verificationNote = e.message);
+    }
+  }
+
+  void _goToAgreement() {
     _cameraController?.dispose();
     Navigator.push(
       context,
@@ -116,13 +166,9 @@ class _BasicsScreen6State extends State<BasicsScreen6>
     );
   }
 
-  void _onContinue() {
-    _cameraController?.dispose();
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const BasicsScreen7()),
-    );
-  }
+  void _onSkip() => _goToAgreement();
+
+  void _onContinue() => _goToAgreement();
 
   @override
   Widget build(BuildContext context) {
@@ -326,16 +372,27 @@ class _BasicsScreen6State extends State<BasicsScreen6>
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.check_circle,
-                            size: 18, color: Color(0xFF28A745)),
-                        SizedBox(width: 8),
-                        Text(
-                          'Identity verified successfully!',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Color(0xFF28A745),
-                            fontWeight: FontWeight.w600,
+                      children: [
+                        Icon(
+                          _verified ? Icons.check_circle : Icons.schedule,
+                          size: 18,
+                          color: _verified
+                              ? const Color(0xFF28A745)
+                              : AppColors.textGrey,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            _verified
+                                ? 'Identity verified successfully!'
+                                : (_verificationNote ?? 'Finishing up...'),
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: _verified
+                                  ? const Color(0xFF28A745)
+                                  : AppColors.textGrey,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ],

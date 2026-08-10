@@ -35,6 +35,15 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   bool _isTyping = false;
   bool _sending = false;
 
+  /// The active-conversation controller, captured while the widget is alive.
+  ///
+  /// `dispose()` cannot use `ref`: Riverpod closes the WidgetRef inside
+  /// `ConsumerStatefulElement.unmount()` *before* `State.dispose()` runs, so any
+  /// `ref` call there throws "Cannot use ref after the widget was disposed".
+  /// Holding the controller itself is safe — it belongs to the container, not
+  /// the widget, and this provider is never auto-disposed.
+  StateController<String?>? _activeClaim;
+
   String get _convId => widget.conversationId;
   String? get _otherId => widget.user['id'] as String?;
 
@@ -45,36 +54,82 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   }
 
   Future<void> _onOpen() async {
-    try {
-      await ref.read(chatActionsProvider).markRead(_convId);
-    } catch (_) {}
+    // This runs from a post-frame callback, so the screen may already be gone
+    // (popped within the same frame). Subscribing now would register socket
+    // listeners that dispose() has already finished cancelling — orphaned
+    // listeners holding a ref to a dead element, which then throw on every
+    // subsequent event.
+    if (!mounted) return;
 
+    // Claim this thread so the global realtime listener stops counting its
+    // messages towards the unread badge while it's on screen.
+    _activeClaim = ref.read(activeConversationProvider.notifier);
+    _activeClaim!.state = _convId;
+
+    // Subscribe before the awaited mark-read: a message landing in that window
+    // would otherwise be skipped by the global listener (this thread is already
+    // active) and missed here too, leaving it invisible until reopen.
     final chat = ref.read(chatServiceProvider);
     _subs.add(chat.messages.listen((incoming) {
-      if (incoming.conversationId != _convId) return;
+      if (!_isLive(incoming.conversationId)) return;
       ref.read(messagesProvider(_convId).notifier).addIncoming(incoming.message);
       ref.read(chatActionsProvider).markRead(_convId);
       _scrollToBottom();
     }));
     _subs.add(chat.reads.listen((receipt) {
-      if (receipt.conversationId != _convId) return;
+      if (!_isLive(receipt.conversationId)) return;
       ref.read(messagesProvider(_convId).notifier).markMineRead();
     }));
     _subs.add(chat.typing.listen((event) {
-      if (event.conversationId != _convId) return;
+      if (!_isLive(event.conversationId)) return;
       setState(() => _isTyping = true);
       _typingTimer?.cancel();
       _typingTimer = Timer(const Duration(seconds: 3), () {
         if (mounted) setState(() => _isTyping = false);
       });
     }));
+
+    if (!mounted) return;
+    try {
+      await ref.read(chatActionsProvider).markRead(_convId);
+    } catch (_) {}
   }
+
+  /// Hand the active-conversation claim back, but only if it's still ours —
+  /// pushing another chat on top would otherwise have its claim cleared when
+  /// this one unwinds.
+  ///
+  /// Deferred off the current frame on purpose. `dispose()` runs while the tree
+  /// is being finalized, and Riverpod rejects provider writes during that phase
+  /// ("Tried to modify a provider while the widget tree was building") — the
+  /// documented remedy is to delay the modification.
+  void _releaseActiveClaim() {
+    final claim = _activeClaim;
+    _activeClaim = null;
+    if (claim == null) return;
+    Future<void>(() {
+      // The container can be torn down first (app shutdown, test teardown).
+      if (claim.mounted && claim.state == _convId) claim.state = null;
+    });
+  }
+
+  /// Whether a socket event belongs to this thread *and* this screen is still
+  /// alive to handle it.
+  ///
+  /// Broadcast events queued before `cancel()` are still flushed in a later
+  /// microtask, so a cancelled subscription can fire once more. Touching `ref`
+  /// then rebuilds a defunct element (and would resurrect the autoDisposed
+  /// message list purely as a side effect), so every callback checks here.
+  bool _isLive(String conversationId) =>
+      mounted && conversationId == _convId;
 
   @override
   void dispose() {
     for (final s in _subs) {
       s.cancel();
     }
+    _subs.clear();
+    _releaseActiveClaim();
     _typingTimer?.cancel();
     _messageController.dispose();
     _scrollController.dispose();
@@ -109,6 +164,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
   void _scrollToBottom() {
     Future.delayed(const Duration(milliseconds: 100), () {
+      // The delay can outlive the screen — the controller is disposed by then.
+      if (!mounted) return;
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,

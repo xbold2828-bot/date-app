@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/errors/app_exceptions.dart';
+import '../../../providers/subscription_provider.dart';
 
-class PremiumScreen extends StatefulWidget {
+class PremiumScreen extends ConsumerStatefulWidget {
   const PremiumScreen({super.key});
 
   @override
-  State<PremiumScreen> createState() => _PremiumScreenState();
+  ConsumerState<PremiumScreen> createState() => _PremiumScreenState();
 }
 
-class _PremiumScreenState extends State<PremiumScreen> {
+class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   String _selectedPlan = 'monthly';
   bool _isLoading = false;
+  bool _isRestoring = false;
 
   final List<Map<String, dynamic>> _plans = [
     {
@@ -59,23 +63,68 @@ class _PremiumScreenState extends State<PremiumScreen> {
     },
   ];
 
+  /// Buy the selected plan.
+  ///
+  /// The backend's sandbox payment provider confirms inline and returns no
+  /// checkout URL, so premium is live the moment this returns — no store
+  /// credentials needed. If a real provider is configured later it returns a
+  /// URL instead, which is the only case that needs a payment sheet.
   Future<void> _onStartPremium() async {
+    if (_isLoading) return;
     setState(() => _isLoading = true);
+    try {
+      final result =
+          await ref.read(subscriptionActionsProvider).checkout(_selectedPlan);
 
-    // TODO: SubscriptionService.purchase(_selectedPlan)
-    // TODO: Handle payment flow (in_app_purchase package)
-    await Future.delayed(const Duration(milliseconds: 800));
+      if (!mounted) return;
+      if (result.isConfirmed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Premium activated! 🎉'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context);
+      } else {
+        // A live provider wants the user to complete payment elsewhere.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Finish the payment to activate premium.'),
+          ),
+        );
+      }
+    } on AppException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
-    setState(() => _isLoading = false);
-
-    if (mounted) {
+  Future<void> _onRestore() async {
+    if (_isRestoring) return;
+    setState(() => _isRestoring = true);
+    try {
+      final result = await ref.read(subscriptionActionsProvider).restore();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Premium activated! 🎉'),
-          backgroundColor: Colors.green,
+        SnackBar(
+          content: Text(
+            result.isPremium
+                ? 'Premium restored.'
+                : 'No previous purchase found.',
+          ),
         ),
       );
-      Navigator.pop(context);
+    } on AppException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _isRestoring = false);
     }
   }
 
@@ -223,12 +272,12 @@ class _PremiumScreenState extends State<PremiumScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         GestureDetector(
-                          onTap: () {
-                            // TODO: SubscriptionService.restorePurchases()
-                          },
-                          child: const Text(
-                            'Restore Purchases',
-                            style: TextStyle(
+                          onTap: _onRestore,
+                          child: Text(
+                            _isRestoring
+                                ? 'Restoring...'
+                                : 'Restore Purchases',
+                            style: const TextStyle(
                               fontSize: 13,
                               color: AppColors.primary,
                               fontWeight: FontWeight.w500,

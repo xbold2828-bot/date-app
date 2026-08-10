@@ -89,12 +89,18 @@ class OnboardingProgress {
   final String? nextStep;
   final double progress; // 0..1
 
+  /// The photo step finished without an upload — worth nudging about later.
+  final bool photoSkipped;
+
   const OnboardingProgress({
     this.completedSteps = const [],
     this.isComplete = false,
     this.nextStep,
     this.progress = 0,
+    this.photoSkipped = false,
   });
+
+  bool hasCompleted(String step) => completedSteps.contains(step);
 
   factory OnboardingProgress.fromJson(Map<String, dynamic> json) =>
       OnboardingProgress(
@@ -102,7 +108,25 @@ class OnboardingProgress {
         isComplete: json['isComplete'] as bool? ?? false,
         nextStep: json['nextStep'] as String?,
         progress: (json['progress'] as num?)?.toDouble() ?? 0,
+        photoSkipped: json['photoSkipped'] as bool? ?? false,
       );
+}
+
+/// The backend's `OnboardingStep` values, in canonical funnel order. Used to
+/// resume the funnel at `onboarding.nextStep` after a refresh.
+class OnboardingSteps {
+  OnboardingSteps._();
+
+  static const String ageVerification = 'age_verification';
+  static const String basics = 'basics';
+  static const String intent = 'intent';
+  static const String status = 'status';
+  static const String personality = 'personality';
+  static const String preferences = 'preferences';
+  static const String hardNos = 'hard_nos';
+  static const String photo = 'photo';
+  static const String location = 'location';
+  static const String agreement = 'agreement';
 }
 
 /// The full self-view from `GET /users/me` and every onboarding step response.
@@ -112,6 +136,10 @@ class MeUser {
   final String? email;
   final String? phone;
   final String status;
+
+  /// Which of my media is the profile photo, so the gallery can badge it and
+  /// offer "make this my profile photo" on the rest.
+  final String? primaryPhotoId;
   final String? dob;
   final int? age;
   final bool ageVerified;
@@ -131,6 +159,7 @@ class MeUser {
     this.email,
     this.phone,
     required this.status,
+    this.primaryPhotoId,
     this.dob,
     this.age,
     this.ageVerified = false,
@@ -154,6 +183,7 @@ class MeUser {
         email: json['email'] as String?,
         phone: json['phone'] as String?,
         status: json['status'] as String? ?? 'active',
+        primaryPhotoId: json['primaryPhotoId'] as String?,
         dob: json['dob'] as String?,
         age: (json['age'] as num?)?.toInt(),
         ageVerified: json['ageVerified'] as bool? ?? false,

@@ -44,4 +44,6 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-lib/core/constants/env.dart
+# Secrets now live in .env (see .env.example), so env.dart is safe to track.
+.env
+.env.local
