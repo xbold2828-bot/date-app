@@ -2,18 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../../data/models/message_model.dart';
 import '../../../providers/chat_provider.dart';
 import '../../../providers/realtime_provider.dart';
+import '../../common/widgets/widgets.dart';
 import './chat_detail_screen.dart';
 
-const List<Color> _avatarColors = [
-  Color(0xFFB5A89A),
-  Color(0xFF4A4A5A),
-  Color(0xFF8B6F6F),
-  Color(0xFF6B7A8B),
-];
-
+/// The inbox.
+///
+/// Two tabs, matching the backend's conversation states. **Vibing** is a
+/// conversation that has been answered; **New Energy** is one where the
+/// opener is still waiting for a reply. Keeping them apart is the point — it
+/// stops unanswered openers burying live conversations.
 class RequestsScreen extends ConsumerStatefulWidget {
   const RequestsScreen({super.key});
 
@@ -23,13 +24,8 @@ class RequestsScreen extends ConsumerStatefulWidget {
 
 class _RequestsScreenState extends ConsumerState<RequestsScreen>
     with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-  }
+  late final TabController _tabController =
+      TabController(length: 2, vsync: this);
 
   @override
   void dispose() {
@@ -41,37 +37,11 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen>
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 26,
-                    height: 26,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.textDark, width: 2),
-                    ),
-                    child: const Center(
-                      child:
-                          Icon(Icons.circle, size: 10, color: AppColors.primary),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Requests',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 18, 20, 14),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Wordmark(size: 24),
           ),
         ),
         Container(
@@ -83,12 +53,7 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen>
           ),
           child: TabBar(
             controller: _tabController,
-            labelColor: AppColors.primary,
-            unselectedLabelColor: AppColors.textGrey,
-            indicatorColor: AppColors.primary,
-            indicatorWeight: 2,
-            labelStyle:
-                const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            indicatorSize: TabBarIndicatorSize.tab,
             tabs: const [
               Tab(text: 'Vibing'),
               Tab(text: 'New Energy'),
@@ -99,8 +64,18 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen>
           child: TabBarView(
             controller: _tabController,
             children: const [
-              _ConversationList(state: 'vibing'),
-              _ConversationList(state: 'new_energy'),
+              _ConversationList(
+                state: 'vibing',
+                emptyTitle: 'No conversations yet',
+                emptyBody: 'When someone replies to your opener, the '
+                    'conversation moves here.',
+              ),
+              _ConversationList(
+                state: 'new_energy',
+                emptyTitle: 'Nothing new',
+                emptyBody: 'Openers waiting for a reply — yours or theirs — '
+                    'show up here.',
+              ),
             ],
           ),
         ),
@@ -110,9 +85,15 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen>
 }
 
 class _ConversationList extends ConsumerWidget {
-  const _ConversationList({required this.state});
+  const _ConversationList({
+    required this.state,
+    required this.emptyTitle,
+    required this.emptyBody,
+  });
 
   final String state;
+  final String emptyTitle;
+  final String emptyBody;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -123,22 +104,38 @@ class _ConversationList extends ConsumerWidget {
       loading: () => const Center(
         child: CircularProgressIndicator(color: AppColors.primary),
       ),
-      error: (err, _) => _empty("Couldn't load conversations."),
+      error: (err, _) => _Empty(
+        title: "Couldn't load conversations",
+        body: 'Pull down to try again.',
+      ),
       data: (items) {
-        if (items.isEmpty) return _empty('Nothing here yet');
+        if (items.isEmpty) {
+          return RefreshIndicator(
+            color: AppColors.primary,
+            backgroundColor: AppColors.white,
+            onRefresh: () =>
+                ref.read(conversationsProvider(state).notifier).refresh(),
+            // A ListView so the empty state can still be pulled to refresh.
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [_Empty(title: emptyTitle, body: emptyBody)],
+            ),
+          );
+        }
+
         return RefreshIndicator(
           color: AppColors.primary,
+          backgroundColor: AppColors.white,
           onRefresh: () =>
               ref.read(conversationsProvider(state).notifier).refresh(),
           child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (_, index) => _tile(
-              context,
-              items[index],
-              index,
-              presence[items[index].otherUser.id] ??
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            itemBuilder: (_, index) => _ConversationTile(
+              conversation: items[index],
+              colorIndex: index,
+              online: presence[items[index].otherUser.id] ??
                   items[index].otherUser.isOnline,
             ),
           ),
@@ -146,146 +143,121 @@ class _ConversationList extends ConsumerWidget {
       },
     );
   }
+}
 
-  Widget _empty(String text) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.inbox_outlined,
-              size: 48, color: AppColors.textGrey.withOpacity(0.4)),
-          const SizedBox(height: 12),
-          Text(text,
-              style: const TextStyle(fontSize: 15, color: AppColors.textGrey)),
-        ],
-      ),
-    );
-  }
+class _ConversationTile extends StatelessWidget {
+  const _ConversationTile({
+    required this.conversation,
+    required this.colorIndex,
+    required this.online,
+  });
 
-  Widget _tile(
-    BuildContext context,
-    ConversationSummary conv,
-    int index,
-    bool online,
-  ) {
-    final other = conv.otherUser;
+  final ConversationSummary conversation;
+  final int colorIndex;
+  final bool online;
+
+  @override
+  Widget build(BuildContext context) {
+    final other = conversation.otherUser;
     final name = other.displayName ?? 'Someone';
-    final color = _avatarColors[index % _avatarColors.length];
+    final snippet = conversation.lastMessage?.snippet ?? 'Say hello';
+    final unread = conversation.unread;
 
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ChatDetailScreen(
-            conversationId: conv.id,
-            user: {
-              'id': other.id,
-              'name': name,
-              'age': other.age,
-              'distance': '',
-              'online': online,
-              'color': color,
-              'photoUrl': other.primaryPhotoUrl,
-            },
-          ),
-        ),
-      ),
-      child: Container(
+    return Semantics(
+      button: true,
+      label: [
+        name,
+        snippet,
+        if (unread > 0) '$unread unread',
+        if (online) 'online now',
+      ].join(', '),
+      excludeSemantics: true,
+      child: RadiusCard(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.inputBorder),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ChatDetailScreen(
+              conversationId: conversation.id,
+              user: {
+                'id': other.id,
+                'name': name,
+                'age': other.age,
+                'distance': '',
+                'online': online,
+                'color': kAvatarGradients[
+                    colorIndex % kAvatarGradients.length][0],
+                'photoUrl': other.primaryPhotoUrl,
+              },
+            ),
+          ),
         ),
         child: Row(
           children: [
-            Stack(
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-                  child: other.primaryPhotoUrl != null
-                      ? ClipOval(
-                          child: Image.network(other.primaryPhotoUrl!,
-                              fit: BoxFit.cover),
-                        )
-                      : Center(
-                          child: Text(
-                            name.isNotEmpty ? name[0].toUpperCase() : '?',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.white,
-                            ),
-                          ),
-                        ),
-                ),
-                if (online)
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.white, width: 1.5),
-                      ),
-                    ),
-                  ),
-              ],
+            _Avatar(
+              name: name,
+              photoUrl: other.primaryPhotoUrl,
+              colorIndex: colorIndex,
+              online: online,
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     name,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textDark,
-                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.bodyStrong.copyWith(fontSize: 15),
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    conv.lastMessage?.snippet ?? 'Say hello',
-                    style: const TextStyle(fontSize: 13, color: AppColors.textGrey),
+                    snippet,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.caption.copyWith(
+                      // An unread line reads as live; a read one recedes.
+                      color: unread > 0
+                          ? AppColors.textDark
+                          : AppColors.textGrey,
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _ago(conv.lastMessageAt),
-                  style: const TextStyle(fontSize: 12, color: AppColors.textGrey),
+                  _ago(conversation.lastMessageAt),
+                  style: AppTextStyles.caption.copyWith(fontSize: 11),
                 ),
-                const SizedBox(height: 6),
-                if (conv.unread > 0)
+                if (unread > 0) ...[
+                  const SizedBox(height: 6),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: const BoxDecoration(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
                       color: AppColors.primary,
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
-                      '${conv.unread}',
-                      style: const TextStyle(
-                        fontSize: 11,
+                      unread > 9 ? '9+' : '$unread',
+                      style: AppTextStyles.caption.copyWith(
+                        fontSize: 10.5,
                         color: AppColors.white,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
+                        fontVariations: const [FontVariation('wght', 700)],
                       ),
                     ),
                   ),
+                ],
               ],
             ),
           ],
@@ -301,5 +273,94 @@ class _ConversationList extends ConsumerWidget {
     if (d.inMinutes < 60) return '${d.inMinutes}m';
     if (d.inHours < 24) return '${d.inHours}h';
     return '${d.inDays}d';
+  }
+}
+
+class _Avatar extends StatelessWidget {
+  const _Avatar({
+    required this.name,
+    required this.colorIndex,
+    required this.online,
+    this.photoUrl,
+  });
+
+  final String name;
+  final String? photoUrl;
+  final int colorIndex;
+  final bool online;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 52,
+      height: 52,
+      child: Stack(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: photoUrl == null ? avatarGradient(colorIndex) : null,
+              image: photoUrl != null
+                  ? DecorationImage(
+                      image: NetworkImage(photoUrl!),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+            ),
+            child: photoUrl == null
+                ? Center(
+                    child: Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                      style: AppTextStyles.avatarInitial(20),
+                    ),
+                  )
+                : null,
+          ),
+          if (online)
+            Positioned(
+              right: 1,
+              bottom: 1,
+              child: Container(
+                width: 13,
+                height: 13,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3BD07E),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.background, width: 2.5),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Empty extends StatelessWidget {
+  const _Empty({required this.title, required this.body});
+
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 64, 32, 24),
+      child: Column(
+        children: [
+          const RadarMark(size: 88, color: AppColors.iconMuted),
+          const SizedBox(height: 20),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.title.copyWith(fontSize: 18),
+          ),
+          const SizedBox(height: 8),
+          Text(body, textAlign: TextAlign.center, style: AppTextStyles.caption),
+        ],
+      ),
+    );
   }
 }

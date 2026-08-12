@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../data/models/media_model.dart';
 import '../../../data/services/auth_service.dart';
@@ -316,11 +317,7 @@ class _YouScreenState extends ConsumerState<YouScreen> {
                 // Name + age
                 Text(
                   '${_profile['name']}, ${_profile['age']}',
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
-                  ),
+                  style: AppTextStyles.title,
                 ),
 
                 const SizedBox(height: 6),
@@ -366,10 +363,7 @@ class _YouScreenState extends ConsumerState<YouScreen> {
                     const SizedBox(width: 4),
                     Text(
                       _profile['location'] as String,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textGrey,
-                      ),
+                      style: AppTextStyles.caption,
                     ),
                   ],
                 ),

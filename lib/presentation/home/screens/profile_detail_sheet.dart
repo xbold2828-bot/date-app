@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../providers/chat_provider.dart';
 import '../../../providers/match_provider.dart';
@@ -198,11 +199,7 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet> {
                           children: [
                             Text(
                               '${(user['name'] as String).toUpperCase()}, ${user['age']}',
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textDark,
-                              ),
+                              style: AppTextStyles.title,
                             ),
                             const SizedBox(width: 8),
                             // Verified badge

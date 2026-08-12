@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../data/models/tag_model.dart';
 import '../../../data/models/user_model.dart';
@@ -107,22 +108,15 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 24),
-                    const Text(
+                    Text(
                       'Define your desires.',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                      ),
+                      style: AppTextStyles.display,
                     ),
                     const SizedBox(height: 6),
-                    const Text(
+                    Text(
                       'Pick as many as you like — these stay private until you '
                       'match with someone.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textGrey,
-                      ),
+                      style: AppTextStyles.caption,
                     ),
 
                     const SizedBox(height: 20),

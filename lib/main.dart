@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/constants/app_colors.dart';
+import 'core/constants/app_text_styles.dart';
 import 'core/constants/env.dart';
+import 'core/theme/app_theme.dart';
 import 'presentation/auth/screens/authed_bootstrap.dart';
 import 'presentation/auth/screens/login_screen.dart';
 import 'providers/core_providers.dart';
@@ -36,6 +38,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Radius',
       debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
       home: const AuthGate(),
     );
   }
@@ -71,6 +74,7 @@ class MissingConfigApp extends StatelessWidget {
     return MaterialApp(
       title: 'Radius',
       debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
       home: Scaffold(
         backgroundColor: AppColors.background,
         body: SafeArea(
@@ -80,32 +84,22 @@ class MissingConfigApp extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.key_off, size: 48, color: AppColors.textGrey),
+                  const Icon(Icons.key_off, size: 48, color: AppColors.iconMuted),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Environment not configured',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
-                    ),
-                  ),
+                  Text('Environment not configured',
+                      style: AppTextStyles.title),
                   const SizedBox(height: 12),
                   Text(
                     'Missing: ${missingKeys.join(', ')}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textDark,
-                    ),
+                    style: AppTextStyles.bodyStrong,
                   ),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'Copy .env.example to .env, fill it in, then relaunch with\n'
                     'flutter run --dart-define-from-file=.env',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 13, color: AppColors.textGrey),
+                    style: AppTextStyles.caption,
                   ),
                 ],
               ),

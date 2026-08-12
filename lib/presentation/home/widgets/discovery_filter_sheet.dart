@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../../data/models/tag_model.dart';
 import '../../../providers/match_provider.dart';
 import '../../../providers/profile_provider.dart';
@@ -340,13 +341,9 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Filters',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
-              ),
+              style: AppTextStyles.title,
             ),
             TextButton(
               onPressed: () => _edit(_draft.clearedToDefaults()),

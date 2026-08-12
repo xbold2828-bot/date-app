@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
+import '../../common/widgets/widgets.dart';
 import '../screens/premium_screen.dart';
 
 /// Shown when a free member taps a locked filter.
@@ -13,98 +15,67 @@ Future<void> showPremiumFilterPrompt(
   BuildContext context, {
   required String filterName,
 }) =>
-    showModalBottomSheet<void>(
+    showRadiusSheet<void>(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) => Container(
-        decoration: const BoxDecoration(
-          color: AppColors.background,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
+      builder: (sheetContext) => RadiusSheet(
+        padding: const EdgeInsets.fromLTRB(24, 10, 24, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.inputBorder,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 22),
             Row(
               children: [
                 Container(
                   width: 38,
                   height: 38,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                  decoration: const BoxDecoration(
+                    color: AppColors.primaryTint,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.lock_outline,
-                      size: 19, color: AppColors.primary),
+                  child: const Icon(
+                    Icons.lock_outline,
+                    size: 19,
+                    color: AppColors.primary,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    '$filterName is a premium filter',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
-                    ),
+                    '$filterName is a Premium filter',
+                    style: AppTextStyles.title.copyWith(fontSize: 19),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Premium members can narrow the circle down to who is around '
-              'right now. Everything else — radius, who you see, age and '
-              'intent — stays free.',
-              style: TextStyle(fontSize: 13, color: AppColors.textGrey),
+            // Says what stays free, not just what costs. Someone who declines
+            // should still know the app works for them.
+            Text(
+              'Premium narrows the circle down to who is around right now. '
+              'Radius, who you see, age and intent stay free.',
+              style: AppTextStyles.bodyMuted,
             ),
             const SizedBox(height: 22),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(sheetContext);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const PremiumScreen()),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  'Get Premium',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.white,
-                  ),
-                ),
-              ),
+            RadiusButton(
+              label: 'See Premium',
+              kind: RadiusButtonKind.gold,
+              onPressed: () {
+                Navigator.pop(sheetContext);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PremiumScreen()),
+                );
+              },
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Center(
               child: TextButton(
                 onPressed: () => Navigator.pop(sheetContext),
-                child: const Text(
+                child: Text(
                   'Not now',
-                  style: TextStyle(color: AppColors.textGrey),
+                  style: AppTextStyles.bodyStrong.copyWith(
+                    color: AppColors.textGrey,
+                  ),
                 ),
               ),
             ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
+import '../../common/widgets/widgets.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../core/utils/onboarding_maps.dart';
 import '../../../data/models/user_model.dart';
@@ -139,16 +141,7 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
                     child: const Icon(Icons.arrow_back, color: AppColors.textDark),
                   ),
                   const Expanded(
-                    child: Center(
-                      child: Text(
-                        'Radius',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                    ),
+                    child: Center(child: Wordmark(size: 20)),
                   ),
                   const SizedBox(width: 24),
                 ],
@@ -183,13 +176,9 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'The Basics',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                      ),
+                      style: AppTextStyles.display,
                     ),
 
                     const SizedBox(height: 24),

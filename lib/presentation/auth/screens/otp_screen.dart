@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
+import '../../common/widgets/widgets.dart';
 import 'authed_bootstrap.dart';
 import '../../../data/services/auth_service.dart';
 
@@ -111,16 +113,7 @@ Future<void> _onVerify() async {
                     child: const Icon(Icons.arrow_back, color: AppColors.textDark),
                   ),
                   const Expanded(
-                    child: Center(
-                      child: Text(
-                        'Radius',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                    ),
+                    child: Center(child: Wordmark(size: 20)),
                   ),
                   const SizedBox(width: 24),
                 ],
@@ -129,21 +122,14 @@ Future<void> _onVerify() async {
               const SizedBox(height: 48),
 
               // Heading
-              const Text(
+              Text(
                 "Verify it's you",
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
+                style: AppTextStyles.display,
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Enter the code sent to your phone or email.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textGrey,
-                ),
+                style: AppTextStyles.bodyMuted,
               ),
 
               const SizedBox(height: 40),
@@ -162,11 +148,7 @@ Future<void> _onVerify() async {
                       keyboardType: TextInputType.number,
                       maxLength: 1,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                      ),
+                      style: AppTextStyles.title,
                       decoration: InputDecoration(
                         counterText: '',
                         filled: true,

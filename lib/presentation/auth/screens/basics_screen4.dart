@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../data/models/media_model.dart';
 import '../../../providers/core_providers.dart';
@@ -178,13 +179,9 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Show yourself',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                      ),
+                      style: AppTextStyles.display,
                     ),
                     const SizedBox(height: 6),
                     const Text(

@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../data/models/discovery_user_model.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../../providers/chat_provider.dart';
 import '../../../providers/match_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../../providers/realtime_provider.dart';
+import '../../common/widgets/widgets.dart';
 import '../widgets/discovery_filter_sheet.dart';
 import '../widgets/premium_filter_prompt.dart';
 import './profile_detail_sheet.dart';
@@ -29,14 +30,18 @@ const List<MapEntry<String, String?>> _filters = [
   MapEntry('Open to anything', 'open_to_anything'),
 ];
 
-const List<Color> _cardColors = [
-  Color(0xFFB5A89A),
-  Color(0xFF8B6F6F),
-  Color(0xFF4A4A5A),
-  Color(0xFFB8C8D0),
-  Color(0xFFC8C0D0),
-  Color(0xFFD4C0B0),
-];
+/// The four destinations, in the order they appear in the bar.
+enum _Tab {
+  radar(Icons.radar, 'Radar'),
+  likes(Icons.favorite_border, 'Likes'),
+  chats(Icons.forum_outlined, 'Chats'),
+  you(Icons.person_outline, 'You');
+
+  const _Tab(this.icon, this.label);
+
+  final IconData icon;
+  final String label;
+}
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -46,7 +51,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  int _currentTab = 0;
+  _Tab _current = _Tab.radar;
 
   @override
   Widget build(BuildContext context) {
@@ -56,117 +61,159 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
-            Expanded(child: _buildCurrentTab()),
-            _buildBottomNav(),
+            Expanded(child: _body()),
+            _BottomNav(
+              current: _current,
+              // Live unread total: seeded by REST, then bumped by the chat
+              // socket, so a new message lights up Chats from any tab.
+              unread: ref.watch(unreadCountProvider).valueOrNull ?? 0,
+              onSelect: (tab) => setState(() => _current = tab),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCurrentTab() {
-    switch (_currentTab) {
-      case 1:
-        return const RequestsScreen();
-      case 2:
-        return const FavoritesScreen();
-      case 3:
-        return const YouScreen();
-      case 0:
-      default:
-        return const _NearbyTab();
-    }
-  }
+  Widget _body() => switch (_current) {
+        _Tab.radar => const _RadarTab(),
+        _Tab.likes => const FavoritesScreen(),
+        _Tab.chats => const RequestsScreen(),
+        _Tab.you => const YouScreen(),
+      };
+}
 
-  Widget _buildBottomNav() {
-    final items = [
-      {'icon': Icons.explore, 'label': 'Nearby'},
-      {'icon': Icons.mail_outline, 'label': 'Requests'},
-      {'icon': Icons.favorite_border, 'label': 'Favorites'},
-      {'icon': Icons.person_outline, 'label': 'You'},
-    ];
+class _BottomNav extends StatelessWidget {
+  const _BottomNav({
+    required this.current,
+    required this.unread,
+    required this.onSelect,
+  });
 
-    // Live unread total: seeded by REST, then bumped by the chat socket, so a
-    // new message lights up Requests immediately from any tab.
-    final unread = ref.watch(unreadCountProvider).valueOrNull ?? 0;
+  final _Tab current;
+  final int unread;
+  final ValueChanged<_Tab> onSelect;
 
+  @override
+  Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: AppColors.white,
-        border: Border(top: BorderSide(color: AppColors.inputBorder, width: 1)),
+        color: AppColors.panel,
+        border: Border(
+          top: BorderSide(color: AppColors.inputBorder, width: 1),
+        ),
       ),
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: EdgeInsets.fromLTRB(
+        8,
+        10,
+        8,
+        12 + MediaQuery.paddingOf(context).bottom,
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: List.generate(items.length, (index) {
-          final isActive = _currentTab == index;
-          return GestureDetector(
-            onTap: () => setState(() => _currentTab = index),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Icon(
-                      items[index]['icon'] as IconData,
-                      size: 24,
-                      color: isActive ? AppColors.primary : AppColors.textGrey,
-                    ),
-                    // Requests only. Shown even on the active tab: the count is
-                    // truthful until the thread itself is actually read.
-                    if (index == 1 && unread > 0)
-                      Positioned(
-                        top: -2,
-                        right: -4,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: unread > 9 ? 4 : 0,
+        children: _Tab.values.map((tab) {
+          final isActive = tab == current;
+          // Chats only. Shown even on the active tab: the count stays truthful
+          // until the thread itself is actually read.
+          final badge = tab == _Tab.chats ? unread : 0;
+
+          return Expanded(
+            child: Semantics(
+              button: true,
+              selected: isActive,
+              label: badge > 0
+                  ? '${tab.label}, $badge unread'
+                  : tab.label,
+              excludeSemantics: true,
+              child: InkWell(
+                onTap: () => onSelect(tab),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Icon(
+                            tab.icon,
+                            size: 22,
+                            color: isActive
+                                ? AppColors.primary
+                                : AppColors.iconMuted,
                           ),
-                          constraints: const BoxConstraints(minWidth: 16),
-                          height: 16,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.white, width: 2),
-                          ),
-                          child: Center(
-                            child: Text(
-                              unread > 9 ? '9+' : '$unread',
-                              style: const TextStyle(
-                                fontSize: 9,
-                                height: 1,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.white,
-                              ),
+                          if (badge > 0)
+                            Positioned(
+                              top: -3,
+                              right: -6,
+                              child: _Badge(count: badge),
                             ),
-                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        tab.label,
+                        style: AppTextStyles.caption.copyWith(
+                          fontSize: 11,
+                          color: isActive
+                              ? AppColors.primary
+                              : AppColors.textGrey,
+                          fontWeight:
+                              isActive ? FontWeight.w700 : FontWeight.w500,
+                          fontVariations: [
+                            FontVariation('wght', isActive ? 700 : 500),
+                          ],
                         ),
                       ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  items[index]['label'] as String,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                    color: isActive ? AppColors.primary : AppColors.textGrey,
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
           );
-        }),
+        }).toList(),
       ),
     );
   }
 }
 
-class _NearbyTab extends ConsumerWidget {
-  const _NearbyTab();
+class _Badge extends StatelessWidget {
+  const _Badge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: count > 9 ? 4 : 0),
+      constraints: const BoxConstraints(minWidth: 16),
+      height: 16,
+      decoration: BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.panel, width: 2),
+      ),
+      child: Center(
+        child: Text(
+          count > 9 ? '9+' : '$count',
+          style: AppTextStyles.caption.copyWith(
+            fontSize: 9,
+            height: 1,
+            color: AppColors.white,
+            fontWeight: FontWeight.w700,
+            fontVariations: const [FontVariation('wght', 700)],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RadarTab extends ConsumerWidget {
+  const _RadarTab();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -177,125 +224,343 @@ class _NearbyTab extends ConsumerWidget {
 
     return RefreshIndicator(
       color: AppColors.primary,
+      backgroundColor: AppColors.white,
       onRefresh: () => ref.read(nearbyProvider.notifier).refresh(),
-      child: SingleChildScrollView(
+      child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
-            _header(
-                context, nearbyAsync.valueOrNull?.city ?? me?.location?.city),
-            const SizedBox(height: 20),
-            _filterChips(
-              context,
-              ref,
-              filter,
-              me?.premium.isActive ?? false,
+        slivers: [
+          SliverToBoxAdapter(
+            child: RadarHeader(
+              name: me?.displayName,
+              city: nearbyAsync.valueOrNull?.city ?? me?.location?.city,
+              band: DistanceRing.fromBand(
+                filter.band ?? me?.location?.preferredBand,
+              ),
             ),
-            const SizedBox(height: 28),
-            nearbyAsync.when(
-              loading: () => const Padding(
-                padding: EdgeInsets.only(top: 80),
-                child: Center(
-                  child: CircularProgressIndicator(color: AppColors.primary),
+          ),
+          SliverToBoxAdapter(
+            child: _QuickFilters(
+              filter: filter,
+              isPremium: me?.premium.isActive ?? false,
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 6, 20, 32),
+            sliver: nearbyAsync.when(
+              loading: () => const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.only(top: 80),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.primary,
+                    ),
+                  ),
                 ),
               ),
-              error: (err, _) => _message(
-                "Couldn't load people nearby.\n$err",
+              error: (err, _) => SliverToBoxAdapter(
+                child: _EmptyState(
+                  title: "Couldn't load your radar",
+                  body: 'Check your connection and pull down to try again.',
+                ),
               ),
-              data: (state) => _nearbyBody(context, ref, state, presence),
+              data: (state) => _grid(context, ref, state, presence),
             ),
-            const SizedBox(height: 32),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _header(BuildContext context, String? city) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Near you',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
-              ),
-            ),
-            Text(
-              city == null || city.isEmpty ? 'Around you' : city,
-              style: const TextStyle(fontSize: 13, color: AppColors.textGrey),
-            ),
-          ],
+  Widget _grid(
+    BuildContext context,
+    WidgetRef ref,
+    NearbyState state,
+    Map<String, bool> presence,
+  ) {
+    if (state.needsLocation) {
+      return SliverToBoxAdapter(
+        child: _EmptyState(
+          title: 'Set your location',
+          body: 'Radius needs to know roughly where you are before it can '
+              'show you who is nearby.',
         ),
-        GestureDetector(
-          onTap: () => showDiscoveryFilterSheet(context),
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.inputBorder),
-            ),
-            child: const Icon(Icons.tune, size: 20, color: AppColors.textDark),
+      );
+    }
+
+    final items = state.items;
+
+    if (items.isEmpty && state.paywall == null) {
+      return SliverToBoxAdapter(
+        child: _EmptyState(
+          title: 'Quiet in your radius right now',
+          body: 'Nobody matches these filters at this distance. Widen the '
+              'circle — your people might be one band away.',
+          action: RadiusButton(
+            label: 'Open filters',
+            kind: RadiusButtonKind.ghost,
+            onPressed: () => showDiscoveryFilterSheet(context),
           ),
         ),
+      );
+    }
+
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverGrid.builder(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            // Portrait cards. The grid cell sets the width, so they scale
+            // with the screen instead of overflowing on narrow phones.
+            childAspectRatio: 0.78,
+          ),
+          itemCount: items.length,
+          itemBuilder: (_, index) {
+            final card = items[index];
+            final online = presence[card.id] ?? card.isOnline;
+            return ProfileGridCard(
+              name: card.displayName ?? 'Someone',
+              age: card.age,
+              distanceBand: card.distanceBand,
+              photoUrl: card.primaryPhotoUrl,
+              isOnline: online,
+              colorIndex: index,
+              onTap: () => showRadiusSheet<void>(
+                context: context,
+                builder: (_) => ProfileDetailSheet(
+                  user: {
+                    'id': card.id,
+                    'name': card.displayName ?? 'Someone',
+                    'age': card.age,
+                    'distance': card.distanceBand,
+                    'online': online,
+                    'color': kAvatarGradients[
+                        index % kAvatarGradients.length][0],
+                    'bio': null,
+                    'vibes': card.personalityTags,
+                    'photoUrl': card.primaryPhotoUrl,
+                  },
+                ),
+              ),
+            );
+          },
+        ),
+        if (state.hasMore)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 24),
+              child: RadiusButton(
+                label: state.loadingMore ? 'Loading' : 'Show more people',
+                kind: RadiusButtonKind.ghost,
+                isLoading: state.loadingMore,
+                onPressed: () => ref.read(nearbyProvider.notifier).loadMore(),
+              ),
+            ),
+          ),
+        if (state.paywall != null)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 24),
+              child: _UnlockCard(message: state.paywall?.message),
+            ),
+          ),
       ],
     );
   }
+}
 
-  /// Quick filters: the two premium presence toggles first (they're what people
-  /// reach for most), then the single-select intent chips.
-  Widget _filterChips(
-    BuildContext context,
-    WidgetRef ref,
-    DiscoveryFilter filter,
-    bool isPremium,
-  ) {
+/// Greeting, place, and the radar showing how wide the circle is set.
+class RadarHeader extends StatelessWidget {
+  const RadarHeader({super.key, this.name, this.city, this.band});
+
+  final String? name;
+  final String? city;
+  final DistanceRing? band;
+
+  @override
+  Widget build(BuildContext context) {
+    final place = [
+      if (city != null && city!.isNotEmpty) city,
+      if (band != null) band!.label,
+    ].join(' · ');
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+      child: Row(
+        children: [
+          RadarMark(size: 36, activeBand: band),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  name == null || name!.isEmpty ? 'Your radar' : 'Hey, $name',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.title.copyWith(fontSize: 19),
+                ),
+                if (place.isNotEmpty)
+                  Text(
+                    place,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.caption.copyWith(fontSize: 11.5),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          const _PremiumPill(),
+          const SizedBox(width: 8),
+          // Filters sits in the header rather than at the tail of the chip
+          // row: there it was only reachable after scrolling past eight intent
+          // chips, which buried the one control that fixes an empty radar.
+          const _FilterButton(),
+        ],
+      ),
+    );
+  }
+}
+
+/// Opens the full filter sheet.
+class _FilterButton extends StatelessWidget {
+  const _FilterButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Filters',
+      excludeSemantics: true,
+      child: Material(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => showDiscoveryFilterSheet(context),
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.inputBorder, width: 1.5),
+            ),
+            child: const Icon(
+              Icons.tune,
+              size: 18,
+              color: AppColors.textDark,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PremiumPill extends StatelessWidget {
+  const _PremiumPill();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Radius Premium',
+      excludeSemantics: true,
+      child: Material(
+        color: AppColors.goldTint,
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const PremiumScreen()),
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: const Color(0xFFE5D5AE)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.auto_awesome,
+                    size: 13, color: Color(0xFF7A5A14)),
+                const SizedBox(width: 5),
+                Text(
+                  'Premium',
+                  style: AppTextStyles.caption.copyWith(
+                    fontSize: 11.5,
+                    color: const Color(0xFF7A5A14),
+                    fontWeight: FontWeight.w700,
+                    fontVariations: const [FontVariation('wght', 700)],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The horizontal chip row: two premium presence toggles, then the intent
+/// chips, then the way into the full filter sheet.
+class _QuickFilters extends ConsumerWidget {
+  const _QuickFilters({required this.filter, required this.isPremium});
+
+  final DiscoveryFilter filter;
+  final bool isPremium;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     void setFilter(DiscoveryFilter next) =>
         ref.read(discoveryFilterProvider.notifier).state = next;
 
+    // Sizes to the chips rather than to a fixed height. A hard height here
+    // squeezed the row below what the chips need and sliced the descenders off
+    // "Just chatting" and "Open to anything" — and it would have broken again
+    // the moment anyone raised their system text size.
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
       child: Row(
         children: [
-          _toggleChip(
+          _presenceChip(
             context,
-            label: 'Online',
-            icon: Icons.circle,
+            label: 'Online now',
             selected: filter.onlineOnly,
-            isPremium: isPremium,
             onToggle: () =>
                 setFilter(filter.copyWith(onlineOnly: !filter.onlineOnly)),
           ),
-          _toggleChip(
+          const SizedBox(width: 8),
+          _presenceChip(
             context,
-            label: 'Recently active',
-            icon: Icons.schedule,
+            label: 'Active today',
             selected: filter.recentlyActive,
-            isPremium: isPremium,
             onToggle: () => setFilter(
-                filter.copyWith(recentlyActive: !filter.recentlyActive)),
+              filter.copyWith(recentlyActive: !filter.recentlyActive),
+            ),
           ),
           // A little air between the presence toggles and the intent chips —
           // they behave differently (multi-toggle vs single-select).
           Container(
             width: 1,
             height: 22,
-            margin: const EdgeInsets.only(right: 8),
+            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             color: AppColors.inputBorder,
           ),
-          ..._filters.map((entry) {
-            final isSelected = entry.value == filter.intent;
-            return GestureDetector(
+          // Intent chips only — "Filters" now lives in the header, where it is
+          // reachable without scrolling.
+          for (final entry in _filters) ...[
+            RadiusChip(
+              label: entry.key,
+              dense: true,
+              selected: entry.value == filter.intent,
               // copyWith, not a fresh DiscoveryFilter: building a new one here
               // silently threw away the radius and premium toggles every time
               // an intent chip was tapped.
@@ -303,340 +568,122 @@ class _NearbyTab extends ConsumerWidget {
                 intent: entry.value,
                 clearIntent: entry.value == null,
               )),
-              child: _chipShell(
-                selected: isSelected,
-                child: Text(
-                  entry.key,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: isSelected ? AppColors.white : AppColors.textDark,
-                  ),
-                ),
-              ),
-            );
-          }),
+            ),
+            if (entry != _filters.last) const SizedBox(width: 8),
+          ],
         ],
       ),
     );
   }
 
-  /// A premium presence toggle. Free members see it frozen with a padlock;
-  /// tapping explains the gate instead of firing a request the API would 403.
-  Widget _toggleChip(
+  /// A premium presence toggle. Free members see it with a padlock; tapping
+  /// explains the gate instead of firing a request the API would reject.
+  Widget _presenceChip(
     BuildContext context, {
     required String label,
-    required IconData icon,
     required bool selected,
-    required bool isPremium,
     required VoidCallback onToggle,
   }) {
     final locked = !isPremium;
-    final on = selected && isPremium;
-
-    return GestureDetector(
+    return RadiusChip(
+      label: label,
+      dense: true,
+      locked: locked,
+      selected: selected && isPremium,
       onTap: locked
           ? () => showPremiumFilterPrompt(context, filterName: label)
           : onToggle,
-      child: Opacity(
-        opacity: locked ? 0.55 : 1,
-        child: _chipShell(
-          selected: on,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                locked ? Icons.lock_outline : icon,
-                size: locked ? 13 : (icon == Icons.circle ? 9 : 13),
-                color: on
-                    ? AppColors.white
-                    : (locked ? AppColors.textGrey : Colors.green),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: on ? AppColors.white : AppColors.textDark,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
+}
 
-  Widget _chipShell({required bool selected, required Widget child}) {
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-      decoration: BoxDecoration(
-        color: selected ? AppColors.textDark : AppColors.white,
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(
-          color: selected ? AppColors.textDark : AppColors.inputBorder,
-        ),
-      ),
-      child: child,
-    );
-  }
+/// Shown when the server stops handing out profiles.
+class _UnlockCard extends StatelessWidget {
+  const _UnlockCard({this.message});
 
-  Widget _nearbyBody(
-    BuildContext context,
-    WidgetRef ref,
-    NearbyState state,
-    Map<String, bool> presence,
-  ) {
-    if (state.needsLocation) {
-      return _message(
-        'Set your location to discover people near you.',
-        icon: Icons.location_off_outlined,
-      );
-    }
+  final String? message;
 
-    final items = state.items;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (items.isNotEmpty) ...[
-          const Text(
-            'In your circle',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
-            ),
-          ),
-          const SizedBox(height: 14),
-          // Three across, flowing downward. The page itself is the only
-          // scroller — shrinkWrap + NeverScrollable keeps this grid from
-          // fighting the outer SingleChildScrollView, so browsing is one
-          // continuous vertical scroll instead of a sideways filmstrip.
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: EdgeInsets.zero,
-            itemCount: items.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              // Portrait cards, matching the old 130×180 proportions.
-              childAspectRatio: 0.72,
-            ),
-            itemBuilder: (_, index) => _circleCard(
-              context,
-              items[index],
-              presence[items[index].id] ?? items[index].isOnline,
-              index,
-            ),
-          ),
-          const SizedBox(height: 24),
-          if (state.hasMore)
-            Center(
-              child: TextButton(
-                onPressed: () => ref.read(nearbyProvider.notifier).loadMore(),
-                child: Text(
-                  state.loadingMore ? 'Loading…' : 'Load more',
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-        ] else if (state.paywall == null)
-          _message(
-            'No one nearby right now. Try widening your radius.',
-            icon: Icons.person_search_outlined,
-          ),
-        if (state.paywall != null) _paywall(context, ref, state),
-      ],
-    );
-  }
-
-  Widget _circleCard(
-    BuildContext context,
-    DiscoveryCard card,
-    bool online,
-    int index,
-  ) {
-    return GestureDetector(
-      onTap: () => showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => ProfileDetailSheet(
-          user: {
-            'id': card.id,
-            'name': card.displayName ?? 'Someone',
-            'age': card.age,
-            'distance': card.distanceBand,
-            'online': online,
-            'color': _cardColors[index % _cardColors.length],
-            'bio': null,
-            'vibes': card.personalityTags,
-            'photoUrl': card.primaryPhotoUrl,
-          },
-        ),
-      ),
-      child: Container(
-        // No fixed width — the grid cell sets it, so cards scale with the
-        // screen instead of overflowing on narrow phones.
-        decoration: BoxDecoration(
-          color: _cardColors[index % _cardColors.length],
-          borderRadius: BorderRadius.circular(16),
-          image: card.primaryPhotoUrl != null
-              ? DecorationImage(
-                  image: NetworkImage(card.primaryPhotoUrl!),
-                  fit: BoxFit.cover,
-                )
-              : null,
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                width: 9,
-                height: 9,
-                decoration: BoxDecoration(
-                  color: online ? Colors.green : AppColors.textGrey,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.white, width: 1.5),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 8,
-              left: 8,
-              right: 8,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    card.age != null
-                        ? '${card.displayName ?? 'Someone'}, ${card.age}'
-                        : (card.displayName ?? 'Someone'),
-                    // A third of the width is tight — clip long names rather
-                    // than letting them wrap over the card edge.
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on,
-                          size: 10, color: AppColors.white),
-                      const SizedBox(width: 2),
-                      Flexible(
-                        child: Text(
-                          card.distanceBand,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: AppColors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _paywall(BuildContext context, WidgetRef ref, NearbyState state) {
-    return Center(
+  @override
+  Widget build(BuildContext context) {
+    return RadiusCard(
       child: Column(
         children: [
-          const Text(
-            'Discovery Limit',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
-            ),
-          ),
-          const SizedBox(height: 4),
           Text(
-            state.paywall?.message ?? 'Unlock more nearby',
+            'You have seen everyone for now',
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 13, color: AppColors.textGrey),
+            style: AppTextStyles.title.copyWith(fontSize: 18),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            message ?? 'Premium opens the rest of your radius, with no daily '
+                'limit.',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.caption,
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const PremiumScreen()),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                elevation: 0,
-              ),
-              child: const Text(
-                'Get Premium',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.white,
-                ),
-              ),
+          RadiusButton(
+            label: 'See everyone with Premium',
+            kind: RadiusButtonKind.gold,
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PremiumScreen()),
             ),
           ),
-          const SizedBox(height: 12),
-          GestureDetector(
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Rewarded ads arrive in the next update.')),
-            ),
-            child: const Text(
-              'Watch an ad to unlock',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.primary,
-                fontWeight: FontWeight.w600,
-              ),
+          const SizedBox(height: 10),
+          RadiusButton(
+            label: 'Watch an ad',
+            kind: RadiusButtonKind.ghost,
+            onPressed: () => showRadiusToast(
+              context,
+              'Rewarded ads arrive in the next update.',
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _message(String text, {IconData icon = Icons.info_outline}) {
+/// An empty screen is an invitation to act, so every one of these carries a
+/// way forward rather than just an apology.
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({
+    required this.title,
+    required this.body,
+    this.action,
+  });
+
+  final String title;
+  final String body;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 60),
-      child: Center(
-        child: Column(
-          children: [
-            Icon(icon, size: 40, color: AppColors.textGrey),
-            const SizedBox(height: 12),
-            Text(
-              text,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: AppColors.textGrey),
+      padding: const EdgeInsets.fromLTRB(24, 56, 24, 24),
+      child: Column(
+        children: [
+          const RadarMark(
+            size: 104,
+            animate: true,
+            color: AppColors.iconMuted,
+          ),
+          const SizedBox(height: 22),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.title.copyWith(fontSize: 19),
+          ),
+          const SizedBox(height: 8),
+          Text(body, textAlign: TextAlign.center, style: AppTextStyles.caption),
+          if (action != null) ...[
+            const SizedBox(height: 20),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 260),
+              child: action!,
             ),
           ],
-        ),
+        ],
       ),
     );
   }

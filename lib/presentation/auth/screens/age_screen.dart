@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../providers/core_providers.dart';
 import '../../../providers/profile_provider.dart';
@@ -144,13 +145,9 @@ Future<void> _onContinue() async {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Text(
+                      Text(
                         'Radius',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
-                        ),
+                        style: AppTextStyles.title,
                       ),
                     ],
                   ),
@@ -161,13 +158,9 @@ Future<void> _onContinue() async {
               const SizedBox(height: 40),
 
               // Heading
-              const Text(
+              Text(
                 'How old are you?',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
+                style: AppTextStyles.display,
               ),
               const SizedBox(height: 8),
               const Text(

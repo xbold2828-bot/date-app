@@ -4,6 +4,8 @@ import 'dart:math';
 import 'package:camera/camera.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
+import '../../common/widgets/widgets.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../providers/core_providers.dart';
 import '../../../providers/profile_provider.dart';
@@ -194,16 +196,7 @@ class _BasicsScreen6State extends ConsumerState<BasicsScreen6>
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.circle, size: 10, color: AppColors.primary),
-                          SizedBox(width: 6),
-                          Text(
-                            'Radius',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textDark,
-                            ),
-                          ),
+                          Wordmark(size: 20),
                         ],
                       ),
                     ),
@@ -224,13 +217,9 @@ class _BasicsScreen6State extends ConsumerState<BasicsScreen6>
 
               const SizedBox(height: 32),
 
-              const Text(
+              Text(
                 'Verify your identity',
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
+                style: AppTextStyles.display,
               ),
               const SizedBox(height: 8),
               const Text(
@@ -324,10 +313,7 @@ class _BasicsScreen6State extends ConsumerState<BasicsScreen6>
                             : _cameraReady
                                 ? 'Camera ready. Tap to begin.'
                                 : 'Starting camera...',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textGrey,
-                        ),
+                        style: AppTextStyles.caption,
                       ),
                       const SizedBox(height: 16),
                       SizedBox(

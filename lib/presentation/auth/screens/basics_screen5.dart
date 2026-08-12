@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../core/utils/onboarding_maps.dart';
 import '../../../providers/core_providers.dart';
@@ -101,13 +102,9 @@ class _BasicsScreen5State extends ConsumerState<BasicsScreen5> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Text(
+                      Text(
                         'Radius',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
-                        ),
+                        style: AppTextStyles.title,
                       ),
                     ],
                   ),
@@ -142,13 +139,9 @@ class _BasicsScreen5State extends ConsumerState<BasicsScreen5> {
 
               const SizedBox(height: 40),
 
-              const Text(
+              Text(
                 'Your Radius',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
+                style: AppTextStyles.display,
               ),
               const SizedBox(height: 8),
               const Text(
