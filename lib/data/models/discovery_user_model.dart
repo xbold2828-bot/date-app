@@ -34,6 +34,26 @@ class DiscoveryCard {
     this.locked = false,
   });
 
+  /// Only [isOnline] is overridable, and only because presence is the one
+  /// field with a live source of its own: the `/presence` socket knows sooner
+  /// than the fetch that produced this card did. Everything else on a card is
+  /// the server's answer, and a client-side edit of it would be a lie.
+  DiscoveryCard withOnline(bool online) => DiscoveryCard(
+        id: id,
+        displayName: displayName,
+        age: age,
+        gender: gender,
+        pronouns: pronouns,
+        intent: intent,
+        personalityTags: personalityTags,
+        distanceBand: distanceBand,
+        city: city,
+        isOnline: online,
+        isVerified: isVerified,
+        primaryPhotoUrl: primaryPhotoUrl,
+        locked: locked,
+      );
+
   factory DiscoveryCard.fromJson(Map<String, dynamic> json) => DiscoveryCard(
         id: json['id'] as String? ?? '',
         displayName: json['displayName'] as String?,

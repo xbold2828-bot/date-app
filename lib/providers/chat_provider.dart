@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/message_model.dart';
 import '../data/repositories/safety_repository.dart';
 import 'core_providers.dart';
+import 'explore_provider.dart';
 import 'match_provider.dart';
 
 /// Inbox list for a given state tab (null = all, 'new_energy', 'vibing').
@@ -178,6 +179,13 @@ class ChatActions {
     _refreshInbox();
     ref.invalidate(likedYouProvider);
     ref.invalidate(mutualLikesProvider);
+    // Explore holds a page of people with positions on a map, and a blocked
+    // person left in it is visible as a marker, inside a cluster count, and
+    // through a preview. The backend already excludes them from the next
+    // response — this is what makes there be a next response. Its selection is
+    // cleared too, in case the block happened from the open preview.
+    ref.read(exploreSelectionProvider.notifier).state = null;
+    ref.read(exploreProvider.notifier).refresh();
   }
 
   /// Let someone back in. Everything they were excluded from has to reload.
@@ -188,6 +196,7 @@ class ChatActions {
     ref.invalidate(likedYouProvider);
     ref.invalidate(mutualLikesProvider);
     ref.read(nearbyProvider.notifier).refresh();
+    ref.read(exploreProvider.notifier).refresh();
   }
 
   Future<void> reportUser(

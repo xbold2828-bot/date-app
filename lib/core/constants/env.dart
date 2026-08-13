@@ -33,6 +33,43 @@ class Env {
   static const String socketBaseUrl =
       String.fromEnvironment('SOCKET_BASE_URL');
 
+  // ── Explore map (optional) ────────────────────────────────────────────────
+  //
+  // These three are the only keys with defaults, and deliberately: the app has
+  // to boot on a checkout that predates the map. The defaults point at
+  // OpenFreeMap, which serves OpenMapTiles-schema vector tiles with no key and
+  // no account. Point them at MapTiler / Stadia / your own tile server by
+  // overriding them — anything speaking the same schema drops in, because the
+  // style asset addresses source layers (`building`, `transportation`, …), not
+  // a vendor.
+
+  /// TileJSON URL for the vector tile source behind Explore.
+  ///
+  /// A literal `{key}` anywhere in the value is replaced with
+  /// [mapTilesApiKey] at runtime, so a provider that wants its token in the
+  /// query string never needs the token itself committed.
+  static const String mapTilesUrl = String.fromEnvironment(
+    'MAP_TILES_URL',
+    defaultValue: 'https://tiles.openfreemap.org/planet',
+  );
+
+  /// Font glyph endpoint for map labels. Must keep the `{fontstack}`/`{range}`
+  /// placeholders — MapLibre fills those in itself.
+  static const String mapGlyphsUrl = String.fromEnvironment(
+    'MAP_GLYPHS_URL',
+    defaultValue: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+  );
+
+  /// Tile provider token, for providers that require one. Supplied at build
+  /// time (`--dart-define`), never committed. Empty by default because the
+  /// default provider needs no key.
+  static const String mapTilesApiKey =
+      String.fromEnvironment('MAP_TILES_API_KEY');
+
+  /// Substitutes [mapTilesApiKey] into a provider URL template.
+  static String withMapKey(String url) =>
+      mapTilesApiKey.isEmpty ? url : url.replaceAll('{key}', mapTilesApiKey);
+
   /// Every key the app needs, paired with whatever was supplied for it.
   static const Map<String, String> _required = {
     'SUPABASE_URL': supabaseUrl,

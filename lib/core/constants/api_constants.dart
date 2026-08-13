@@ -65,6 +65,11 @@ class ApiConstants {
   // ── Discovery / Entitlements ────────────────────────────────────────────
   static const String discoveryNearby = '/discovery/nearby';
   static const String discoveryNearbyCount = '/discovery/nearby/count';
+
+  /// The Explore map. Same eligibility, radius, filters and blocklist as
+  /// [discoveryNearby] — the only difference in the response is a generalized
+  /// `mapPosition` per person.
+  static const String discoveryExplore = '/discovery/explore';
   static const String entitlementsMe = '/entitlements/me';
 
   // ── Likes / Favorites / Liked-you ───────────────────────────────────────

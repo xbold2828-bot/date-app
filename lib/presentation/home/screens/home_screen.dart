@@ -9,6 +9,7 @@ import '../../../providers/match_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../../providers/realtime_provider.dart';
 import '../../common/widgets/widgets.dart';
+import '../../explore/screens/explore_screen.dart';
 import '../widgets/discovery_filter_sheet.dart';
 import '../widgets/match_celebration.dart';
 import '../widgets/premium_filter_prompt.dart';
@@ -34,10 +35,17 @@ const List<MapEntry<String, String?>> _filters = [
   MapEntry('Open to anything', 'open_to_anything'),
 ];
 
-/// The four destinations, in the order they appear in the bar.
+/// The five destinations, in the order they appear in the bar.
+///
+/// Explore sits in the middle, between the two feeds and the two inboxes —
+/// it is the browsing surface, and putting it beside Chats would have grouped
+/// it with the things that are about people you have already met.
 enum _Tab {
   radar(Icons.radar, 'Radar'),
   likes(Icons.favorite_border, 'Likes'),
+  // `explore_outlined` over `map_outlined`: the compass rose is the closer
+  // sibling of the radar mark the app is built around.
+  explore(Icons.explore_outlined, 'Explore'),
   chats(Icons.forum_outlined, 'Chats'),
   you(Icons.person_outline, 'You');
 
@@ -121,6 +129,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget _body() => switch (_current) {
         _Tab.radar => const _RadarTab(),
         _Tab.likes => const FavoritesScreen(),
+        _Tab.explore => const ExploreScreen(),
         _Tab.chats => const RequestsScreen(),
         _Tab.you => const YouScreen(),
       };
@@ -196,6 +205,11 @@ class _BottomNav extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         tab.label,
+                        // Five tabs leave ~62dp each on a 320dp phone, and
+                        // "Explore" is the longest label in the bar. Clip
+                        // rather than let it wrap the row taller.
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.caption.copyWith(
                           fontSize: 11,
                           color: isActive

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../core/utils/onboarding_maps.dart';
 import '../../../providers/core_providers.dart';
+import '../../../providers/explore_provider.dart';
 import '../../../providers/profile_provider.dart';
 import 'basics_screen7.dart';
 
@@ -30,22 +30,11 @@ class _BasicsScreen5State extends ConsumerState<BasicsScreen5> {
   Future<void> _onAllow() async {
     setState(() => _isLoading = true);
     try {
-      if (!await Geolocator.isLocationServiceEnabled()) {
-        _showSnack('Please turn on location services and try again.');
-        return;
-      }
-
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        _showSnack('Location permission is needed to find people near you.');
-        return;
-      }
-
-      final position = await Geolocator.getCurrentPosition();
+      // The permission dance and the fix both live in LocationService now, so
+      // this screen and Explore ask for location the same way. Failures arrive
+      // as LocationUnavailableException, which is an AppException — the catch
+      // below already handled it before this call existed.
+      final position = await ref.read(locationServiceProvider).current();
       final me = await ref.read(onboardingRepositoryProvider).updateLocation(
             latitude: position.latitude,
             longitude: position.longitude,

@@ -1,6 +1,7 @@
 import '../../core/constants/api_constants.dart';
 import '../models/discovery_user_model.dart';
 import '../models/entitlements_model.dart';
+import '../models/map_user_model.dart';
 import '../services/api_service.dart';
 
 /// Discovery ("Near you") + entitlement snapshot.
@@ -47,6 +48,49 @@ class DiscoveryRepository {
       ),
     );
     return NearbyPage.fromJson(Map<String, dynamic>.from(data as Map));
+  }
+
+  /// `GET /discovery/explore` — the same people [nearby] would return, each
+  /// with a generalized map position.
+  ///
+  /// Shares [nearbyQuery] with [nearby] on purpose: the map showing somebody
+  /// the grid would not (or the reverse) is the one failure mode that matters
+  /// here, and it becomes impossible when both send the same filter set. Page
+  /// and limit are omitted — the endpoint fixes its own bounds at 100.
+  ///
+  /// Throws the same way [nearby] does: [EntitlementRequiredException] (402)
+  /// when the reveal allowance is spent, [BadRequestException] (400) with no
+  /// location set, [ForbiddenException] (403) for premium-only filters.
+  Future<ExplorePage> explore({
+    String? intent,
+    String? band,
+    List<String>? genders,
+    int? minAge,
+    int? maxAge,
+    bool? verifiedOnly,
+    bool? onlineOnly,
+    bool? recentlyActive,
+    List<String>? relationshipStatus,
+    List<String>? personalityTags,
+    List<String>? preferenceTags,
+  }) async {
+    final data = await _api.get(
+      ApiConstants.discoveryExplore,
+      query: nearbyQuery(
+        intent: intent,
+        band: band,
+        genders: genders,
+        minAge: minAge,
+        maxAge: maxAge,
+        verifiedOnly: verifiedOnly,
+        onlineOnly: onlineOnly,
+        recentlyActive: recentlyActive,
+        relationshipStatus: relationshipStatus,
+        personalityTags: personalityTags,
+        preferenceTags: preferenceTags,
+      ),
+    );
+    return ExplorePage.fromJson(Map<String, dynamic>.from(data as Map));
   }
 
   /// `GET /discovery/nearby/count` — how many people match, for the filter
