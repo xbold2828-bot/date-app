@@ -6,6 +6,7 @@ import '../data/services/chat_service.dart';
 import '../data/services/presence_service.dart';
 import 'chat_provider.dart';
 import 'core_providers.dart';
+import 'match_provider.dart';
 
 /// The live `/presence` socket, connected with the current Supabase token and
 /// torn down when no longer needed.
@@ -66,5 +67,15 @@ final chatRealtimeProvider = Provider<void>((ref) {
     }
     ref.invalidate(conversationsProvider);
   });
+
+  // The other half of a match. Whoever tapped second already has their
+  // celebration from the like response; this is for the person who did not.
+  final matchSub = service.matches.listen((event) {
+    ref.read(matchCelebrationProvider.notifier).show(event.user);
+    ref.invalidate(mutualLikesProvider);
+    ref.invalidate(likedYouProvider);
+  });
+
   ref.onDispose(sub.cancel);
+  ref.onDispose(matchSub.cancel);
 });

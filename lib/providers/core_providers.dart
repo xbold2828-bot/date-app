@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../data/repositories/ads_repository.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/repositories/chat_repository.dart';
 import '../data/repositories/discovery_repository.dart';
@@ -8,6 +9,7 @@ import '../data/repositories/match_repository.dart';
 import '../data/repositories/media_repository.dart';
 import '../data/repositories/onboarding_repository.dart';
 import '../data/repositories/profile_repository.dart';
+import '../data/repositories/safety_repository.dart';
 import '../data/repositories/subscription_repository.dart';
 import '../data/repositories/verification_repository.dart';
 import '../data/services/api_service.dart';
@@ -59,6 +61,14 @@ final verificationRepositoryProvider = Provider<VerificationRepository>(
 
 final subscriptionRepositoryProvider = Provider<SubscriptionRepository>(
   (ref) => SubscriptionRepository(ref.watch(apiClientProvider)),
+);
+
+final adsRepositoryProvider = Provider<AdsRepository>(
+  (ref) => AdsRepository(ref.watch(apiClientProvider)),
+);
+
+final safetyRepositoryProvider = Provider<SafetyRepository>(
+  (ref) => SafetyRepository(ref.watch(apiClientProvider)),
 );
 
 /// Streams Supabase auth changes (sign-in / sign-out / token refresh).

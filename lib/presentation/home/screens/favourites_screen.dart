@@ -3,23 +3,87 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/errors/app_exceptions.dart';
 import '../../../data/models/match_model.dart';
 import '../../../providers/match_provider.dart';
+import '../../../providers/realtime_provider.dart';
 import '../../common/widgets/widgets.dart';
+import 'chat_detail_screen.dart';
 import 'profile_detail_sheet.dart';
 import './premium_screen.dart';
 
 /// "Liked you" — the people who already made the first move.
 ///
-/// The list is gated: the server returns `locked: true` with a count and no
-/// identities, so the blurred grid here is showing nothing it was given. That
-/// is deliberate — a paywall the client enforces is a paywall a proxy defeats.
+/// Freemium, and honest about it: the server hands back the first couple of
+/// people in full and everyone after them already stripped of name, photo and
+/// id. So the blurred tiles here are blurring nothing — there is no identity in
+/// the payload to leak, and no id to tap through with. A paywall the client
+/// enforces is a paywall a proxy defeats.
 ///
-/// Still named FavoritesScreen because the tab it backs is called Likes; the
-/// second section ("people you liked", from the unused `favoritesProvider`)
-/// arrives with the gating rework.
-class FavoritesScreen extends ConsumerWidget {
+/// Still named FavoritesScreen because the tab it backs is called Likes.
+///
+/// Two sections, because they are two different things. **Likes** is interest
+/// you have not answered — gated, since the reveal is what Premium sells.
+/// **Mutual** is interest you already returned, and is free forever: there is
+/// nothing left to reveal about somebody you have both said yes to.
+class FavoritesScreen extends ConsumerStatefulWidget {
   const FavoritesScreen({super.key});
+
+  @override
+  ConsumerState<FavoritesScreen> createState() => _FavoritesScreenState();
+}
+
+class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs = TabController(length: 2, vsync: this);
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 18, 20, 14),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Wordmark(size: 24),
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          decoration: const BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: AppColors.inputBorder, width: 1),
+            ),
+          ),
+          child: TabBar(
+            controller: _tabs,
+            indicatorSize: TabBarIndicatorSize.tab,
+            tabs: const [
+              Tab(text: 'Likes'),
+              Tab(text: 'Mutual'),
+            ],
+          ),
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabs,
+            children: const [_LikedYouTab(), _MutualTab()],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Incoming likes you have not answered. Freemium.
+class _LikedYouTab extends ConsumerWidget {
+  const _LikedYouTab();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -39,8 +103,6 @@ class FavoritesScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Wordmark(size: 24),
-                  const SizedBox(height: 14),
                   Text('Liked you', style: AppTextStyles.display),
                   const SizedBox(height: 6),
                   Text(
@@ -72,71 +134,13 @@ class FavoritesScreen extends ConsumerWidget {
   }
 
   Widget _body(BuildContext context, LikedYouPage page) {
-    if (page.locked) return _LockedGrid(total: page.total);
-
-    if (page.items.isEmpty) {
+    if (page.isEmpty) {
       return const _Message(
         title: 'No likes yet',
         body: 'Keep an eye on your radar — the people you like can see you '
             'too.',
       );
     }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        padding: EdgeInsets.zero,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: 0.78,
-        ),
-        itemCount: page.items.length,
-        itemBuilder: (context, index) {
-          final card = page.items[index];
-          return ProfileGridCard(
-            name: card.displayName ?? 'Someone',
-            age: card.age,
-            photoUrl: card.primaryPhotoUrl,
-            isOnline: card.isOnline,
-            colorIndex: index,
-            onTap: () => showRadiusSheet<void>(
-              context: context,
-              builder: (_) => ProfileDetailSheet(
-                user: {
-                  'id': card.id,
-                  'name': card.displayName ?? 'Someone',
-                  'age': card.age,
-                  'distance': '',
-                  'online': card.isOnline,
-                  'color': kAvatarGradients[index % kAvatarGradients.length][0],
-                  'photoUrl': card.primaryPhotoUrl,
-                  'vibes': const <String>[],
-                },
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// The gated state: placeholder tiles and a way to open them.
-class _LockedGrid extends StatelessWidget {
-  const _LockedGrid({required this.total});
-
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    // The server sends a count and nothing else, so the tile count is the only
-    // honest thing to show. Three keeps the grid looking intentional when the
-    // count is small.
-    final tiles = total.clamp(0, 6) == 0 ? 3 : total.clamp(0, 6);
 
     return Column(
       children: [
@@ -152,103 +156,378 @@ class _LockedGrid extends StatelessWidget {
               mainAxisSpacing: 10,
               childAspectRatio: 0.78,
             ),
-            itemCount: tiles,
-            itemBuilder: (_, index) => _LockedTile(index: index),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-          child: RadiusCard(
-            child: Column(
-              children: [
-                Text(
-                  total > 0
-                      ? '$total ${total == 1 ? 'person' : 'people'} liked you'
-                      : 'See who liked you',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.title.copyWith(fontSize: 18),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Premium reveals every one of them, and lets you reply.',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.caption,
-                ),
-                const SizedBox(height: 16),
-                RadiusButton(
-                  label: 'Reveal everyone with Premium',
-                  kind: RadiusButtonKind.gold,
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const PremiumScreen()),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                RadiusButton(
-                  label: 'Watch an ad',
-                  kind: RadiusButtonKind.ghost,
-                  onPressed: () => showRadiusToast(
-                    context,
-                    'Rewarded ads arrive in the next update.',
-                  ),
-                ),
-              ],
+            itemCount: page.items.length,
+            itemBuilder: (context, index) => _tile(
+              context,
+              page.items[index],
+              index,
             ),
           ),
         ),
+        if (page.lockedCount > 0)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+            child: _UnlockCard(remaining: page.lockedCount),
+          ),
       ],
+    );
+  }
+
+  Widget _tile(BuildContext context, LikeCard card, int index) {
+    if (card.locked) {
+      // Not tappable, because there is nothing behind it: the server sent no
+      // id. Presence survives the redaction — "someone near you is online" is
+      // the reason to unlock and identifies nobody.
+      return ProfileGridCard(
+        name: '',
+        colorIndex: index,
+        isOnline: card.isOnline,
+        blurred: true,
+        onTap: () {},
+      );
+    }
+
+    final name = card.displayName ?? 'Someone';
+    return ProfileGridCard(
+      name: name,
+      age: card.age,
+      photoUrl: card.primaryPhotoUrl,
+      isOnline: card.isOnline,
+      isVerified: card.isVerified,
+      colorIndex: index,
+      onTap: () => showRadiusSheet<void>(
+        context: context,
+        builder: (_) => ProfileDetailSheet(
+          userId: card.id,
+          seed: ProfileSeed(
+            name: name,
+            age: card.age,
+            photoUrl: card.primaryPhotoUrl,
+            isOnline: card.isOnline,
+            colorIndex: index,
+          ),
+        ),
+      ),
     );
   }
 }
 
-/// A person the viewer has not unlocked.
-///
-/// `GET /likes/liked-you` returns `locked: true` with a count and **no items**,
-/// so there is no photo here to blur — this renders the frosted placeholder
-/// instead. Once the server starts sending downscaled thumbnails for locked
-/// entries, pass them to [ProfileGridCard] with `blurred: true` and this widget
-/// goes away.
-class _LockedTile extends StatelessWidget {
-  const _LockedTile({required this.index});
+/// Matches. Free, complete, and one tap from a conversation.
+class _MutualTab extends ConsumerWidget {
+  const _MutualTab();
 
-  final int index;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(mutualLikesProvider);
+    final presence = ref.watch(presenceProvider);
+
+    return RefreshIndicator(
+      color: AppColors.primary,
+      backgroundColor: AppColors.white,
+      onRefresh: () async => ref.invalidate(mutualLikesProvider),
+      child: async.when(
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+        error: (err, _) => ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [
+            _Message(
+              title: "Couldn't load your matches",
+              body: 'Pull down to try again.',
+            ),
+          ],
+        ),
+        data: (page) {
+          if (page.items.isEmpty) {
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [
+                _Message(
+                  title: 'No matches yet',
+                  body: 'When you like someone who already liked you, they '
+                      'show up here — free to message, always.',
+                ),
+              ],
+            );
+          }
+
+          return ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+            itemCount: page.items.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            itemBuilder: (_, index) {
+              final match = page.items[index];
+              return _MutualRow(
+                match: match,
+                colorIndex: index,
+                online: presence[match.user.id] ?? match.user.isOnline,
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// A match: their face, their name, and the two things you can do about it.
+class _MutualRow extends StatelessWidget {
+  const _MutualRow({
+    required this.match,
+    required this.colorIndex,
+    required this.online,
+  });
+
+  final MutualCard match;
+  final int colorIndex;
+  final bool online;
+
+  String get _name => match.user.displayName ?? 'Someone';
+
+  void _openProfile(BuildContext context) {
+    showRadiusSheet<void>(
+      context: context,
+      builder: (_) => ProfileDetailSheet(
+        userId: match.user.id,
+        seed: ProfileSeed(
+          name: _name,
+          age: match.user.age,
+          photoUrl: match.user.primaryPhotoUrl,
+          isOnline: online,
+          colorIndex: colorIndex,
+        ),
+      ),
+    );
+  }
+
+  /// Straight into the thread — existing or not. A match with nothing said yet
+  /// opens an empty conversation rather than sending them back to the profile
+  /// to find the composer.
+  void _openChat(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatDetailScreen(
+          conversationId: match.conversationId,
+          userId: match.user.id,
+          userName: _name,
+          userAge: match.user.age,
+          photoUrl: match.user.primaryPhotoUrl,
+          colorIndex: colorIndex,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Hidden profile, unlock to see who this is',
+      button: true,
+      label: 'Match with $_name${online ? ', online now' : ''}',
       excludeSemantics: true,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: avatarGradient(index + 2),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
+      child: RadiusCard(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        onTap: () => _openProfile(context),
+        child: Row(
           children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: AppColors.white.withValues(alpha: 0.22),
-                borderRadius: BorderRadius.circular(16),
+            _MatchAvatar(
+              name: _name,
+              photoUrl: match.user.primaryPhotoUrl,
+              colorIndex: colorIndex,
+              online: online,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    match.user.age != null
+                        ? '$_name, ${match.user.age}'
+                        : _name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.bodyStrong.copyWith(fontSize: 15),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    match.conversationId == null
+                        ? 'You both liked each other'
+                        : 'You have a conversation going',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.caption,
+                  ),
+                ],
               ),
             ),
-            Center(
-              child: Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: AppColors.white.withValues(alpha: 0.3),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.lock_outline,
-                  size: 15,
-                  color: AppColors.white,
+            const SizedBox(width: 8),
+            Semantics(
+              button: true,
+              label: 'Message $_name',
+              excludeSemantics: true,
+              child: InkWell(
+                onTap: () => _openChat(context),
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primaryTint,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.chat_bubble_outline,
+                    size: 18,
+                    color: AppColors.primary,
+                  ),
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MatchAvatar extends StatelessWidget {
+  const _MatchAvatar({
+    required this.name,
+    required this.colorIndex,
+    required this.online,
+    this.photoUrl,
+  });
+
+  final String name;
+  final String? photoUrl;
+  final int colorIndex;
+  final bool online;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 52,
+      height: 52,
+      child: Stack(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: photoUrl == null ? avatarGradient(colorIndex) : null,
+              image: photoUrl != null
+                  ? DecorationImage(
+                      image: NetworkImage(photoUrl!),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+            ),
+            child: photoUrl == null
+                ? Center(
+                    child: Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                      style: AppTextStyles.avatarInitial(20),
+                    ),
+                  )
+                : null,
+          ),
+          if (online)
+            Positioned(
+              right: 1,
+              bottom: 1,
+              child: Container(
+                width: 13,
+                height: 13,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3BD07E),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.white, width: 2.5),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The counter and the two ways past it.
+class _UnlockCard extends ConsumerStatefulWidget {
+  const _UnlockCard({required this.remaining});
+
+  /// People the viewer still cannot see. This is the whole pitch, so it leads.
+  final int remaining;
+
+  @override
+  ConsumerState<_UnlockCard> createState() => _UnlockCardState();
+}
+
+class _UnlockCardState extends ConsumerState<_UnlockCard> {
+  bool _watching = false;
+
+  Future<void> _watchAd() async {
+    if (_watching) return;
+    setState(() => _watching = true);
+    try {
+      final credits = await ref
+          .read(adActionsProvider)
+          .watchToUnlock(placement: 'likes_unlock');
+
+      if (!mounted) return;
+      showRadiusToast(
+        context,
+        credits > 0
+            ? 'Unlocked — $credits credits added'
+            : 'That one was already counted',
+        tone: credits > 0 ? ToastTone.success : ToastTone.neutral,
+      );
+    } on AppException catch (e) {
+      if (mounted) showRadiusToast(context, e.message, tone: ToastTone.error);
+    } finally {
+      if (mounted) setState(() => _watching = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final n = widget.remaining;
+
+    return RadiusCard(
+      child: Column(
+        children: [
+          Text(
+            n == 1 ? '1 more person liked you' : '$n more people liked you',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.title.copyWith(fontSize: 18),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Premium reveals every one of them, and lets you reply.',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.caption,
+          ),
+          const SizedBox(height: 16),
+          RadiusButton(
+            label: 'Reveal everyone with Premium',
+            kind: RadiusButtonKind.gold,
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PremiumScreen()),
+            ),
+          ),
+          const SizedBox(height: 10),
+          RadiusButton(
+            label: _watching ? 'Loading' : 'Watch an ad',
+            kind: RadiusButtonKind.ghost,
+            isLoading: _watching,
+            onPressed: _watchAd,
+          ),
+        ],
       ),
     );
   }

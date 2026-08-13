@@ -7,6 +7,8 @@ import '../../../data/models/message_model.dart';
 import '../../../providers/chat_provider.dart';
 import '../../../providers/realtime_provider.dart';
 import '../../common/widgets/widgets.dart';
+import '../widgets/chat_actions_menu.dart';
+import './archived_chats_screen.dart';
 import './chat_detail_screen.dart';
 
 /// The inbox.
@@ -37,11 +39,39 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen>
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 18, 20, 14),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Wordmark(size: 24),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 12, 14),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wordmark(size: 24),
+                ),
+              ),
+              Semantics(
+                button: true,
+                label: 'Archived chats',
+                excludeSemantics: true,
+                child: InkWell(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ArchivedChatsScreen(),
+                    ),
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  child: const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Icon(
+                      Icons.archive_outlined,
+                      size: 20,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         Container(
@@ -132,7 +162,7 @@ class _ConversationList extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             itemCount: items.length,
             separatorBuilder: (_, _) => const SizedBox(height: 10),
-            itemBuilder: (_, index) => _ConversationTile(
+            itemBuilder: (_, index) => ConversationTile(
               conversation: items[index],
               colorIndex: index,
               online: presence[items[index].otherUser.id] ??
@@ -145,16 +175,21 @@ class _ConversationList extends ConsumerWidget {
   }
 }
 
-class _ConversationTile extends StatelessWidget {
-  const _ConversationTile({
+/// One row of the inbox. Public because the archive screen renders the same
+/// row — an archived chat is the same conversation, just filed elsewhere.
+class ConversationTile extends StatelessWidget {
+  const ConversationTile({
+    super.key,
     required this.conversation,
     required this.colorIndex,
     required this.online,
+    this.isArchived = false,
   });
 
   final ConversationSummary conversation;
   final int colorIndex;
   final bool online;
+  final bool isArchived;
 
   @override
   Widget build(BuildContext context) {
@@ -173,22 +208,18 @@ class _ConversationTile extends StatelessWidget {
       ].join(', '),
       excludeSemantics: true,
       child: RadiusCard(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => ChatDetailScreen(
               conversationId: conversation.id,
-              user: {
-                'id': other.id,
-                'name': name,
-                'age': other.age,
-                'distance': '',
-                'online': online,
-                'color': kAvatarGradients[
-                    colorIndex % kAvatarGradients.length][0],
-                'photoUrl': other.primaryPhotoUrl,
-              },
+              userId: other.id,
+              userName: name,
+              userAge: other.age,
+              photoUrl: other.primaryPhotoUrl,
+              colorIndex: colorIndex,
+              otherUser: other,
             ),
           ),
         ),
@@ -227,7 +258,7 @@ class _ConversationTile extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,
@@ -260,6 +291,13 @@ class _ConversationTile extends StatelessWidget {
                 ],
               ],
             ),
+            // Every action the thread itself offers, without having to open it.
+            _RowMenu(
+              conversationId: conversation.id,
+              userId: other.id,
+              userName: name,
+              isArchived: isArchived,
+            ),
           ],
         ),
       ),
@@ -273,6 +311,50 @@ class _ConversationTile extends StatelessWidget {
     if (d.inMinutes < 60) return '${d.inMinutes}m';
     if (d.inHours < 24) return '${d.inHours}h';
     return '${d.inDays}d';
+  }
+}
+
+/// The three-dot menu on an inbox row.
+///
+/// Same sheet the thread's own header opens, so an action is never somewhere
+/// people have to go looking for it — and there is only one implementation to
+/// keep correct.
+class _RowMenu extends StatelessWidget {
+  const _RowMenu({
+    required this.conversationId,
+    required this.userId,
+    required this.userName,
+    required this.isArchived,
+  });
+
+  final String conversationId;
+  final String userId;
+  final String userName;
+  final bool isArchived;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Options for $userName',
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: () => showChatActionsMenu(
+          context,
+          conversationId: conversationId,
+          userId: userId,
+          userName: userName,
+          isArchived: isArchived,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        child: const Padding(
+          // Generous, because this sits inside a row that is itself tappable —
+          // a small target here means opening the chat by accident.
+          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          child: Icon(Icons.more_vert, size: 19, color: AppColors.iconMuted),
+        ),
+      ),
+    );
   }
 }
 

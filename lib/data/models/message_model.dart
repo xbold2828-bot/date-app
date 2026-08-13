@@ -62,6 +62,16 @@ class ChatOtherUser {
   final bool isOnline;
   final bool isVerified;
 
+  /// Coarse location for the chat header. Never a distance — a thread outlives
+  /// the proximity that started it.
+  final String? city;
+
+  final DateTime? lastActiveAt;
+
+  /// Their account is gone or suspended. The thread stays readable; the header
+  /// says so, rather than leaving someone talking to nobody.
+  final bool isDeactivated;
+
   const ChatOtherUser({
     required this.id,
     this.displayName,
@@ -69,6 +79,9 @@ class ChatOtherUser {
     this.primaryPhotoUrl,
     this.isOnline = false,
     this.isVerified = false,
+    this.city,
+    this.lastActiveAt,
+    this.isDeactivated = false,
   });
 
   factory ChatOtherUser.fromJson(Map<String, dynamic> json) => ChatOtherUser(
@@ -78,7 +91,24 @@ class ChatOtherUser {
         primaryPhotoUrl: json['primaryPhotoUrl'] as String?,
         isOnline: json['isOnline'] as bool? ?? false,
         isVerified: json['isVerified'] as bool? ?? false,
+        city: json['city'] as String?,
+        lastActiveAt: DateTime.tryParse(json['lastActiveAt'] as String? ?? ''),
+        isDeactivated: json['isDeactivated'] as bool? ?? false,
       );
+
+  /// "Active now" / "Active 3h ago" / null when there is nothing to say.
+  String? get activityLabel {
+    if (isDeactivated) return null;
+    if (isOnline) return 'Active now';
+    final at = lastActiveAt;
+    if (at == null) return null;
+    final d = DateTime.now().difference(at.toLocal());
+    if (d.inMinutes < 5) return 'Active now';
+    if (d.inMinutes < 60) return 'Active ${d.inMinutes}m ago';
+    if (d.inHours < 24) return 'Active ${d.inHours}h ago';
+    if (d.inDays < 7) return 'Active ${d.inDays}d ago';
+    return null;
+  }
 }
 
 /// The last-message preview on a conversation row.

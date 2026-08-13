@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/errors/app_exceptions.dart';
+import '../data/repositories/ads_repository.dart';
 import '../data/models/discovery_user_model.dart';
 import '../data/models/entitlements_model.dart';
 import '../data/models/match_model.dart';
@@ -274,10 +275,51 @@ final likedYouProvider = FutureProvider.autoDispose<LikedYouPage>(
   (ref) => ref.watch(matchRepositoryProvider).likedYou(),
 );
 
+/// Matches — the Mutual tab.
+///
+/// Never gated, so unlike [likedYouProvider] there is no paywall state to
+/// model here: it either loaded or it didn't.
+final mutualLikesProvider =
+    FutureProvider.autoDispose<PageResult<MutualCard>>(
+  (ref) => ref.watch(matchRepositoryProvider).mutual(),
+);
+
 /// People I favourited.
 final favoritesProvider =
     FutureProvider.autoDispose<PageResult<LikeCard>>(
   (ref) => ref.watch(matchRepositoryProvider).favorites(),
+);
+
+/// The match waiting to be celebrated, or null.
+///
+/// Set from two places — the response to my own like, and the `match:new`
+/// socket event when the other person completed it — and consumed by the
+/// overlay mounted at the top of the app, so the celebration is not tied to
+/// whichever screen happened to be open.
+class MatchCelebration {
+  const MatchCelebration({required this.user, this.conversationId});
+
+  final LikeCard user;
+  final String? conversationId;
+}
+
+class MatchCelebrationNotifier extends Notifier<MatchCelebration?> {
+  @override
+  MatchCelebration? build() => null;
+
+  void show(LikeCard user, {String? conversationId}) {
+    // A card with no id came from a redacted payload and has nothing to
+    // celebrate with — better to skip than to show a blank hero.
+    if (user.id.isEmpty) return;
+    state = MatchCelebration(user: user, conversationId: conversationId);
+  }
+
+  void dismiss() => state = null;
+}
+
+final matchCelebrationProvider =
+    NotifierProvider<MatchCelebrationNotifier, MatchCelebration?>(
+  MatchCelebrationNotifier.new,
 );
 
 /// Imperative like/favorite/pass actions. Returns the [LikeResult] (so callers
@@ -294,3 +336,28 @@ class LikeActions {
 }
 
 final likeActionsProvider = Provider<LikeActions>((ref) => LikeActions(ref));
+
+/// Watch a rewarded ad to unlock a gated surface.
+///
+/// The credits the ad mints are what actually open the gate, so every feed that
+/// spends them is refetched afterwards — otherwise the grid keeps rendering the
+/// locked response it fetched before the balance changed.
+class AdActions {
+  AdActions(this.ref);
+  final Ref ref;
+
+  /// Claims one rewarded view and refreshes whatever it may have unlocked.
+  /// Returns the credits granted — zero when the impression was a replay.
+  Future<int> watchToUnlock({String? placement}) async {
+    final reward = await ref.read(adsRepositoryProvider).claimReward(
+          idempotencyKey: AdsRepository.newIdempotencyKey(),
+          placement: placement,
+        );
+    ref.invalidate(entitlementsProvider);
+    ref.invalidate(likedYouProvider);
+    ref.read(nearbyProvider.notifier).refresh();
+    return reward.creditsAwarded;
+  }
+}
+
+final adActionsProvider = Provider<AdActions>((ref) => AdActions(ref));

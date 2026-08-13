@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../../core/constants/api_constants.dart';
+import '../models/match_model.dart';
 import '../models/message_model.dart';
 import 'presence_service.dart' show TokenGetter;
 
@@ -33,6 +34,17 @@ class TypingEvent {
   const TypingEvent({required this.conversationId, required this.fromUserId});
 }
 
+/// Somebody liked me back, just now.
+///
+/// This is the half of a match the person did not perform themselves: they are
+/// somewhere else in the app entirely, and without this would not find out
+/// until they next opened the Mutual tab.
+class MatchEvent {
+  final LikeCard user;
+  final DateTime? matchedAt;
+  const MatchEvent({required this.user, this.matchedAt});
+}
+
 /// Manages the `/chat` Socket.io namespace: authenticates the handshake, streams
 /// live messages / read receipts / typing, and relays this user's typing state.
 /// Sends and reads remain authoritative over REST — this is the push layer.
@@ -45,10 +57,12 @@ class ChatService {
   final _messages = StreamController<IncomingChatMessage>.broadcast();
   final _reads = StreamController<ReadReceipt>.broadcast();
   final _typing = StreamController<TypingEvent>.broadcast();
+  final _matches = StreamController<MatchEvent>.broadcast();
 
   Stream<IncomingChatMessage> get messages => _messages.stream;
   Stream<ReadReceipt> get reads => _reads.stream;
   Stream<TypingEvent> get typing => _typing.stream;
+  Stream<MatchEvent> get matches => _matches.stream;
   bool get isConnected => _socket?.connected ?? false;
 
   void connect() {
@@ -103,6 +117,18 @@ class ChatService {
       );
     });
 
+    socket.on(SocketConstants.matchNew, (data) {
+      if (data is! Map) return;
+      final user = data['user'];
+      if (user is! Map) return;
+      _matches.add(
+        MatchEvent(
+          user: LikeCard.fromJson(Map<String, dynamic>.from(user)),
+          matchedAt: DateTime.tryParse(data['matchedAt']?.toString() ?? ''),
+        ),
+      );
+    });
+
     _socket = socket;
     socket.connect();
   }
@@ -121,5 +147,6 @@ class ChatService {
     _messages.close();
     _reads.close();
     _typing.close();
+    _matches.close();
   }
 }

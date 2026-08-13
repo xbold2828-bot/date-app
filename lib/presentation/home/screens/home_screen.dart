@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/errors/app_exceptions.dart';
 import '../../../providers/chat_provider.dart';
 import '../../../providers/match_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../../providers/realtime_provider.dart';
 import '../../common/widgets/widgets.dart';
 import '../widgets/discovery_filter_sheet.dart';
+import '../widgets/match_celebration.dart';
 import '../widgets/premium_filter_prompt.dart';
 import './profile_detail_sheet.dart';
 import './request_screen.dart';
@@ -16,11 +18,13 @@ import './favourites_screen.dart';
 import './you_screen.dart';
 import './premium_screen.dart';
 
-/// Filter chips → backend `Intent` value (null = All). The full enum, so the
-/// row matches what people actually chose during onboarding — with only four of
-/// seven shown, anyone here for "Serious" or "Friends" was unreachable.
+/// Intent chips → backend `Intent` value. The full enum, so the row matches
+/// what people actually chose during onboarding — with only four of seven
+/// shown, anyone here for "Serious" or "Friends" was unreachable.
+///
+/// "All" is not in this list: it clears the intent rather than setting one, and
+/// it leads the row ahead of the presence toggles. See [_QuickFilters].
 const List<MapEntry<String, String?>> _filters = [
-  MapEntry('All', null),
   MapEntry('Right now', 'right_now'),
   MapEntry('Casual', 'casual'),
   MapEntry('Dating', 'dating'),
@@ -50,29 +54,65 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with WidgetsBindingObserver {
   _Tab _current = _Tab.radar;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Re-read what may have changed while the app was in the background.
+  ///
+  /// Deliberately NOT the radar: `GET /discovery/nearby` consumes a free daily
+  /// view, so refreshing it on every resume would spend somebody's whole
+  /// allowance just by switching apps. The grid stays a snapshot until it is
+  /// pulled to refresh — and every profile opened from it is fetched live, so
+  /// what people actually read is never stale.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    ref.invalidate(conversationsProvider);
+    ref.invalidate(archivedConversationsProvider);
+    ref.invalidate(likedYouProvider);
+    ref.invalidate(mutualLikesProvider);
+    ref.read(unreadCountProvider.notifier).refresh();
+    ref.read(meProvider.notifier).refresh();
+  }
 
   @override
   Widget build(BuildContext context) {
     // Activate the live chat badge/inbox refresh while the app is open.
     ref.watch(chatRealtimeProvider);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            Expanded(child: _body()),
-            _BottomNav(
-              current: _current,
-              // Live unread total: seeded by REST, then bumped by the chat
-              // socket, so a new message lights up Chats from any tab.
-              unread: ref.watch(unreadCountProvider).valueOrNull ?? 0,
-              onSelect: (tab) => setState(() => _current = tab),
-            ),
-          ],
+    // Wraps the whole app surface: a match can arrive from the socket while
+    // the person is on any tab, and the celebration should not belong to
+    // whichever screen happens to be underneath it.
+    return MatchCelebrationHost(
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              Expanded(child: _body()),
+              _BottomNav(
+                current: _current,
+                // Live unread total: seeded by REST, then bumped by the chat
+                // socket, so a new message lights up Chats from any tab.
+                unread: ref.watch(unreadCountProvider).valueOrNull ?? 0,
+                onSelect: (tab) => setState(() => _current = tab),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -326,21 +366,20 @@ class _RadarTab extends ConsumerWidget {
               photoUrl: card.primaryPhotoUrl,
               isOnline: online,
               colorIndex: index,
+              // The sheet fetches the full profile itself; the seed is only so
+              // the name and photo already on screen stay on screen.
               onTap: () => showRadiusSheet<void>(
                 context: context,
                 builder: (_) => ProfileDetailSheet(
-                  user: {
-                    'id': card.id,
-                    'name': card.displayName ?? 'Someone',
-                    'age': card.age,
-                    'distance': card.distanceBand,
-                    'online': online,
-                    'color': kAvatarGradients[
-                        index % kAvatarGradients.length][0],
-                    'bio': null,
-                    'vibes': card.personalityTags,
-                    'photoUrl': card.primaryPhotoUrl,
-                  },
+                  userId: card.id,
+                  seed: ProfileSeed(
+                    name: card.displayName ?? 'Someone',
+                    age: card.age,
+                    photoUrl: card.primaryPhotoUrl,
+                    distanceBand: card.distanceBand,
+                    isOnline: online,
+                    colorIndex: index,
+                  ),
                 ),
               ),
             );
@@ -397,7 +436,11 @@ class RadarHeader extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  name == null || name!.isEmpty ? 'Your radar' : 'Hey, $name',
+                  // The wave rides along with the name — on "Your radar" there
+                  // is nobody being greeted, so it would just be decoration.
+                  name == null || name!.isEmpty
+                      ? 'Your radar'
+                      : 'Hey, $name 👋',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.title.copyWith(fontSize: 19),
@@ -508,8 +551,12 @@ class _PremiumPill extends StatelessWidget {
   }
 }
 
-/// The horizontal chip row: two premium presence toggles, then the intent
-/// chips, then the way into the full filter sheet.
+/// The horizontal chip row: "All" first, then the two premium presence
+/// toggles, then the intent chips.
+///
+/// "All" leads because it is the way back to an unfiltered radar, and burying
+/// the reset behind a scroll is how people end up stuck on an empty grid
+/// wondering where everyone went.
 class _QuickFilters extends ConsumerWidget {
   const _QuickFilters({required this.filter, required this.isPremium});
 
@@ -530,6 +577,13 @@ class _QuickFilters extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
       child: Row(
         children: [
+          RadiusChip(
+            label: 'All',
+            dense: true,
+            selected: filter.intent == null,
+            onTap: () => setFilter(filter.copyWith(clearIntent: true)),
+          ),
+          const SizedBox(width: 8),
           _presenceChip(
             context,
             label: 'Online now',
@@ -546,8 +600,8 @@ class _QuickFilters extends ConsumerWidget {
               filter.copyWith(recentlyActive: !filter.recentlyActive),
             ),
           ),
-          // A little air between the presence toggles and the intent chips —
-          // they behave differently (multi-toggle vs single-select).
+          // A little air before the intent chips — they behave differently
+          // from everything to the left (single-select vs toggle).
           Container(
             width: 1,
             height: 22,
@@ -598,10 +652,39 @@ class _QuickFilters extends ConsumerWidget {
 }
 
 /// Shown when the server stops handing out profiles.
-class _UnlockCard extends StatelessWidget {
+class _UnlockCard extends ConsumerStatefulWidget {
   const _UnlockCard({this.message});
 
   final String? message;
+
+  @override
+  ConsumerState<_UnlockCard> createState() => _UnlockCardState();
+}
+
+class _UnlockCardState extends ConsumerState<_UnlockCard> {
+  bool _watching = false;
+
+  Future<void> _watchAd() async {
+    if (_watching) return;
+    setState(() => _watching = true);
+    try {
+      final credits = await ref
+          .read(adActionsProvider)
+          .watchToUnlock(placement: 'nearby_unlock');
+      if (!mounted) return;
+      showRadiusToast(
+        context,
+        credits > 0
+            ? 'Unlocked — $credits credits added'
+            : 'That one was already counted',
+        tone: credits > 0 ? ToastTone.success : ToastTone.neutral,
+      );
+    } on AppException catch (e) {
+      if (mounted) showRadiusToast(context, e.message, tone: ToastTone.error);
+    } finally {
+      if (mounted) setState(() => _watching = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -615,8 +698,8 @@ class _UnlockCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            message ?? 'Premium opens the rest of your radius, with no daily '
-                'limit.',
+            widget.message ??
+                'Premium opens the rest of your radius, with no daily limit.',
             textAlign: TextAlign.center,
             style: AppTextStyles.caption,
           ),
@@ -631,12 +714,10 @@ class _UnlockCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           RadiusButton(
-            label: 'Watch an ad',
+            label: _watching ? 'Loading' : 'Watch an ad',
             kind: RadiusButtonKind.ghost,
-            onPressed: () => showRadiusToast(
-              context,
-              'Rewarded ads arrive in the next update.',
-            ),
+            isLoading: _watching,
+            onPressed: _watchAd,
           ),
         ],
       ),

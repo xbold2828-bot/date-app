@@ -7,7 +7,7 @@ import '../../../core/errors/app_exceptions.dart';
 import '../../../core/utils/onboarding_maps.dart';
 import '../../../providers/core_providers.dart';
 import '../../../providers/profile_provider.dart';
-import 'basics_screen6.dart';
+import 'basics_screen7.dart';
 
 class BasicsScreen5 extends ConsumerStatefulWidget {
   const BasicsScreen5({super.key});
@@ -54,9 +54,18 @@ class _BasicsScreen5State extends ConsumerState<BasicsScreen5> {
       ref.read(meProvider.notifier).setMe(me);
 
       if (mounted) {
+        // Straight to the agreement, skipping the live identity check.
+        //
+        // There is no verification provider behind that screen — the backend
+        // runs a mock — so it was a camera ceremony that could not actually
+        // verify anyone, sitting between people and a finished profile. It is
+        // not an onboarding step the API tracks either, so nothing downstream
+        // notices its absence. BasicsScreen6 is left in the tree, unrouted, to
+        // be wired back in when real verification ships alongside
+        // `REQUIRE_IDENTITY_VERIFICATION` on the backend.
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const BasicsScreen6()),
+          MaterialPageRoute(builder: (_) => const BasicsScreen7()),
         );
       }
     } on AppException catch (e) {

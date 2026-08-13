@@ -10,6 +10,7 @@ import '../../../providers/core_providers.dart';
 import '../../../providers/profile_provider.dart';
 import '../../auth/screens/login_screen.dart';
 import '../widgets/profile_edit_sheets.dart';
+import './blocked_accounts_screen.dart';
 import './premium_screen.dart';
 
 class YouScreen extends ConsumerStatefulWidget {
@@ -667,15 +668,24 @@ class _YouScreenState extends ConsumerState<YouScreen> {
 
           const SizedBox(height: 12),
 
-          // Safety Center
+          // Blocked accounts.
+          //
+          // Takes over the "Safety Center" slot, which was a tile that did
+          // nothing. This is the only route back from a block: once one lands,
+          // that person is gone from the radar, from likes, from their profile
+          // and from the inbox, so no other screen has a row left to unblock
+          // them from.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: _menuTile(
-              icon: Icons.security_outlined,
-              label: 'Safety Center',
-              onTap: () {
-                // TODO: Navigate to safety center
-              },
+              icon: Icons.block_outlined,
+              label: 'Blocked accounts',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const BlockedAccountsScreen(),
+                ),
+              ),
             ),
           ),
 

@@ -94,18 +94,86 @@ void main() {
     expect(r.isMatch, isTrue);
   });
 
-  test('LikedYouPage locked state carries a total but no identities', () {
+  test('LikedYouPage free preview: two people in full, the rest redacted', () {
     final page = LikedYouPage.fromJson(const {
       'total': 12,
       'locked': true,
       'source': null,
       'page': 1,
       'limit': 20,
+      'freeVisible': 2,
+      'lockedCount': 10,
+      'items': [
+        {'id': 'a', 'displayName': 'Ava', 'age': 27, 'primaryPhotoUrl': 'u'},
+        {'id': 'b', 'displayName': 'Nia', 'age': 24, 'primaryPhotoUrl': 'u'},
+        {'id': '', 'isOnline': true, 'locked': true},
+      ],
+    });
+
+    expect(page.total, 12);
+    expect(page.freeVisible, 2);
+    expect(page.lockedCount, 10);
+    expect(page.isEmpty, isFalse);
+
+    expect(page.items.take(2).every((c) => !c.locked), isTrue);
+    expect(page.items.first.displayName, 'Ava');
+
+    // A redacted card must arrive with nothing on it — including no id, which
+    // is what stops the tile being tapped through to the full profile.
+    final hidden = page.items.last;
+    expect(hidden.locked, isTrue);
+    expect(hidden.id, isEmpty);
+    expect(hidden.displayName, isNull);
+    expect(hidden.primaryPhotoUrl, isNull);
+    expect(hidden.age, isNull);
+    // Presence survives: it is the reason to unlock and identifies nobody.
+    expect(hidden.isOnline, isTrue);
+  });
+
+  test('LikedYouPage unlocked: everyone intact, nothing left to unlock', () {
+    final page = LikedYouPage.fromJson(const {
+      'total': 2,
+      'locked': false,
+      'source': 'premium',
+      'page': 1,
+      'limit': 20,
+      'freeVisible': 0,
+      'lockedCount': 0,
+      'items': [
+        {'id': 'a', 'displayName': 'Ava'},
+        {'id': 'b', 'displayName': 'Nia'},
+      ],
+    });
+    expect(page.locked, isFalse);
+    expect(page.source, 'premium');
+    expect(page.lockedCount, 0);
+    expect(page.items.any((c) => c.locked), isFalse);
+  });
+
+  test('LikedYouPage tells "nobody yet" apart from "nobody unlocked"', () {
+    final empty = LikedYouPage.fromJson(const {
+      'total': 0,
+      'locked': false,
+      'page': 1,
+      'limit': 20,
       'items': [],
     });
-    expect(page.locked, isTrue);
-    expect(page.total, 12);
-    expect(page.items, isEmpty);
+    expect(empty.isEmpty, isTrue);
+
+    // Locked people are not an empty state — showing "No likes yet" here would
+    // be a lie that costs a sale.
+    final gated = LikedYouPage.fromJson(const {
+      'total': 5,
+      'locked': true,
+      'page': 1,
+      'limit': 20,
+      'lockedCount': 3,
+      'items': [
+        {'id': 'a', 'displayName': 'Ava'},
+        {'id': '', 'locked': true},
+      ],
+    });
+    expect(gated.isEmpty, isFalse);
   });
 
   test('Message + ConversationSummary parse', () {

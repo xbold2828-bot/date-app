@@ -73,6 +73,19 @@ class ApiConstants {
   static const String likedYou = '/likes/liked-you';
   static const String favorites = '/likes/favorites';
 
+  /// Matches. Deliberately ungated — see the endpoint's own docs.
+  static const String mutualLikes = '/likes/mutual';
+
+  // ── Safety (block / report) ─────────────────────────────────────────────
+  static const String safetyBlock = '/safety/block';
+  static const String safetyBlocks = '/safety/blocks';
+  static String safetyUnblock(String userId) => '/safety/block/$userId';
+  static const String safetyReport = '/safety/report';
+
+  // ── Rewarded ads (credits that unlock gated surfaces) ───────────────────
+  static const String adsReward = '/ads/reward';
+  static const String adsHistory = '/ads/history';
+
   // ── Messaging ───────────────────────────────────────────────────────────
   static const String messagingOpen = '/messaging/open';
   static const String conversations = '/messaging/conversations';
@@ -83,6 +96,12 @@ class ApiConstants {
       '/messaging/conversations/$conversationId/read';
   static String conversationArchive(String conversationId) =>
       '/messaging/conversations/$conversationId/archive';
+  static String conversationUnarchive(String conversationId) =>
+      '/messaging/conversations/$conversationId/unarchive';
+
+  /// DELETE — removes the thread from MY inbox only.
+  static String conversation(String conversationId) =>
+      '/messaging/conversations/$conversationId';
 }
 
 /// Socket.io namespaces and event names (see backend presence/messaging
@@ -101,4 +120,9 @@ class SocketConstants {
   static const String chatMessage = 'chat:message';
   static const String chatRead = 'chat:read';
   static const String chatTyping = 'chat:typing';
+
+  /// Pushed to the person who did NOT complete the match — they are elsewhere
+  /// in the app and would otherwise not learn about it until they opened the
+  /// Mutual tab. Rides the chat namespace, which already keeps a per-user room.
+  static const String matchNew = 'match:new';
 }

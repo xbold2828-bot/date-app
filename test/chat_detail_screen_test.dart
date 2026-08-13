@@ -42,6 +42,12 @@ class _FakeChatRepository implements ChatRepository {
       throw UnimplementedError('${invocation.memberName} not stubbed');
 }
 
+/// Presence without a socket.
+class _StillPresence extends PresenceNotifier {
+  @override
+  Map<String, bool> build() => const {};
+}
+
 void main() {
   late _FakeChatRepository repo;
   late GlobalKey<NavigatorState> nav;
@@ -62,6 +68,10 @@ void main() {
           chatServiceProvider.overrideWithValue(
             ChatService(tokenGetter: () => null),
           ),
+          // The header shows "Active now" from live presence, and the real
+          // presence provider connects a socket (and reaches for Supabase) the
+          // moment it is read.
+          presenceProvider.overrideWith(_StillPresence.new),
         ],
         child: MaterialApp(
           navigatorKey: nav,
@@ -132,15 +142,9 @@ void unawaitedPush(GlobalKey<NavigatorState> nav) {
     MaterialPageRoute<void>(
       builder: (_) => const ChatDetailScreen(
         conversationId: 'c1',
-        user: {
-          'id': 'u2',
-          'name': 'Vinayak',
-          'age': 26,
-          'distance': '',
-          'online': true,
-          'color': Colors.brown,
-          'photoUrl': null,
-        },
+        userId: 'u2',
+        userName: 'Vinayak',
+        userAge: 26,
       ),
     ),
   );

@@ -76,4 +76,15 @@ class ChatRepository {
   /// `POST /messaging/conversations/:id/archive` — archive (per-user).
   Future<void> archive(String conversationId) =>
       _api.post(ApiConstants.conversationArchive(conversationId));
+
+  /// `POST /messaging/conversations/:id/unarchive` — back to the inbox.
+  Future<void> unarchive(String conversationId) =>
+      _api.post(ApiConstants.conversationUnarchive(conversationId));
+
+  /// `DELETE /messaging/conversations/:id` — remove from MY inbox.
+  ///
+  /// Per-user: the other person keeps their copy, and a new message from them
+  /// brings the thread back. Nothing is destroyed server-side.
+  Future<void> deleteConversation(String conversationId) =>
+      _api.delete(ApiConstants.conversation(conversationId));
 }

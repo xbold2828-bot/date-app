@@ -25,6 +25,16 @@ class PublicProfile {
   final String? primaryPhotoUrl;
   final List<String> photos;
 
+  /// Whether I have already liked this person.
+  ///
+  /// The like button has no other way to know: without it every profile
+  /// rendered as un-liked on reopen, which invited people to like the same
+  /// person again and again.
+  final bool hasLiked;
+
+  /// We liked each other. Implies [hasLiked].
+  final bool isMatch;
+
   const PublicProfile({
     required this.id,
     this.displayName,
@@ -44,6 +54,8 @@ class PublicProfile {
     this.isVerified = false,
     this.primaryPhotoUrl,
     this.photos = const [],
+    this.hasLiked = false,
+    this.isMatch = false,
   });
 
   factory PublicProfile.fromJson(Map<String, dynamic> json) => PublicProfile(
@@ -66,5 +78,7 @@ class PublicProfile {
         isVerified: json['isVerified'] as bool? ?? false,
         primaryPhotoUrl: json['primaryPhotoUrl'] as String?,
         photos: _strs(json['photos']),
+        hasLiked: json['hasLiked'] as bool? ?? false,
+        isMatch: json['isMatch'] as bool? ?? false,
       );
 }

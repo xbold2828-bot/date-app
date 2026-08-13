@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models/message_model.dart';
+import '../data/repositories/safety_repository.dart';
 import 'core_providers.dart';
+import 'match_provider.dart';
 
 /// Inbox list for a given state tab (null = all, 'new_energy', 'vibing').
 class ConversationsNotifier
@@ -148,8 +150,87 @@ class ChatActions {
     ref.invalidate(conversationsProvider);
   }
 
-  Future<void> archive(String conversationId) =>
-      ref.read(chatRepositoryProvider).archive(conversationId);
+  /// Archive, un-archive, and delete all change which list a thread belongs to,
+  /// so each one refreshes every list rather than guessing which are affected.
+  Future<void> archive(String conversationId) async {
+    await ref.read(chatRepositoryProvider).archive(conversationId);
+    _refreshInbox();
+  }
+
+  Future<void> unarchive(String conversationId) async {
+    await ref.read(chatRepositoryProvider).unarchive(conversationId);
+    _refreshInbox();
+  }
+
+  /// Remove the thread from my inbox. Per-user — their copy is untouched.
+  Future<void> deleteConversation(String conversationId) async {
+    await ref.read(chatRepositoryProvider).deleteConversation(conversationId);
+    _refreshInbox();
+  }
+
+  /// Block someone, then clear them out of every list they could appear in.
+  ///
+  /// A block is not a chat action — it hides both people from each other in
+  /// discovery and likes too — so the refresh reaches past the inbox.
+  Future<void> blockUser(String userId) async {
+    await ref.read(safetyRepositoryProvider).block(userId);
+    ref.invalidate(blockedUsersProvider);
+    _refreshInbox();
+    ref.invalidate(likedYouProvider);
+    ref.invalidate(mutualLikesProvider);
+  }
+
+  /// Let someone back in. Everything they were excluded from has to reload.
+  Future<void> unblockUser(String userId) async {
+    await ref.read(safetyRepositoryProvider).unblock(userId);
+    ref.invalidate(blockedUsersProvider);
+    _refreshInbox();
+    ref.invalidate(likedYouProvider);
+    ref.invalidate(mutualLikesProvider);
+    ref.read(nearbyProvider.notifier).refresh();
+  }
+
+  Future<void> reportUser(
+    String userId, {
+    required String reason,
+    String? context,
+  }) =>
+      ref
+          .read(safetyRepositoryProvider)
+          .report(userId, reason: reason, context: context);
+
+  void _refreshInbox() {
+    ref.invalidate(conversationsProvider);
+    ref.invalidate(archivedConversationsProvider);
+    ref.read(unreadCountProvider.notifier).refresh();
+  }
 }
 
 final chatActionsProvider = Provider<ChatActions>((ref) => ChatActions(ref));
+
+/// People I have blocked.
+///
+/// Not autoDispose: the chat action menu reads it to decide whether to offer
+/// "Block" or "Unblock", and refetching that on every menu open would be a
+/// request per tap. One fetch serves the session, and every block/unblock
+/// invalidates it.
+final blockedUsersProvider =
+    FutureProvider<List<BlockedUser>>((ref) async {
+  final page = await ref.watch(safetyRepositoryProvider).blocks();
+  return page.items;
+});
+
+/// Just the ids, for the cheap "have I blocked this person?" check.
+final blockedUserIdsProvider = Provider<Set<String>>((ref) {
+  final blocked = ref.watch(blockedUsersProvider).valueOrNull ?? const [];
+  return {for (final user in blocked) user.id};
+});
+
+/// The archive — threads filed away rather than deleted.
+final archivedConversationsProvider =
+    FutureProvider.autoDispose<List<ConversationSummary>>((ref) async {
+  final page = await ref
+      .watch(chatRepositoryProvider)
+      .conversations(archived: true, limit: 50);
+  return page.items;
+});

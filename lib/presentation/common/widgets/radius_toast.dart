@@ -3,6 +3,29 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 
+/// The app-wide messenger, attached to `MaterialApp.scaffoldMessengerKey`.
+///
+/// Having one lets code that holds no [BuildContext] — a provider, a repository
+/// callback, a socket handler — still confirm what it just did. Screens should
+/// keep using [showRadiusToast] with their own context; this is the fallback the
+/// context-free path uses.
+final GlobalKey<ScaffoldMessengerState> radiusMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
+
+/// How loud a toast is. The default carries no colour of its own — most
+/// confirmations are unremarkable and should not compete with the screen.
+enum ToastTone {
+  /// "Filters applied". The plain dark pill.
+  neutral,
+
+  /// "Message sent", "You liked Ava". A quiet green mark, nothing more.
+  success,
+
+  /// Something did not happen. Distinct at a glance, so a failure is never
+  /// mistaken for the confirmation it sits in the same place as.
+  error,
+}
+
 /// Confirms that something just happened, then gets out of the way.
 ///
 /// A dark pill on the cream ground. Use it for the outcome of an action the
@@ -11,21 +34,53 @@ import '../../../core/constants/app_text_styles.dart';
 ///
 /// Keep the message in the same words as the control that triggered it: a
 /// button saying "Block" produces "Blocked", never "Report submitted".
-void showRadiusToast(BuildContext context, String message) {
-  final messenger = ScaffoldMessenger.maybeOf(context);
+void showRadiusToast(
+  BuildContext context,
+  String message, {
+  ToastTone tone = ToastTone.neutral,
+}) {
+  // Falls back to the global messenger when this context has none — which is
+  // the case for anything shown above the navigator, and for a context that has
+  // already been unmounted by the time the async call it triggered returns.
+  final messenger =
+      ScaffoldMessenger.maybeOf(context) ?? radiusMessengerKey.currentState;
+  _show(messenger, message, tone);
+}
+
+/// Toast without a [BuildContext], via [radiusMessengerKey]. Silently does
+/// nothing before the app is mounted — a dropped confirmation is not worth a
+/// crash.
+void showRadiusToastGlobal(
+  String message, {
+  ToastTone tone = ToastTone.neutral,
+}) =>
+    _show(radiusMessengerKey.currentState, message, tone);
+
+void _show(ScaffoldMessengerState? messenger, String message, ToastTone tone) {
   if (messenger == null) return;
 
   messenger
     ..hideCurrentSnackBar()
     ..showSnackBar(
       SnackBar(
-        content: Text(
-          message,
-          textAlign: TextAlign.center,
-          style: AppTextStyles.bodyStrong.copyWith(
-            color: AppColors.white,
-            fontSize: 13.5,
-          ),
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_icon(tone) != null) ...[
+              Icon(_icon(tone), size: 15, color: _accent(tone)),
+              const SizedBox(width: 9),
+            ],
+            Flexible(
+              child: Text(
+                message,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.bodyStrong.copyWith(
+                  color: AppColors.white,
+                  fontSize: 13.5,
+                ),
+              ),
+            ),
+          ],
         ),
         backgroundColor: AppColors.textDark,
         behavior: SnackBarBehavior.floating,
@@ -40,3 +95,19 @@ void showRadiusToast(BuildContext context, String message) {
       ),
     );
 }
+
+IconData? _icon(ToastTone tone) => switch (tone) {
+      ToastTone.neutral => null,
+      ToastTone.success => Icons.check_circle,
+      ToastTone.error => Icons.error_outline,
+    };
+
+/// Colour lives on the mark, never the pill: a green or red background at this
+/// size reads as an alert bar, which is not what a toast is for.
+Color _accent(ToastTone tone) => switch (tone) {
+      ToastTone.neutral => AppColors.white,
+      // Lifted off AppColors.ok, which is tuned for the cream ground and goes
+      // muddy on the dark pill.
+      ToastTone.success => const Color(0xFF5FD3A3),
+      ToastTone.error => const Color(0xFFFF9BA5),
+    };

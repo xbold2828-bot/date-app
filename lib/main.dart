@@ -8,6 +8,7 @@ import 'core/constants/env.dart';
 import 'core/theme/app_theme.dart';
 import 'presentation/auth/screens/authed_bootstrap.dart';
 import 'presentation/auth/screens/login_screen.dart';
+import 'presentation/common/widgets/radius_toast.dart';
 import 'providers/core_providers.dart';
 
 void main() async {
@@ -39,6 +40,10 @@ class MyApp extends StatelessWidget {
       title: 'Radius',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      // One messenger for the whole app, so a confirmation can be raised from
+      // anywhere — including code holding no BuildContext, and screens whose
+      // context is gone by the time their request comes back.
+      scaffoldMessengerKey: radiusMessengerKey,
       home: const AuthGate(),
     );
   }

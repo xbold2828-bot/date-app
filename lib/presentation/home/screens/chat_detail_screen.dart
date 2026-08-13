@@ -4,23 +4,48 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../data/models/message_model.dart';
 import '../../../providers/chat_provider.dart';
 import '../../../providers/realtime_provider.dart';
+import '../../common/widgets/widgets.dart';
+import '../widgets/chat_actions_menu.dart';
+import '../widgets/message_limit_paywall.dart';
+import './profile_detail_sheet.dart';
 
 class ChatDetailScreen extends ConsumerStatefulWidget {
-  /// The conversation this thread renders.
-  final String conversationId;
+  /// The conversation this thread renders, or null when there isn't one yet.
+  ///
+  /// A match can be opened before anybody has said anything — the Mutual tab
+  /// goes straight here — so the screen has to be able to start empty and adopt
+  /// the conversation the first message creates.
+  final String? conversationId;
 
-  /// Display info for the other participant: id, name, age, distance, photoUrl,
-  /// color, online.
-  final Map<String, dynamic> user;
+  final String userId;
+  final String userName;
+  final int? userAge;
+  final String? photoUrl;
+  final int colorIndex;
+
+  /// The inbox summary, when the caller has one.
+  ///
+  /// Carries the header's location / last-active / deactivated flags. Passed in
+  /// rather than re-fetched: the inbox already loaded it, and a screen that
+  /// re-reads the whole conversation list to render three words under a name
+  /// is paying a request for something it was handed. Null when arriving from
+  /// a match, where there is no summary yet — presence still shows.
+  final ChatOtherUser? otherUser;
 
   const ChatDetailScreen({
     super.key,
     required this.conversationId,
-    required this.user,
+    required this.userId,
+    required this.userName,
+    this.userAge,
+    this.photoUrl,
+    this.colorIndex = 0,
+    this.otherUser,
   });
 
   @override
@@ -44,16 +69,22 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   /// the widget, and this provider is never auto-disposed.
   StateController<String?>? _activeClaim;
 
-  String get _convId => widget.conversationId;
-  String? get _otherId => widget.user['id'] as String?;
+  /// Null until the first message creates the thread. Everything that talks to
+  /// the server guards on this rather than assuming a conversation exists.
+  String? _convId;
+
+  String get _otherId => widget.userId;
 
   @override
   void initState() {
     super.initState();
+    _convId = widget.conversationId;
     WidgetsBinding.instance.addPostFrameCallback((_) => _onOpen());
   }
 
   Future<void> _onOpen() async {
+    // Nothing to join yet — this is a match nobody has written to.
+    if (_convId == null) return;
     // This runs from a post-frame callback, so the screen may already be gone
     // (popped within the same frame). Subscribing now would register socket
     // listeners that dispose() has already finished cancelling — orphaned
@@ -61,10 +92,12 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     // subsequent event.
     if (!mounted) return;
 
+    final convId = _convId!;
+
     // Claim this thread so the global realtime listener stops counting its
     // messages towards the unread badge while it's on screen.
     _activeClaim = ref.read(activeConversationProvider.notifier);
-    _activeClaim!.state = _convId;
+    _activeClaim!.state = convId;
 
     // Subscribe before the awaited mark-read: a message landing in that window
     // would otherwise be skipped by the global listener (this thread is already
@@ -72,13 +105,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     final chat = ref.read(chatServiceProvider);
     _subs.add(chat.messages.listen((incoming) {
       if (!_isLive(incoming.conversationId)) return;
-      ref.read(messagesProvider(_convId).notifier).addIncoming(incoming.message);
-      ref.read(chatActionsProvider).markRead(_convId);
+      ref.read(messagesProvider(convId).notifier).addIncoming(incoming.message);
+      ref.read(chatActionsProvider).markRead(convId);
       _scrollToBottom();
     }));
     _subs.add(chat.reads.listen((receipt) {
       if (!_isLive(receipt.conversationId)) return;
-      ref.read(messagesProvider(_convId).notifier).markMineRead();
+      ref.read(messagesProvider(convId).notifier).markMineRead();
     }));
     _subs.add(chat.typing.listen((event) {
       if (!_isLive(event.conversationId)) return;
@@ -91,7 +124,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
     if (!mounted) return;
     try {
-      await ref.read(chatActionsProvider).markRead(_convId);
+      await ref.read(chatActionsProvider).markRead(convId);
     } catch (_) {}
   }
 
@@ -121,7 +154,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   /// then rebuilds a defunct element (and would resurrect the autoDisposed
   /// message list purely as a side effect), so every callback checks here.
   bool _isLive(String conversationId) =>
-      mounted && conversationId == _convId;
+      mounted && _convId != null && conversationId == _convId;
 
   @override
   void dispose() {
@@ -142,12 +175,36 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     _messageController.clear();
     setState(() => _sending = true);
     try {
-      await ref.read(chatActionsProvider).send(_convId, text);
+      final convId = _convId;
+      if (convId == null) {
+        // No thread yet — this message is what creates it. Opening is the
+        // gated action (three a day), which is why the paywall lives here and
+        // not on the reply path below.
+        final result =
+            await ref.read(chatActionsProvider).open(_otherId, text);
+        if (!mounted) return;
+        setState(() => _convId = result.conversation.id);
+        // Now that there is something to listen to, wire up the live plumbing.
+        await _onOpen();
+      } else {
+        await ref.read(chatActionsProvider).send(convId, text);
+      }
       _scrollToBottom();
-    } on AppException catch (e) {
+      // The message appearing in the thread is the real confirmation, so this
+      // is deliberately quiet — it exists so "sent" and "failed to send" are
+      // told in the same place, in the same way.
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        showRadiusToast(context, 'Message sent', tone: ToastTone.success);
+      }
+    } on EntitlementRequiredException catch (gate) {
+      // Put the text back — losing what someone typed because they hit a
+      // paywall is the worst possible moment to lose it.
+      _messageController.text = text;
+      if (mounted) showMessageLimitPaywall(context, gate: gate);
+    } on AppException catch (e) {
+      _messageController.text = text;
+      if (mounted) {
+        showRadiusToast(context, e.message, tone: ToastTone.error);
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -155,11 +212,11 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   }
 
   void _onInputChanged(String _) {
-    final toUserId = _otherId;
-    if (toUserId == null) return;
+    final convId = _convId;
+    if (convId == null) return;
     ref
         .read(chatServiceProvider)
-        .sendTyping(toUserId: toUserId, conversationId: _convId);
+        .sendTyping(toUserId: _otherId, conversationId: convId);
   }
 
   void _scrollToBottom() {
@@ -187,28 +244,34 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final messagesAsync = ref.watch(messagesProvider(_convId));
+    final convId = _convId;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
-            _buildTopBar(widget.user),
+            _buildTopBar(),
             Expanded(
-              child: messagesAsync.when(
-                loading: () => const Center(
-                  child: CircularProgressIndicator(color: AppColors.primary),
-                ),
-                error: (err, _) => Center(
-                  child: Text(
-                    "Couldn't load messages.\n$err",
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: AppColors.textGrey),
-                  ),
-                ),
-                data: (messages) => _buildMessageList(messages),
-              ),
+              child: convId == null
+                  // A match with nothing said yet. An empty thread with a
+                  // composer is more honest than a spinner over no data.
+                  ? _EmptyThread(name: widget.userName)
+                  : ref.watch(messagesProvider(convId)).when(
+                        loading: () => const Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        error: (err, _) => Center(
+                          child: Text(
+                            "Couldn't load messages.\n$err",
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: AppColors.textGrey),
+                          ),
+                        ),
+                        data: (messages) => _buildMessageList(messages),
+                      ),
             ),
             if (_isTyping) _buildTypingIndicator(),
             _buildInputBar(),
@@ -218,8 +281,52 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     );
   }
 
-  Widget _buildTopBar(Map<String, dynamic> user) {
-    final name = (user['name'] as String?) ?? 'Someone';
+  /// Open the full profile from the thread.
+  ///
+  /// The name at the top of a conversation is the only thing on this screen
+  /// identifying who you are talking to, so it should be the way to find out
+  /// more about them.
+  void _openProfile() {
+    showRadiusSheet<void>(
+      context: context,
+      builder: (_) => ProfileDetailSheet(
+        userId: _otherId,
+        seed: ProfileSeed(
+          name: widget.userName,
+          age: widget.userAge,
+          photoUrl: widget.photoUrl,
+          colorIndex: widget.colorIndex,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openActions() async {
+    final convId = _convId;
+    if (convId == null) {
+      // Nothing to archive or delete yet; blocking and reporting still apply.
+      showRadiusToast(context, 'Say something first');
+      return;
+    }
+    final result = await showChatActionsMenu(
+      context,
+      conversationId: convId,
+      userId: _otherId,
+      userName: widget.userName,
+    );
+    // Deleting, blocking or archiving from inside the thread means this screen
+    // is now showing something that is no longer in the inbox.
+    if (!mounted || result == null) return;
+    if (result != ChatActionResult.reported) Navigator.pop(context);
+  }
+
+  Widget _buildTopBar() {
+    final name = widget.userName;
+    // Live presence beats whatever the inbox said when it was fetched.
+    final online = ref.watch(presenceProvider)[_otherId] ??
+        widget.otherUser?.isOnline ??
+        false;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: const BoxDecoration(
@@ -235,62 +342,80 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             child: const Icon(Icons.arrow_back, color: AppColors.textDark),
           ),
           const SizedBox(width: 10),
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: user['color'] as Color? ?? AppColors.inputBorder,
-            ),
-            child: user['photoUrl'] != null
-                ? ClipOval(
-                    child: Image.network(
-                      user['photoUrl'] as String,
-                      fit: BoxFit.cover,
-                    ),
-                  )
-                : Center(
-                    child: Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : '?',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.white,
-                      ),
-                    ),
-                  ),
-          ),
-          const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  user['age'] != null ? '$name, ${user['age']}' : name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
+            child: Semantics(
+              button: true,
+              label: "Open $name's profile",
+              excludeSemantics: true,
+              child: InkWell(
+                onTap: _openProfile,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: widget.photoUrl == null
+                              ? avatarGradient(widget.colorIndex)
+                              : null,
+                          image: widget.photoUrl != null
+                              ? DecorationImage(
+                                  image: NetworkImage(widget.photoUrl!),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                        ),
+                        child: widget.photoUrl == null
+                            ? Center(
+                                child: Text(
+                                  name.isNotEmpty
+                                      ? name[0].toUpperCase()
+                                      : '?',
+                                  style: AppTextStyles.avatarInitial(17),
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              widget.userAge != null
+                                  ? '$name, ${widget.userAge}'
+                                  : name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.bodyStrong.copyWith(
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w700,
+                                fontVariations: const [
+                                  FontVariation('wght', 700),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            _StatusFlags(
+                              online: online,
+                              other: widget.otherUser,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on_outlined,
-                        size: 12, color: AppColors.textGrey),
-                    const SizedBox(width: 2),
-                    Text(
-                      user['distance'] as String? ?? '',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textGrey,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
-          _topBarIcon(Icons.more_vert, _showOptionsMenu),
+          const SizedBox(width: 6),
+          _topBarIcon(Icons.more_vert, _openActions),
         ],
       ),
     );
@@ -437,7 +562,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               border: Border.all(color: AppColors.inputBorder),
             ),
             child: Text(
-              '${widget.user['name'] ?? 'They'} is typing...',
+              '${widget.userName} is typing...',
               style: const TextStyle(
                 fontSize: 12,
                 color: AppColors.textGrey,
@@ -507,63 +632,118 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     );
   }
 
-  void _showOptionsMenu() {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+}
+
+/// A match nobody has written to yet.
+class _EmptyThread extends StatelessWidget {
+  const _EmptyThread({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _optionTile(Icons.archive_outlined, 'Archive chat', AppColors.textDark,
-                () async {
-              Navigator.pop(context);
-              await ref.read(chatActionsProvider).archive(_convId);
-              if (mounted) Navigator.pop(context);
-            }),
-            _optionTile(Icons.block_outlined, 'Block user', Colors.red, () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Blocking arrives in the next update.')),
-              );
-            }),
-            _optionTile(Icons.flag_outlined, 'Report', Colors.orange, () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Reporting arrives in the next update.')),
-              );
-            }),
+            const RadarMark(size: 84, color: AppColors.iconMuted),
+            const SizedBox(height: 18),
+            Text(
+              'You matched with $name',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.title.copyWith(fontSize: 18),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Neither of you has said anything yet. Someone has to go first.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.caption,
+            ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _optionTile(
-      IconData icon, String label, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: color),
-            const SizedBox(width: 14),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 15,
-                color: color,
-                fontWeight: FontWeight.w500,
-              ),
+/// The live flags under the name: where they are, whether they are around, and
+/// whether the account still exists.
+///
+/// Deactivated wins outright — telling someone their match is "active 2h ago"
+/// when the account is gone would be worse than saying nothing.
+class _StatusFlags extends StatelessWidget {
+  const _StatusFlags({required this.online, this.other});
+
+  final bool online;
+  final ChatOtherUser? other;
+
+  @override
+  Widget build(BuildContext context) {
+    if (other?.isDeactivated ?? false) {
+      return const _Flag(
+        icon: Icons.person_off_outlined,
+        label: 'Account deactivated',
+        tone: _FlagTone.muted,
+      );
+    }
+
+    final city = other?.city;
+    final activity = online ? 'Active now' : other?.activityLabel;
+
+    return Row(
+      children: [
+        if (city != null && city.isNotEmpty) ...[
+          Flexible(
+            child: _Flag(
+              icon: Icons.location_on_outlined,
+              label: city,
+              tone: _FlagTone.muted,
             ),
-          ],
+          ),
+          if (activity != null) const SizedBox(width: 10),
+        ],
+        if (activity != null)
+          Flexible(
+            child: _Flag(
+              icon: Icons.circle,
+              label: activity,
+              tone: online ? _FlagTone.live : _FlagTone.muted,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+enum _FlagTone { muted, live }
+
+class _Flag extends StatelessWidget {
+  const _Flag({required this.icon, required this.label, required this.tone});
+
+  final IconData icon;
+  final String label;
+  final _FlagTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        tone == _FlagTone.live ? const Color(0xFF2E9E6B) : AppColors.textGrey;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: tone == _FlagTone.live ? 7 : 11, color: color),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.caption.copyWith(fontSize: 11, color: color),
+          ),
         ),
-      ),
+      ],
     );
   }
 }
