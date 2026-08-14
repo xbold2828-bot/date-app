@@ -129,7 +129,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget _body() => switch (_current) {
         _Tab.radar => const _RadarTab(),
         _Tab.likes => const FavoritesScreen(),
-        _Tab.explore => const ExploreScreen(),
+        // Explore only shows people who have replied to you, so its empty
+        // state has to be able to send you somewhere you can meet them — and
+        // the tab bar lives here, not there.
+        _Tab.explore => ExploreScreen(
+            onBrowsePeople: () => setState(() => _current = _Tab.radar),
+          ),
         _Tab.chats => const RequestsScreen(),
         _Tab.you => const YouScreen(),
       };

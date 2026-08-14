@@ -154,70 +154,33 @@ class MyLocationNotifier extends AsyncNotifier<LatLng?> {
 final myLocationProvider =
     AsyncNotifierProvider<MyLocationNotifier, LatLng?>(MyLocationNotifier.new);
 
-/// The map's people, plus the gates the API can put in front of them.
+/// The people on the Explore map: whoever the user is **vibing** with.
 ///
-/// [paywall] and [needsLocation] mirror [NearbyState] exactly, because they
-/// come from the same endpoint family and the same two failures: the reveal
-/// allowance running out, and an account with no location set. Modelling them
-/// as state rather than as errors is what lets the map stay on screen
-/// underneath the card explaining itself.
-class ExploreState {
-  const ExploreState({
-    this.users = const [],
-    this.city,
-    this.paywall,
-    this.needsLocation = false,
-  });
-
-  final List<MapUser> users;
-  final String? city;
-  final EntitlementRequiredException? paywall;
-  final bool needsLocation;
-
-  bool get isEmpty => users.isEmpty && paywall == null && !needsLocation;
-}
-
-class ExploreNotifier extends AsyncNotifier<ExploreState> {
+/// Not discovery. A vibing conversation is one both people have spoken in — the
+/// recipient replied — and that mutual consent is the entire basis for putting
+/// somebody on a map. New Energy threads are excluded on purpose: one person
+/// has reached out and not been answered, and a location is not something to
+/// hand an unanswered sender.
+///
+/// Which is why there is no filter, no radius and no paywall state here. Those
+/// all belong to discovery: they decide who a *stranger* search returns. This
+/// list is simply the user's own conversations, so there is nothing to narrow
+/// and nothing to charge for.
+class ExploreNotifier extends AsyncNotifier<List<MapUser>> {
   @override
-  Future<ExploreState> build() {
-    // The single seam that keeps Explore honest: the radius selector and the
-    // existing DiscoveryFilterSheet both write here, and both reload the map.
-    ref.watch(discoveryFilterProvider);
-    return _load();
-  }
-
-  Future<ExploreState> _load() async {
-    final filter = ref.read(discoveryFilterProvider);
-    try {
-      final page = await ref.read(discoveryRepositoryProvider).explore(
-            intent: filter.intent,
-            band: filter.band,
-            genders: filter.genders,
-            minAge: filter.isFullAgeRange ? null : filter.minAge,
-            maxAge: filter.isFullAgeRange ? null : filter.maxAge,
-            verifiedOnly: filter.verifiedOnly,
-            onlineOnly: filter.onlineOnly,
-            recentlyActive: filter.recentlyActive,
-            relationshipStatus: filter.relationshipStatus,
-            personalityTags: filter.personalityTags,
-            preferenceTags: filter.preferenceTags,
-          );
-      return ExploreState(users: page.items, city: page.city);
-    } on EntitlementRequiredException catch (e) {
-      return ExploreState(paywall: e);
-    } on BadRequestException {
-      return const ExploreState(needsLocation: true);
-    }
-  }
+  Future<List<MapUser>> build() =>
+      ref.watch(chatRepositoryProvider).mapPeople();
 
   Future<void> refresh() async {
-    state = const AsyncLoading<ExploreState>().copyWithPrevious(state);
-    state = await AsyncValue.guard(_load);
+    state = const AsyncLoading<List<MapUser>>().copyWithPrevious(state);
+    state = await AsyncValue.guard(
+      () => ref.read(chatRepositoryProvider).mapPeople(),
+    );
   }
 }
 
 final exploreProvider =
-    AsyncNotifierProvider<ExploreNotifier, ExploreState>(ExploreNotifier.new);
+    AsyncNotifierProvider<ExploreNotifier, List<MapUser>>(ExploreNotifier.new);
 
 /// The person whose preview is open, or null.
 ///

@@ -68,29 +68,35 @@ class GlassSurface extends StatelessWidget {
   }
 }
 
-/// Title, the live count of who is on the map, and the way into the existing
-/// discovery filters.
+/// Title, the live count of who is on the map, and the way to search it.
+///
+/// No filter button: filters parameterise a search for strangers, and this map
+/// shows conversations the user already has. A control that changed nothing
+/// would be worse than no control.
 class ExploreHeader extends StatelessWidget {
   const ExploreHeader({
     super.key,
     required this.count,
     required this.isLoading,
-    required this.onFilters,
-    this.city,
+    required this.onSearch,
   });
 
   final int count;
   final bool isLoading;
-  final String? city;
-  final VoidCallback onFilters;
+  /// Opens the full grid with its search field — the way to reach somebody by
+  /// name rather than by scrolling the strip or hunting the map.
+  final VoidCallback onSearch;
 
   @override
   Widget build(BuildContext context) {
+    // "Vibing" is the app's own word for a conversation both people are in,
+    // and it is the exact rule for who is on this map. Anything vaguer —
+    // "nearby", "friends" — would describe a different set of people.
     final subtitle = switch (count) {
-      _ when isLoading => 'Finding people around you…',
-      0 => city == null ? 'No one nearby yet' : 'No one in $city yet',
-      1 => '1 person around you',
-      _ => '$count people around you',
+      _ when isLoading => 'Finding your people…',
+      0 => 'Nobody on your map yet',
+      1 => '1 person you are vibing with',
+      _ => '$count people you are vibing with',
     };
 
     return GlassSurface(
@@ -131,12 +137,17 @@ class ExploreHeader extends StatelessWidget {
           ),
           Semantics(
             button: true,
-            label: 'Discovery filters',
+            label: 'Search people nearby',
             excludeSemantics: true,
             child: IconButton(
-              onPressed: onFilters,
-              icon: const Icon(Icons.tune, size: 20, color: AppColors.textDark),
-              tooltip: 'Filters',
+              onPressed: onSearch,
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(
+                Icons.search,
+                size: 21,
+                color: AppColors.textDark,
+              ),
+              tooltip: 'Search',
             ),
           ),
         ],
@@ -214,6 +225,55 @@ class ExploreViewToggle extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The stacked +/− pair.
+///
+/// Pinch already zooms, so this is not the only way in — it is for one-handed
+/// use and for the precise single steps that a pinch cannot give you.
+class ExploreZoomButtons extends StatelessWidget {
+  const ExploreZoomButtons({
+    super.key,
+    required this.onZoomIn,
+    required this.onZoomOut,
+  });
+
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassSurface(
+      radius: 16,
+      padding: EdgeInsets.zero,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _button(Icons.add, 'Zoom in', onZoomIn),
+          Container(
+            width: 26,
+            height: 1,
+            color: AppColors.inputBorder.withValues(alpha: 0.8),
+          ),
+          _button(Icons.remove, 'Zoom out', onZoomOut),
+        ],
+      ),
+    );
+  }
+
+  Widget _button(IconData icon, String label, VoidCallback onTap) => Semantics(
+        button: true,
+        label: label,
+        excludeSemantics: true,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            width: 46,
+            height: 42,
+            child: Icon(icon, size: 20, color: AppColors.textDark),
+          ),
+        ),
+      );
 }
 
 /// Round glass button. Used for centre-on-me, and for anything else that turns

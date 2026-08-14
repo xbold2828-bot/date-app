@@ -179,13 +179,10 @@ class ChatActions {
     _refreshInbox();
     ref.invalidate(likedYouProvider);
     ref.invalidate(mutualLikesProvider);
-    // Explore holds a page of people with positions on a map, and a blocked
-    // person left in it is visible as a marker, inside a cluster count, and
-    // through a preview. The backend already excludes them from the next
-    // response — this is what makes there be a next response. Its selection is
-    // cleared too, in case the block happened from the open preview.
+    // A blocked person left on the map is visible as a marker and reachable
+    // through the composer. `_refreshInbox` reloads the map; the selection is
+    // cleared here in case they were the person it was focused on.
     ref.read(exploreSelectionProvider.notifier).state = null;
-    ref.read(exploreProvider.notifier).refresh();
   }
 
   /// Let someone back in. Everything they were excluded from has to reload.
@@ -212,6 +209,11 @@ class ChatActions {
     ref.invalidate(conversationsProvider);
     ref.invalidate(archivedConversationsProvider);
     ref.read(unreadCountProvider.notifier).refresh();
+    // The Explore map *is* the vibing inbox, drawn on a map. Anything that
+    // changes which conversations exist or what state they are in — a new
+    // opener, a first reply flipping New Energy to Vibing, an archive, a
+    // delete — changes who belongs on it.
+    ref.read(exploreProvider.notifier).refresh();
   }
 }
 

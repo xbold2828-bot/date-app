@@ -57,24 +57,3 @@ class MapUser {
     return MapUser(card: card, latitude: latitude, longitude: longitude);
   }
 }
-
-/// The `GET /discovery/explore` response.
-///
-/// One page, no pagination: the endpoint caps itself at 100 people, which is
-/// more than a map can usefully draw and well past the point where clustering
-/// takes over anyway.
-class ExplorePage {
-  const ExplorePage({this.city, this.items = const []});
-
-  final String? city;
-  final List<MapUser> items;
-
-  factory ExplorePage.fromJson(Map<String, dynamic> json) => ExplorePage(
-        city: json['city'] as String?,
-        items: ((json['items'] as List?) ?? const [])
-            .whereType<Map>()
-            .map((e) => MapUser.fromJson(Map<String, dynamic>.from(e)))
-            .whereType<MapUser>()
-            .toList(growable: false),
-      );
-}

@@ -26,6 +26,9 @@ class ExploreMapController {
   Future<void> centerOn(LatLng target, {double? zoom}) async =>
       _state?.centerOn(target, zoom: zoom);
 
+  /// Step the zoom by [delta], for the on-screen +/− buttons.
+  Future<void> zoomBy(double delta) async => _state?.zoomBy(delta);
+
   void _attach(_ExploreMapState state) => _state = state;
   void _detach(_ExploreMapState state) {
     if (identical(_state, state)) _state = null;
@@ -149,6 +152,15 @@ class _ExploreMapState extends State<ExploreMap>
   /// photos landing over a few seconds should cost a handful of updates, not a
   /// hundred.
   Timer? _iconFlush;
+
+  /// A filter no feature satisfies, for emptying a layer without touching any
+  /// of its other properties. `setLayerProperties` would reset everything it
+  /// wasn't given; a filter only changes what is drawn.
+  static const List<Object> _matchNothing = [
+    '==',
+    ['literal', 0],
+    ['literal', 1],
+  ];
 
   /// Guards every async continuation that touches the platform: the tab can be
   /// switched away mid-flight, and talking to a disposed map throws.
@@ -782,19 +794,53 @@ class _ExploreMapState extends State<ExploreMap>
     final ready = selectedImage != null && _images.has(selectedImage);
     final activeId = ready ? selectedId : '__none__';
 
+    // Picking somebody empties the map of everyone else.
+    //
+    // The alternative — highlight them and leave the crowd up — makes "who am I
+    // looking at" a question the user has to keep answering, and on a dense map
+    // the person they just chose is the one hardest to keep track of. Clearing
+    // the map is also what makes the bottom composer unambiguous: there is
+    // exactly one person on screen, and the message goes to them.
+    final focused = selected != null;
+
     try {
-      await _map!.setFilter(_peopleLayer, [
-        'all',
-        [
-          '!',
-          ['has', 'point_count'],
-        ],
-        [
-          '!=',
-          ['get', 'id'],
-          activeId,
-        ],
-      ]);
+      await _map!.setFilter(
+        _peopleLayer,
+        focused
+            ? _matchNothing
+            : [
+                'all',
+                [
+                  '!',
+                  ['has', 'point_count'],
+                ],
+                [
+                  '!=',
+                  ['get', 'id'],
+                  activeId,
+                ],
+              ],
+      );
+      await _map!.setFilter(
+        _peopleGroundLayer,
+        focused
+            ? [
+                'all',
+                [
+                  '!',
+                  ['has', 'point_count'],
+                ],
+                [
+                  '==',
+                  ['get', 'id'],
+                  selectedId,
+                ],
+              ]
+            : [
+                '!',
+                ['has', 'point_count'],
+              ],
+      );
       await _map!.setFilter(_selectedLayer, [
         'all',
         [
@@ -807,8 +853,28 @@ class _ExploreMapState extends State<ExploreMap>
           activeId,
         ],
       ]);
+      // Clusters are a way of reading a crowd. With one person on the map there
+      // is no crowd, and a "1" bubble beside them would be nonsense.
+      for (final layer in const [
+        _clusterGlowLayer,
+        _clusterLayer,
+        _clusterCountLayer,
+      ]) {
+        await _map!.setFilter(
+          layer,
+          focused ? _matchNothing : const ['has', 'point_count'],
+        );
+      }
     } catch (_) {
       return;
+    }
+
+    // Go to them. Selection arrives from three places — a marker, the strip and
+    // the grid — and all three should land the camera in the same place, so the
+    // move lives here rather than at each call site.
+    if (focused) {
+      final at = _drawn[selected.id];
+      if (at != null) unawaited(centerOn(at, zoom: ExploreCamera.focusZoom));
     }
 
     if (selected != null && !ready) {
@@ -876,9 +942,9 @@ class _ExploreMapState extends State<ExploreMap>
       final person =
           widget.users.where((user) => user.id == id).firstOrNull;
       if (person != null) {
+        // The camera move belongs to _applySelection, which every route into a
+        // selection passes through — doing it here too would animate twice.
         widget.onPersonTapped(person);
-        final at = _drawn[person.id];
-        if (at != null) await centerOn(at, zoom: _zoomForFocus());
         return;
       }
     }
@@ -906,8 +972,6 @@ class _ExploreMapState extends State<ExploreMap>
     );
     await centerOn(target, zoom: zoom);
   }
-
-  double _zoomForFocus() => ExploreCamera.focusZoom;
 
   // ── Camera ────────────────────────────────────────────────────────────────
 
@@ -988,6 +1052,23 @@ class _ExploreMapState extends State<ExploreMap>
     if (frame == null) return;
 
     await centerOn(frame.centre, zoom: frame.zoom);
+  }
+
+  /// One step of the on-screen zoom buttons, clamped to the map's own range so
+  /// the control goes inert at the ends rather than pretending to work.
+  Future<void> zoomBy(double delta) async {
+    final map = _map;
+    if (map == null || !_styleReady) return;
+
+    final current = map.cameraPosition;
+    final next = ((current?.zoom ?? ExploreCamera.defaultZoom) + delta)
+        .clamp(ExploreCamera.minZoom, ExploreCamera.maxZoom);
+    try {
+      await map.animateCamera(
+        CameraUpdate.zoomTo(next),
+        duration: const Duration(milliseconds: 260),
+      );
+    } catch (_) {}
   }
 
   /// The 2D/3D toggle. Tilt only — the position and zoom people chose stay put.

@@ -81,28 +81,6 @@ void main() {
     });
   });
 
-  group('ExplorePage.fromJson', () {
-    test('keeps the people it can place and silently drops the rest', () {
-      final page = ExplorePage.fromJson({
-        'city': 'Bengaluru',
-        'items': [
-          payload(id: 'a'),
-          payload(id: 'b', mapPosition: null),
-          payload(id: 'c'),
-        ],
-      });
-
-      expect(page.city, 'Bengaluru');
-      // One unplaceable person is not a reason to fail the whole map.
-      expect(page.items.map((u) => u.id), ['a', 'c']);
-    });
-
-    test('survives an empty or absent items list', () {
-      expect(ExplorePage.fromJson({'items': []}).items, isEmpty);
-      expect(ExplorePage.fromJson(const {}).items, isEmpty);
-    });
-  });
-
   group('presence overlay', () {
     test('changes only the online flag, never the rest of the card', () {
       final user = MapUser.fromJson(payload())!;

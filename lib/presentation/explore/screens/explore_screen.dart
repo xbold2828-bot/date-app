@@ -12,25 +12,35 @@ import '../../../providers/realtime_provider.dart';
 import '../../common/widgets/widgets.dart';
 import '../../home/screens/premium_screen.dart';
 import '../../home/widgets/discovery_filter_sheet.dart';
+import '../widgets/explore_composer.dart';
 import '../widgets/explore_controls.dart';
 import '../widgets/explore_map.dart';
-import '../widgets/explore_profile_preview.dart';
+import '../widgets/explore_people_grid.dart';
+import '../widgets/explore_people_strip.dart';
 import '../widgets/explore_states.dart';
 
-/// Explore — the people the Radar tab would show you, on the ground they are
-/// actually on.
+/// Explore — the people you are vibing with, on the ground they are on.
 ///
-/// The screen owns no discovery logic of its own. [exploreProvider] asks the
-/// same endpoint family the Radar grid asks, parameterised by the same
-/// [discoveryFilterProvider], so eligibility, radius, preferences, visibility
-/// and blocking are decided in exactly one place — the backend — and this is a
-/// second way of *looking* at that answer rather than a second answer.
+/// Not discovery. The map shows exactly the conversations that reached VIBING:
+/// threads where the other person replied. A New Energy thread is somebody who
+/// reached out and has not been answered, and a location is not something to
+/// hand an unanswered sender — so they are excluded, and the server is what
+/// enforces that.
 ///
-/// Everything is stacked over a map that never goes away. Loading, empty,
-/// paywalled, offline, permission-denied: the city stays on screen and the
-/// explanation floats over it.
+/// Which is why there is no radius control and no filter button here. Both are
+/// discovery instruments: they decide who a search for strangers returns. This
+/// screen has no search to narrow.
+///
+/// Everything is laid out over a map that never goes away. Loading, offline,
+/// permission-denied, nobody-yet: the city stays on screen and the explanation
+/// floats over it.
 class ExploreScreen extends ConsumerStatefulWidget {
-  const ExploreScreen({super.key});
+  const ExploreScreen({super.key, this.onBrowsePeople});
+
+  /// Take me somewhere I can meet people. The map only ever shows people who
+  /// have replied, so an empty map is answered on another tab — and this screen
+  /// does not own the tab bar.
+  final VoidCallback? onBrowsePeople;
 
   @override
   ConsumerState<ExploreScreen> createState() => _ExploreScreenState();
@@ -63,6 +73,32 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   void _clearSelection() =>
       ref.read(exploreSelectionProvider.notifier).state = null;
 
+  /// Everybody at once, as a searchable grid.
+  ///
+  /// A sheet rather than a route: pushing a page would unmount the map, and
+  /// rebuilding a vector map — style, tiles, marker rasters — to show a list of
+  /// faces is an absurd price for a question this cheap. Picking somebody
+  /// selects them and closes, landing back on a map already focused on them.
+  Future<void> _openGrid(List<MapUser> people) async {
+    if (people.isEmpty) return;
+    await showRadiusSheet<void>(
+      context: context,
+      builder: (sheetContext) => ExplorePeopleGrid(
+        people: people,
+        selectedId: ref.read(exploreSelectionProvider),
+        onClose: () => Navigator.pop(sheetContext),
+        onSelect: (person) {
+          _select(person);
+          Navigator.pop(sheetContext);
+        },
+        onShowAll: () {
+          _clearSelection();
+          Navigator.pop(sheetContext);
+        },
+      ),
+    );
+  }
+
   Future<void> _centerOnMe() async {
     final location = ref.read(myLocationProvider).valueOrNull;
     if (location != null) {
@@ -79,34 +115,22 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     if (retried != null) await _map.centerOn(retried);
   }
 
-  void _setBand(String band) {
-    final filter = ref.read(discoveryFilterProvider);
-    // Straight into the existing filter. The map reloads because
-    // [ExploreNotifier] watches this, exactly as the Radar grid does.
-    ref.read(discoveryFilterProvider.notifier).state =
-        filter.copyWith(band: band);
-    _clearSelection();
-  }
-
   @override
   Widget build(BuildContext context) {
     final style = ref.watch(exploreMapStyleProvider);
     final location = ref.watch(myLocationProvider);
     final exploreAsync = ref.watch(exploreProvider);
-    final filter = ref.watch(discoveryFilterProvider);
     final me = ref.watch(meProvider).valueOrNull;
     final presence = ref.watch(presenceProvider);
     final selectedId = ref.watch(exploreSelectionProvider);
     final viewMode = ref.watch(exploreViewModeProvider);
-
-    final explore = exploreAsync.valueOrNull;
 
     // Live presence over what the fetch said, so a marker's dot lights up
     // without waiting for the next reload. This is the only place the map's
     // data is touched after the API — and it changes how somebody is drawn,
     // never whether they appear.
     final users = [
-      for (final user in explore?.users ?? const <MapUser>[])
+      for (final user in exploreAsync.valueOrNull ?? const <MapUser>[])
         if (presence[user.id] case final online?
             when online != user.isOnline)
           MapUser(
@@ -122,8 +146,16 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
         ? null
         : users.where((user) => user.id == selectedId).firstOrNull;
 
+    // The map is the content, so the chrome that must never be covered — the
+    // people strip above and the composer below — is laid out in a Column with
+    // the map in the middle, and only the transient things (controls, notices,
+    // preview) float over it. Stacking everything led to a composer that a
+    // notice card could sit on top of.
     return Scaffold(
       backgroundColor: AppMapColors.land,
+      // The composer's own padding handles the inset; resizing would also drag
+      // the map up by the height of the keyboard.
+      resizeToAvoidBottomInset: false,
       body: style.when(
         loading: () => const _MapPlaceholder(),
         error: (error, _) => _MapFailure(
@@ -132,57 +164,56 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
               : "Explore map couldn't load.",
           onRetry: () => ref.invalidate(exploreMapStyleProvider),
         ),
-        data: (styleString) => Stack(
+        data: (styleString) => Column(
           children: [
-            Positioned.fill(
-              child: ExploreMap(
-                controller: _map,
-                styleString: styleString,
-                users: users,
-                myLocation: location.valueOrNull,
-                selectedId: selectedId,
-                viewMode: viewMode,
-                onPersonTapped: _select,
-                onBackgroundTapped: _clearSelection,
-              ),
-            ),
             SafeArea(
               bottom: false,
-              child: Stack(
+              child: Column(
                 children: [
-                  Positioned(
-                    top: 10,
-                    left: 16,
-                    right: 16,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                     child: ExploreHeader(
                       count: users.length,
                       isLoading: exploreAsync.isLoading,
-                      city: explore?.city ?? me?.location?.city,
-                      onFilters: () => showDiscoveryFilterSheet(context),
+                      onSearch: () => _openGrid(users),
                     ),
                   ),
-                  // Full-bleed so the pills can scroll off both edges, while
-                  // the first one still lines up with the header above it.
-                  Positioned(
-                    top: 80,
-                    left: 0,
-                    right: 0,
-                    child: ExploreRadiusBar(
-                      selected: filter.band,
-                      fallback: me?.location?.preferredBand,
-                      onChanged: _setBand,
-                    ),
+                  const SizedBox(height: 8),
+                  ExplorePeopleStrip(
+                    people: users,
+                    selectedId: selectedId,
+                    onSelect: _select,
+                    // "All" opens the grid rather than clearing the selection.
+                    // Clearing is what the grid's own "All" tile does, so the
+                    // two are one gesture apart and the grid is never a
+                    // one-way door.
+                    onShowAll: () => _openGrid(users),
                   ),
-                  _sideChrome(viewMode: viewMode, locating: location.isLoading),
-                  _bottomChrome(
-                    selected: selected,
-                    explore: explore,
-                    exploreAsync: exploreAsync,
-                    location: location,
-                  ),
+                  const SizedBox(height: 6),
                 ],
               ),
             ),
+            Expanded(
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: ExploreMap(
+                      controller: _map,
+                      styleString: styleString,
+                      users: users,
+                      myLocation: location.valueOrNull,
+                      selectedId: selectedId,
+                      viewMode: viewMode,
+                      onPersonTapped: _select,
+                      onBackgroundTapped: _clearSelection,
+                    ),
+                  ),
+                  _sideChrome(viewMode: viewMode, locating: location.isLoading),
+                  _notice(exploreAsync: exploreAsync, location: location),
+                ],
+              ),
+            ),
+            ExploreComposer(recipient: selected),
           ],
         ),
       ),
@@ -194,8 +225,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     required bool locating,
   }) {
     return Positioned(
-      top: 132,
-      right: 16,
+      top: 12,
+      right: 14,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -203,6 +234,11 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
             mode: viewMode,
             onChanged: (mode) =>
                 ref.read(exploreViewModeProvider.notifier).state = mode,
+          ),
+          const SizedBox(height: 10),
+          ExploreZoomButtons(
+            onZoomIn: () => _map.zoomBy(1),
+            onZoomOut: () => _map.zoomBy(-1),
           ),
           const SizedBox(height: 10),
           ExploreCircleButton(
@@ -216,13 +252,13 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     );
   }
 
-  /// The bottom slot holds exactly one thing at a time, in priority order: an
-  /// open preview, then whatever is stopping the map from being useful, then
-  /// nothing.
-  Widget _bottomChrome({
-    required MapUser? selected,
-    required ExploreState? explore,
-    required AsyncValue<ExploreState> exploreAsync,
+  /// Whatever is stopping the map from being useful, floated over it.
+  ///
+  /// One thing at a time, in the order the user would hit them: the map cannot
+  /// centre without a location, cannot draw anybody if the request failed, and
+  /// has nobody to draw until somebody replies.
+  Widget _notice({
+    required AsyncValue<List<MapUser>> exploreAsync,
     required AsyncValue<LatLng?> location,
   }) {
     return Positioned(
@@ -244,9 +280,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
               child: child,
             ),
           ),
-          child: _bottomContent(
-            selected: selected,
-            explore: explore,
+          child: _noticeContent(
             exploreAsync: exploreAsync,
             location: location,
           ),
@@ -255,22 +289,10 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     );
   }
 
-  Widget _bottomContent({
-    required MapUser? selected,
-    required ExploreState? explore,
-    required AsyncValue<ExploreState> exploreAsync,
+  Widget _noticeContent({
+    required AsyncValue<List<MapUser>> exploreAsync,
     required AsyncValue<LatLng?> location,
   }) {
-    if (selected != null) {
-      return ExploreProfilePreview(
-        key: ValueKey('preview.${selected.id}'),
-        user: selected,
-        onDismiss: _clearSelection,
-      );
-    }
-
-    // Location comes first: without it the map cannot centre, and every other
-    // message would be answering a question the user has not reached yet.
     final locationError = location.error;
     if (locationError is LocationUnavailableException) {
       return ExploreNoticeCard(
@@ -285,7 +307,6 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       );
     }
 
-    // The API refused outright — offline, 500, an unexpected shape.
     if (exploreAsync.hasError) {
       final error = exploreAsync.error;
       return ExploreNoticeCard(
@@ -300,97 +321,29 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       );
     }
 
-    if (exploreAsync.isLoading && (explore?.users.isEmpty ?? true)) {
+    final people = exploreAsync.valueOrNull;
+    if (exploreAsync.isLoading && (people?.isEmpty ?? true)) {
       return const ExploreLoadingPill(key: ValueKey('notice.loading'));
     }
 
-    if (explore == null) return const SizedBox.shrink();
-
-    if (explore.needsLocation) {
-      return ExploreNoticeCard(
-        key: const ValueKey('notice.needsLocation'),
-        icon: Icons.public_off,
-        title: 'Set your location',
-        body: 'Radius needs to know roughly where you are before it can put '
-            'anyone on the map.',
-        primaryLabel: 'Open filters',
-        onPrimary: () => showDiscoveryFilterSheet(context),
-      );
-    }
-
-    // Out of reveals. The same gate the Radar grid hits, offering the same two
-    // ways past it.
-    if (explore.paywall != null) {
-      return ExploreNoticeCard(
-        key: const ValueKey('notice.paywall'),
-        icon: Icons.auto_awesome,
-        tone: ExploreNoticeTone.warning,
-        title: 'You have seen everyone for now',
-        body: explore.paywall?.message ??
-            'Premium keeps the map full, with no daily limit.',
-        primaryLabel: 'See everyone with Premium',
-        onPrimary: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const PremiumScreen()),
-        ),
-        secondaryLabel: 'Watch an ad',
-        onSecondary: _watchAd,
-      );
-    }
-
-    if (explore.isEmpty) {
+    if (people != null && people.isEmpty) {
+      // Not a failure — just nobody here yet. The map only ever shows people
+      // who replied to you, so the way to fill it is to get a conversation
+      // going, which lives on another tab.
       return ExploreNoticeCard(
         key: const ValueKey('notice.empty'),
-        icon: Icons.favorite_border,
-        title: 'No one nearby yet',
-        body: 'Nobody matches these filters at this distance. Widen the '
-            'circle — your people might be one band away.',
-        primaryLabel: 'Increase radius',
-        onPrimary: _widenRadius,
-        secondaryLabel: 'Open filters',
-        onSecondary: () => showDiscoveryFilterSheet(context),
+        icon: Icons.forum_outlined,
+        title: 'Nobody on your map yet',
+        body: 'People show up here once you are both talking — when someone '
+            'replies to you, they appear on the map.',
+        primaryLabel: widget.onBrowsePeople == null ? null : 'Find people',
+        onPrimary: widget.onBrowsePeople,
       );
     }
 
     return const SizedBox.shrink();
   }
 
-  /// Step out one band, through the existing filter. Already at the widest, the
-  /// full sheet is the only thing left that can help.
-  void _widenRadius() {
-    final filter = ref.read(discoveryFilterProvider);
-    final bands = ExploreRadiusBar.bands.map((option) => option.band).toList();
-    final current = filter.band ??
-        ref.read(meProvider).valueOrNull?.location?.preferredBand;
-    final index = bands.indexOf(current ?? '');
-
-    if (index < 0 || index >= bands.length - 1) {
-      showDiscoveryFilterSheet(context);
-      return;
-    }
-    _setBand(bands[index + 1]);
-  }
-
-  Future<void> _watchAd() async {
-    try {
-      final credits = await ref
-          .read(adActionsProvider)
-          .watchToUnlock(placement: 'explore_unlock');
-      // The credits are what open the gate, and `watchToUnlock` already
-      // refreshes the Radar feed — Explore has its own provider to refresh.
-      await ref.read(exploreProvider.notifier).refresh();
-      if (!mounted) return;
-      showRadiusToast(
-        context,
-        credits > 0
-            ? 'Unlocked — $credits credits added'
-            : 'That one was already counted',
-        tone: credits > 0 ? ToastTone.success : ToastTone.neutral,
-      );
-    } on AppException catch (e) {
-      if (mounted) showRadiusToast(context, e.message, tone: ToastTone.error);
-    }
-  }
 }
 
 /// The ground colour, shown for the instant between the tab opening and the

@@ -1,8 +1,7 @@
 # Explore — the map tab
 
-Explore shows the people the Radar tab would show you, on the ground they are
-roughly on. It is a second way of *looking* at discovery, not a second
-discovery system.
+Explore shows the people you are **vibing with** — conversations both sides have
+spoken in — on the ground they are roughly on, with a message box under the map.
 
 ## Configuration
 
@@ -36,25 +35,41 @@ MAP_TILES_URL=https://api.maptiler.com/tiles/v3/tiles.json?key={key}
 MAP_TILES_URL=https://tiles.stadiamaps.com/data/openmaptiles.json?api_key={key}
 ```
 
-## How the data gets there
+## Who is on the map
+
+**Only the people you are vibing with.** Not discovery, not matches, not
+everyone nearby.
 
 ```
-MongoDB $geoNear  →  DiscoveryService.getExplore  →  GET /discovery/explore
-                  →  DiscoveryRepository.explore  →  exploreProvider  →  ExploreMap
+conversations (state: VIBING)  →  MessagingService.mapPeople
+                               →  GET /messaging/map
+                               →  ChatRepository.mapPeople
+                               →  exploreProvider  →  ExploreMap
 ```
 
-`getExplore` reuses `buildQuery` — the *same* method `getNearby` uses — so
-radius, show-me, age, intent, verified, recently-active, tags, account status
-and the blocklist are all decided once, on the server. The only thing the map
-endpoint adds is `mapPosition`.
+VIBING means the recipient replied, so both people have opted into the
+conversation. **NEW_ENERGY is deliberately excluded**: that state is one person
+who reached out and has not been answered, and a location is not something to
+hand an unanswered sender. The rule is enforced server-side, in the repository
+query — not by filtering in the client.
 
-There is deliberately no client-side filtering of the result anywhere in the
-Flutter code. If the map ever hid somebody the API returned, that would be a
-second copy of the discovery rules, and it would diverge.
+Consequences worth stating, because they are why controls that used to be here
+have gone:
 
-**Blocking** is enforced by the same `excludeUserIds` the grid uses, and
-`ChatActions.blockUser` refreshes `exploreProvider` so a block takes markers,
-cluster counts and any open preview off the map immediately.
+- **No entitlement gate.** These are conversations the user already has.
+  Charging a discovery reveal to look at them on a map would be charging twice.
+- **No radius control.** Radius parameterises a proximity search. This is not
+  one, and a thread outlives the proximity that started it.
+- **No discovery filters.** Same reason: filters decide who a search for
+  strangers returns, and there is no such search here.
+
+Blocking is passed to the repository as `excludeUserIds`, read live, so a block
+clears somebody off the map in both directions on the next load —
+`ChatActions._refreshInbox` triggers that load, because anything changing which
+conversations exist changes who belongs on the map.
+
+`GET /discovery/explore` and `DiscoveryService.getExplore` were **removed**; the
+Explore map no longer touches discovery at all.
 
 ### The anchor
 
@@ -85,7 +100,7 @@ re-anchor, silently widening their discovery to the 50 km fallback.
 
 `mapPosition` is the stored point pushed 350–900 m along a per-user-stable
 bearing, then snapped to a ~500 m grid
-(`DiscoveryService.generalizeMapPosition`). Stable, so a marker does not jitter
+(`generalizeMapPosition` in `common/utils/geo.util.ts`). Stable, so a marker does not jitter
 between refreshes; coarse, so a marker is not an address. The client never
 receives a real coordinate for anybody else.
 
@@ -142,6 +157,70 @@ the test asserts they agree. Change both.
 Android and iOS use maplibre-native, bundled by the plugin. Web uses
 maplibre-gl-js, loaded by the script tags in `web/index.html`; keep that version
 in step with `maplibre_gl_web`.
+
+## The screen
+
+```
+┌──────────────────────────────────┐
+│ ✦ Explore                   🔍   │  header — count, search
+│ 24 people around you             │
+├──────────────────────────────────┤
+│ (All) (Emma) (Jason) (Olivia) …  │  people strip — horizontal, tap to pick
+├──────────────────────────────────┤
+│                            ⌄ 3D  │
+│              MAP           + / − │  map — floating controls
+│                            ◎     │
+├──────────────────────────────────┤
+│ (avatar) Message Emma…      ➤    │  composer — always visible
+└──────────────────────────────────┘
+```
+
+Header, strip and composer are laid out in a `Column` with the map in the
+middle. Only the transient things — map controls, notices, the preview — float
+over the map. Stacking all of it produced a composer that a notice card could
+sit on top of.
+
+### Picking somebody
+
+Selection arrives from three places — a marker, the strip, the grid — and they
+all write `exploreSelectionProvider`. `ExploreMap._applySelection` is the single
+place that reacts, so all three land the camera identically.
+
+Picking somebody **empties the map of everyone else**: the people layer and all
+three cluster layers are filtered to nothing and only the selected marker
+survives. Highlighting them and leaving the crowd up makes "who am I looking
+at" a question the user has to keep re-answering, and it makes the composer
+ambiguous. With one person on the map, the message obviously goes to them.
+
+"All" in the strip **opens the grid**. The grid carries its own "All" tile,
+which is what puts everybody back on the map — so the grid is never a one-way
+door into a focused map, and the two gestures sit one tap apart. When somebody
+is selected they take the strip's first tile and "All" slides to second, so the
+current subject is always under the thumb and the way onwards is next to it.
+
+There is no profile preview. Tapping somebody focuses the map on them and points
+the composer at them; that is the whole interaction. Like and View Profile live
+on the Radar tab, where meeting somebody new is the point.
+
+### The grid
+
+`ExplorePeopleGrid` is the "All people (52)" view: everyone at once with a name
+search, presented as a sheet rather than a route — pushing a page would unmount the map, and rebuilding
+a vector map to show a list of faces is an absurd price. Reached from the header
+search icon, or the "See all" tile that appears once the strip passes
+`ExplorePeopleStrip.gridThreshold`.
+
+### The composer
+
+`ExploreComposer` sends through `ChatActions.open` — the same call the full
+profile sheet makes. Openers from the map are ordinary first messages: same
+conversation, same New-Energy gating, same 402 paywall. There is no second
+messaging path. With nobody selected there is no addressee, so it goes quiet and
+says what to do rather than failing on send. Switching recipient clears the
+field — delivering a half-typed message to the wrong person is unrecoverable.
+
+**Not built:** the reference design's notification bell. No notification centre
+exists in this app to open, and inventing one is a feature, not a layout change.
 
 ## Camera
 

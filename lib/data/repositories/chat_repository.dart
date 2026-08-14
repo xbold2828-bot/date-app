@@ -1,4 +1,5 @@
 import '../../core/constants/api_constants.dart';
+import '../models/map_user_model.dart';
 import '../models/message_model.dart';
 import '../models/paginated.dart';
 import '../services/api_service.dart';
@@ -18,6 +19,22 @@ class ChatRepository {
       body: {'toUserId': toUserId, 'body': body},
     );
     return SendResult.fromJson(Map<String, dynamic>.from(data as Map));
+  }
+
+  /// `GET /messaging/map` — the people I am vibing with, with generalized map
+  /// positions. Backs the Explore tab.
+  ///
+  /// Vibing only: a New Energy thread is somebody who reached out and has not
+  /// been answered, and putting them on a map would hand an unanswered sender a
+  /// location before the other person agreed to anything. Costs no entitlement
+  /// — these are conversations the user already has.
+  Future<List<MapUser>> mapPeople() async {
+    final data = await _api.get(ApiConstants.messagingMap);
+    return ((data as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => MapUser.fromJson(Map<String, dynamic>.from(e)))
+        .whereType<MapUser>()
+        .toList(growable: false);
   }
 
   /// `GET /messaging/conversations` — inbox, filtered by [state] (new_energy /

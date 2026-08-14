@@ -1,13 +1,12 @@
 import 'package:dating_app/core/errors/app_exceptions.dart';
 import 'package:dating_app/data/models/user_model.dart';
 import 'package:dating_app/data/models/map_user_model.dart';
-import 'package:dating_app/data/repositories/discovery_repository.dart';
+import 'package:dating_app/data/repositories/chat_repository.dart';
 import 'package:dating_app/data/repositories/onboarding_repository.dart';
 import 'package:dating_app/data/repositories/profile_repository.dart';
 import 'package:dating_app/data/services/location_service.dart';
 import 'package:dating_app/providers/core_providers.dart';
 import 'package:dating_app/providers/explore_provider.dart';
-import 'package:dating_app/providers/profile_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
@@ -136,39 +135,26 @@ class _FakeProfileRepository implements ProfileRepository {
       throw UnimplementedError('${invocation.memberName} not stubbed');
 }
 
-/// Explore is never reached in these tests — the anchor resolves first — but
-/// the notifier refreshes it after a write, so it must not hit the network.
-class _FakeDiscoveryRepository implements DiscoveryRepository {
-  int explores = 0;
+/// Explore is never asserted on here — the anchor resolves first — but the
+/// notifier refreshes it after a write, so it must not reach the network.
+class _FakeChatRepository implements ChatRepository {
+  int loads = 0;
 
   @override
-  Future<ExplorePage> explore({
-    String? intent,
-    String? band,
-    List<String>? genders,
-    int? minAge,
-    int? maxAge,
-    bool? verifiedOnly,
-    bool? onlineOnly,
-    bool? recentlyActive,
-    List<String>? relationshipStatus,
-    List<String>? personalityTags,
-    List<String>? preferenceTags,
-  }) async {
-    explores++;
-    return const ExplorePage(city: 'Tirupati', items: []);
+  Future<List<MapUser>> mapPeople() async {
+    loads++;
+    return const [];
   }
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError('${invocation.memberName} not stubbed');
 }
-
 void main() {
   late _FakeLocationService location;
   late _FakeOnboardingRepository onboarding;
   late _FakeProfileRepository profile;
-  late _FakeDiscoveryRepository discovery;
+  late _FakeChatRepository chat;
 
   ProviderContainer containerWith(Map<String, dynamic> me) {
     profile = _FakeProfileRepository(me);
@@ -177,7 +163,7 @@ void main() {
         locationServiceProvider.overrideWithValue(location),
         onboardingRepositoryProvider.overrideWithValue(onboarding),
         profileRepositoryProvider.overrideWithValue(profile),
-        discoveryRepositoryProvider.overrideWithValue(discovery),
+        chatRepositoryProvider.overrideWithValue(chat),
       ],
     );
     addTearDown(container.dispose);
@@ -189,7 +175,7 @@ void main() {
     onboarding = _FakeOnboardingRepository(
       _meJson(latitude: 13.6288, longitude: 79.4192),
     );
-    discovery = _FakeDiscoveryRepository();
+    chat = _FakeChatRepository();
   });
 
   test('re-anchors when the device has moved away from the stored point',

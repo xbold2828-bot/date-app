@@ -65,11 +65,6 @@ class ApiConstants {
   // ── Discovery / Entitlements ────────────────────────────────────────────
   static const String discoveryNearby = '/discovery/nearby';
   static const String discoveryNearbyCount = '/discovery/nearby/count';
-
-  /// The Explore map. Same eligibility, radius, filters and blocklist as
-  /// [discoveryNearby] — the only difference in the response is a generalized
-  /// `mapPosition` per person.
-  static const String discoveryExplore = '/discovery/explore';
   static const String entitlementsMe = '/entitlements/me';
 
   // ── Likes / Favorites / Liked-you ───────────────────────────────────────
@@ -95,6 +90,9 @@ class ApiConstants {
   static const String messagingOpen = '/messaging/open';
   static const String conversations = '/messaging/conversations';
   static const String unreadCount = '/messaging/unread-count';
+
+  /// The Explore map: people I am vibing with, with generalized positions.
+  static const String messagingMap = '/messaging/map';
   static String conversationMessages(String conversationId) =>
       '/messaging/conversations/$conversationId/messages';
   static String conversationRead(String conversationId) =>
