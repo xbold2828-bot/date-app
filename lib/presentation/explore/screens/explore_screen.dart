@@ -46,7 +46,14 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     // back to the tab with a card already open over a map you have not looked
     // at yet is disorienting, so the previous one is cleared on arrival.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(exploreSelectionProvider.notifier).state = null;
+      if (!mounted) return;
+      ref.read(exploreSelectionProvider.notifier).state = null;
+      // Re-check where we are on every visit. "Who is around me" is a question
+      // about right now, and the anchor is what the server answers it from —
+      // an app that only ever asks at signup answers it from wherever the user
+      // happened to be that day. Cheap when nothing moved: the notifier writes
+      // nothing and refreshes nothing unless the fix has genuinely shifted.
+      ref.read(myLocationProvider.notifier).refresh();
     });
   }
 

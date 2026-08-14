@@ -72,12 +72,36 @@ class MeLocation {
   final String? preferredBand;
   final DateTime? updatedAt;
 
-  const MeLocation({this.city, this.preferredBand, this.updatedAt});
+  /// The exact point I submitted — **my own coordinates, and nobody else's**.
+  ///
+  /// This is the anchor every "nearby" query of mine is measured from, which is
+  /// the only reason the client is told it. The Explore map draws "you are
+  /// here" from this rather than from the device's live GPS: sourcing it from
+  /// the device meant the map drew me in one place while the server ranked
+  /// everyone by distance from another, so a stale anchor rendered as a screen
+  /// full of people standing in the wrong streets.
+  ///
+  /// Null on an account that has never completed the location step.
+  final double? latitude;
+  final double? longitude;
+
+  const MeLocation({
+    this.city,
+    this.preferredBand,
+    this.updatedAt,
+    this.latitude,
+    this.longitude,
+  });
+
+  /// True once there is a point for discovery to measure from.
+  bool get hasPoint => latitude != null && longitude != null;
 
   factory MeLocation.fromJson(Map<String, dynamic> json) => MeLocation(
         city: json['city'] as String?,
         preferredBand: json['preferredBand'] as String?,
         updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
+        latitude: (json['latitude'] as num?)?.toDouble(),
+        longitude: (json['longitude'] as num?)?.toDouble(),
       );
 }
 

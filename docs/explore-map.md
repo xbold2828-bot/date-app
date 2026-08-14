@@ -56,6 +56,31 @@ second copy of the discovery rules, and it would diverge.
 `ChatActions.blockUser` refreshes `exploreProvider` so a block takes markers,
 cluster counts and any open preview off the map immediately.
 
+### The anchor
+
+`me.location.point` is the **anchor**: the point the server measures everyone's
+distance from, and the point the map draws "you are here" at. Those must be the
+same number, and `MyLocationNotifier` is what keeps them that way — it takes a
+device fix, rewrites the anchor when it has genuinely moved (>150 m, or the
+stored point is over 30 minutes old), and returns the anchor.
+
+This was broken on the first cut. `PATCH /location` was called from exactly one
+place — onboarding step 5 — so the anchor froze at signup while the map marker
+tracked the live device. Move afterwards and the map drew you on one street
+while presenting people who had been selected, ranked and distance-banded from
+another. Testing several accounts on one machine made it look stranger still:
+every account got the identical device fix, so "you" appeared in the same spot
+for all of them, which reads as a hardcoded location.
+
+`MeView.location` therefore now carries `latitude`/`longitude`. That is the one
+view that goes only to the person the data is about; **no other user's view has
+ever carried a coordinate, and none may**.
+
+`PATCH /location` also only writes `preferredBand` and `city` when the caller
+actually sends them. It is no longer onboarding-only, and unconditionally
+`$set`ing an absent band would have cleared the user's chosen radius on every
+re-anchor, silently widening their discovery to the 50 km fallback.
+
 ### Positions are not locations
 
 `mapPosition` is the stored point pushed 350–900 m along a per-user-stable
@@ -63,6 +88,13 @@ bearing, then snapped to a ~500 m grid
 (`DiscoveryService.generalizeMapPosition`). Stable, so a marker does not jitter
 between refreshes; coarse, so a marker is not an address. The client never
 receives a real coordinate for anybody else.
+
+**This is why a friend sitting next to you does not appear next to you.** Worst
+case the two displacements compound to roughly 1.2 km, so during testing a room
+full of accounts renders as a loose ring about a kilometre away. That is the
+feature working. The knob, if the policy is ever revisited, is
+`generalizeMapPosition` — the `0.35 + … * 0.55` km offset and the `0.005°`
+snap — and nothing else needs to change.
 
 Because positions are snapped, exact collisions are normal in a dense city, and
 a marker perfectly hidden under another marker is a person who cannot be
