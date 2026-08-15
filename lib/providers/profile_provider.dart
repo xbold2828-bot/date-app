@@ -38,6 +38,23 @@ final publicProfileProvider =
   (ref, userId) => ref.watch(profileRepositoryProvider).profile(userId),
 );
 
+/// My visit and like counters.
+///
+/// Its own fetch rather than a field on [meProvider]: the self-view is cached
+/// server-side for minutes at a time, and these are numbers people expect to
+/// see move. Refreshing the "Me" tab re-reads them; nothing else needs to.
+final myProfileStatsProvider = FutureProvider<ProfileStats>(
+  (ref) => ref.watch(profileRepositoryProvider).myStats(),
+);
+
+/// Counts one visit to somebody's profile.
+///
+/// Fire-and-forget by design — see `ProfileRepository.recordView`. Callers must
+/// not await this before opening the profile.
+final recordProfileViewProvider = Provider<Future<void> Function(String)>(
+  (ref) => (userId) => ref.read(profileRepositoryProvider).recordView(userId),
+);
+
 /// The tag catalogue, optionally filtered by category (null = all).
 final tagCatalogProvider = FutureProvider.family<List<Tag>, String?>(
   (ref, category) =>

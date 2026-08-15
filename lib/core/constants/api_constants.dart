@@ -24,6 +24,14 @@ class ApiConstants {
   static const String usersMeProfile = '/users/me/profile';
   static String profile(String userId) => '/profiles/$userId';
 
+  /// My visit + like counters. Separate from [usersMe] because that view is
+  /// cached server-side for minutes, which is the wrong freshness for numbers
+  /// the owner watches.
+  static const String myProfileStats = '/profiles/me/stats';
+
+  /// Counts one visit to someone's profile (deduplicated per day, server-side).
+  static String profileView(String userId) => '/profiles/$userId/view';
+
   // ── Onboarding funnel ───────────────────────────────────────────────────
   /// GET → resume progress; PATCH → set relationshipStatus (step 4).
   static const String onboardingStatus = '/onboarding/status';

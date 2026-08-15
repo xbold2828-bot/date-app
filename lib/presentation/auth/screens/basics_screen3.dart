@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/selection_limits.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../data/models/tag_model.dart';
 import '../../../data/models/user_model.dart';
 import '../../../providers/core_providers.dart';
 import '../../../providers/profile_provider.dart';
+import '../../common/widgets/widgets.dart';
 import '../widgets/onboarding_widgets.dart';
 import 'basics_screen4.dart';
 
@@ -19,6 +21,11 @@ import 'basics_screen4.dart';
 /// adult tags is switched off for now (see
 /// `BusinessConfig.requireVerificationForDesires`) — everyone can select
 /// anything, and saving none is still allowed.
+///
+/// Desires are capped at [SelectionLimits.into] across *all six* sections, not
+/// per section; hard no's are never capped. Both limits are the same constants
+/// the "Me" tab's editor enforces, so an answer given in the funnel and an
+/// answer edited later obey one rule.
 class BasicsScreen3 extends ConsumerStatefulWidget {
   const BasicsScreen3({super.key});
 
@@ -36,8 +43,8 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
     TagCategories.fantasySetting: 'Fantasy & setting',
   };
 
-  final Set<String> _selectedPreferences = {};
-  final Set<String> _selectedHardNos = {};
+  Set<String> _selectedPreferences = {};
+  Set<String> _selectedHardNos = {};
   bool _showHardNosOnProfile = true;
   bool _isLoading = false;
   bool _restoredFromServer = false;
@@ -45,7 +52,11 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
   void _restore(MeUser me) {
     if (_restoredFromServer) return;
     _restoredFromServer = true;
-    _selectedPreferences.addAll(me.profile.preferenceTags);
+    // Trimmed to the cap — an account that answered before the limit existed
+    // would otherwise land here already over budget.
+    _selectedPreferences.addAll(
+      me.profile.preferenceTags.take(SelectionLimits.into),
+    );
     _selectedHardNos.addAll(me.profile.hardNos);
     _showHardNosOnProfile = me.profile.showHardNosOnProfile;
   }
@@ -79,13 +90,9 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
   }
 
   void _showSnack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
-
-  void _toggle(Set<String> target, String slug) {
-    setState(() {
-      target.contains(slug) ? target.remove(slug) : target.add(slug);
-    });
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
@@ -113,10 +120,25 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
                       style: AppTextStyles.display,
                     ),
                     const SizedBox(height: 6),
-                    Text(
-                      'Pick as many as you like — these stay private until you '
-                      'match with someone.',
-                      style: AppTextStyles.caption,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Pick your ${SelectionLimits.into} — across all of '
+                            'these — and they stay private until you match '
+                            'with someone.',
+                            style: AppTextStyles.caption,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        // The budget is shared across every section below, so
+                        // the counter lives up here with the instruction
+                        // rather than beside any one group.
+                        SelectionCounter(
+                          count: _selectedPreferences.length,
+                          max: SelectionLimits.into,
+                        ),
+                      ],
                     ),
 
                     const SizedBox(height: 20),
@@ -148,11 +170,22 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
                                       _sectionTitles[category] ?? category,
                                     ),
                                     const SizedBox(height: 12),
-                                    TagChipGroup(
+                                    LimitedTagChipGroup(
                                       tags: grouped[category]!,
                                       selected: _selectedPreferences,
-                                      onToggle: (slug) =>
-                                          _toggle(_selectedPreferences, slug),
+                                      // One budget, six sections. The cap is on
+                                      // the answer, not on any section of it —
+                                      // the profile prints them as one list.
+                                      max: SelectionLimits.into,
+                                      onChanged: (next) => setState(
+                                        () => _selectedPreferences = next,
+                                      ),
+                                      onLimitReached: () => _showSnack(
+                                        selectionLimitMessage(
+                                          'desires in total',
+                                          SelectionLimits.into,
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -210,11 +243,14 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
             ],
           ),
           const SizedBox(height: 14),
-          // Hard no's are never sensitive — always selectable.
-          TagChipGroup(
+          // Hard no's are never sensitive, and never rationed: a boundary you
+          // were not allowed to state is not a limit worth having.
+          LimitedTagChipGroup(
             tags: hardNoTags,
             selected: _selectedHardNos,
-            onToggle: (slug) => _toggle(_selectedHardNos, slug),
+            max: SelectionLimits.hardNos,
+            onChanged: (next) => setState(() => _selectedHardNos = next),
+            onLimitReached: () {},
           ),
         ],
       ),

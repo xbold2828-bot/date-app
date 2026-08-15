@@ -539,37 +539,18 @@ class _Details extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Flexible(
-                child: Text(
-                  age != null
-                      ? '${name.toUpperCase()}, $age'
-                      : name.toUpperCase(),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.title,
-                ),
-              ),
-              // Only for people the backend actually marked verified — a badge
-              // everyone gets is a badge that says nothing.
-              if (profile?.isVerified ?? false) ...[
-                const SizedBox(width: 8),
-                Container(
-                  width: 21,
-                  height: 21,
-                  decoration: const BoxDecoration(
-                    color: AppColors.ok,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check,
-                    size: 13,
-                    color: AppColors.white,
-                  ),
-                ),
-              ],
-            ],
+          // The same badge the owner sees on their own "Me" tab — verification
+          // is a claim made to other people, so it is not gated on whose
+          // profile this is. Only for people the backend actually marked
+          // verified: a badge everyone gets is a badge that says nothing.
+          NameWithTick(
+            name: age != null
+                ? '${name.toUpperCase()}, $age'
+                : name.toUpperCase(),
+            isVerified: profile?.isVerified ?? false,
+            style: AppTextStyles.title,
+            tickSize: 21,
+            maxLines: 2,
           ),
 
           if (place.isNotEmpty) ...[
@@ -605,6 +586,20 @@ class _Details extends StatelessWidget {
           if (failedToLoad) ...[
             const SizedBox(height: 18),
             _CouldNotLoad(onRetry: onRetry),
+          ],
+
+          // Visits and likes. "Friends" is omitted here on purpose — it is
+          // counted from the viewer's own inbox and cannot be known for
+          // somebody else.
+          if (profile != null) ...[
+            const SizedBox(height: 18),
+            ProfileMetricsRow(
+              visits: profile!.stats.profileViews,
+              likes: profile!.stats.likesReceived,
+              friends: null,
+              compact: true,
+              omitUnknown: true,
+            ),
           ],
 
           if (profile?.bio != null && profile!.bio!.trim().isNotEmpty) ...[

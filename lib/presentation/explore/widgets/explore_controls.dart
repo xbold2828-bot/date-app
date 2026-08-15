@@ -439,3 +439,76 @@ class ExploreRadiusBar extends StatelessWidget {
     );
   }
 }
+
+/// "You are looking at Emma. Tap to go back to everyone."
+///
+/// With one person on the map, the map itself no longer says who — every other
+/// marker is gone, so there is nothing to compare against and no label on the
+/// remaining one. This is the caption for that state, and the one-tap way out
+/// of it: without it the only route back to everybody is through the grid,
+/// which is two taps and a full-screen sheet to undo a single tap.
+class ExploreFocusPill extends StatelessWidget {
+  const ExploreFocusPill({
+    super.key,
+    required this.name,
+    required this.onShowEveryone,
+  });
+
+  final String name;
+  final VoidCallback onShowEveryone;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Showing $name only. Tap to show everyone again.',
+      excludeSemantics: true,
+      child: GlassSurface(
+        radius: 999,
+        padding: const EdgeInsets.fromLTRB(14, 9, 10, 9),
+        onTap: onShowEveryone,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.person_pin_circle_outlined,
+              size: 16,
+              color: AppColors.primary,
+            ),
+            const SizedBox(width: 7),
+            Flexible(
+              child: Text(
+                'Showing $name',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.caption.copyWith(
+                  fontSize: 12.5,
+                  color: AppColors.textDark,
+                  fontWeight: FontWeight.w700,
+                  fontVariations: const [FontVariation('wght', 700)],
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.primaryTint,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                'Show all',
+                style: AppTextStyles.caption.copyWith(
+                  fontSize: 11.5,
+                  color: AppColors.primaryDeep,
+                  fontWeight: FontWeight.w700,
+                  fontVariations: const [FontVariation('wght', 700)],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -110,6 +110,18 @@ Future<void> _pump(
   await tester.pumpAndSettle();
 }
 
+/// The heart inside the like control, specifically.
+///
+/// There are two hearts on this sheet now: the button, and the "likes
+/// received" figure in the stats row. A bare `find.byIcon` matches both, so
+/// every assertion about the *control* scopes itself to the control — via the
+/// semantics label, which is the only thing that distinguishes them and is
+/// itself part of what these tests are checking.
+Finder _likeIcon(IconData icon, {required String label}) => find.descendant(
+      of: find.bySemanticsLabel(label),
+      matching: find.byIcon(icon),
+    );
+
 void main() {
   group('photo carousel', () {
     testWidgets('pages through every photo the backend sent', (tester) async {
@@ -201,14 +213,23 @@ void main() {
       final matches = _FakeMatchRepository();
       await _pump(tester, profile: _profile(), matches: matches);
 
-      expect(find.byIcon(Icons.favorite_border), findsOneWidget);
+      expect(
+        _likeIcon(Icons.favorite_border, label: 'Like Ava'),
+        findsOneWidget,
+      );
 
       await tester.tap(find.bySemanticsLabel('Like Ava'));
       // One frame: the animation has barely started, but the state is already
       // flipped — that is the whole point of doing it on tap.
       await tester.pump();
-      expect(find.byIcon(Icons.favorite), findsOneWidget);
-      expect(find.byIcon(Icons.favorite_border), findsNothing);
+      expect(
+        _likeIcon(Icons.favorite, label: 'You liked Ava'),
+        findsOneWidget,
+      );
+      expect(
+        _likeIcon(Icons.favorite_border, label: 'You liked Ava'),
+        findsNothing,
+      );
 
       await tester.pumpAndSettle();
       expect(matches.likes, 1);
@@ -222,8 +243,14 @@ void main() {
         (tester) async {
       await _pump(tester, profile: _profile(hasLiked: true));
 
-      expect(find.byIcon(Icons.favorite), findsOneWidget);
-      expect(find.byIcon(Icons.favorite_border), findsNothing);
+      expect(
+        _likeIcon(Icons.favorite, label: 'You liked Ava'),
+        findsOneWidget,
+      );
+      expect(
+        _likeIcon(Icons.favorite_border, label: 'You liked Ava'),
+        findsNothing,
+      );
       expect(find.bySemanticsLabel('You liked Ava'), findsOneWidget);
     });
 

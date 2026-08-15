@@ -206,3 +206,151 @@ double _inverseMercator(double y) =>
     (2 * math.atan(math.exp(y)) - math.pi / 2) * 180 / math.pi;
 
 double _log2(double value) => math.log(value) / math.ln2;
+
+/// Which people each of the map's person layers draws.
+///
+/// Three layers cooperate to show either the crowd or one person, and they have
+/// to agree: a combination where none of them claims the selected person leaves
+/// the map blank.
+class PeopleLayerFilters {
+  const PeopleLayerFilters({
+    required this.base,
+    required this.selected,
+    required this.ground,
+    required this.clusters,
+  });
+
+  /// The main marker layer: everybody, nobody, or the one person the selected
+  /// layer cannot draw yet.
+  final List<Object> base;
+
+  /// The larger, brighter marker. Only ever one person, and only once their
+  /// raster exists.
+  final List<Object> selected;
+
+  /// The dot on the ground under each marker.
+  final List<Object> ground;
+
+  /// The three cluster layers, which share a filter.
+  final List<Object> clusters;
+}
+
+/// Work out those filters.
+///
+/// ## The bug this encodes against
+///
+/// Selecting somebody hid the crowd immediately, but the bigger raster for the
+/// selected marker is built on demand and never exists on a first pick — so the
+/// selected layer had nobody to draw either, and the map went blank. Tapping a
+/// face made everybody disappear, which reads as the tap having broken the
+/// screen rather than having selected anyone. If the raster then failed to
+/// build, the map stayed blank.
+///
+/// So while [ready] is false the base layer keeps drawing the selected person
+/// with their ordinary marker. There is always exactly one marker for the
+/// person in focus, and the arrival of the raster is a swap rather than an
+/// appearance from nothing.
+PeopleLayerFilters peopleLayerFilters({
+  required String? selectedId,
+  required bool ready,
+}) {
+  final focused = selectedId != null;
+  return PeopleLayerFilters(
+    base: switch ((focused, ready)) {
+      (false, _) => unclusteredFilter,
+      (true, true) => matchNothingFilter,
+      (true, false) => onlyPersonFilter(selectedId),
+    },
+    // `focused &&` is not redundant. Without it, "nobody selected" leant on
+    // `onlyPersonFilter(null)` pinning the layer to a sentinel id — correct by
+    // accident, and only for as long as no real user is ever called
+    // `__none__`. Drawing nothing should say so.
+    selected:
+        focused && ready ? onlyPersonFilter(selectedId) : matchNothingFilter,
+    ground: focused ? onlyPersonFilter(selectedId) : unclusteredFilter,
+    // Clusters are a way of reading a crowd. With one person on the map there
+    // is no crowd, and a "1" bubble beside them would be nonsense.
+    clusters: focused ? matchNothingFilter : const ['has', 'point_count'],
+  );
+}
+
+/// A filter no feature satisfies, for emptying a layer without touching any of
+/// its other properties. `setLayerProperties` would reset everything it was not
+/// given; a filter only changes what is drawn.
+const List<Object> matchNothingFilter = [
+  '==',
+  ['literal', 0],
+  ['literal', 1],
+];
+
+/// Every individual person — everything the clusterer did not roll up.
+const List<Object> unclusteredFilter = [
+  '!',
+  ['has', 'point_count'],
+];
+
+/// Exactly one person, and never a cluster.
+List<Object> onlyPersonFilter(String? id) => [
+      'all',
+      unclusteredFilter,
+      [
+        '==',
+        ['get', 'id'],
+        id ?? '__none__',
+      ],
+    ];
+
+/// The person a tap at [tap] was aimed at, if any.
+///
+/// `queryRenderedFeatures` is the precise tool for this and also the fragile
+/// one: every layer id in the request must exist, and maplibre-gl-js answers a
+/// request naming an unknown layer with a console error and an empty list —
+/// indistinguishable from "you tapped the road". The marker coordinates are
+/// already in Dart, so the tap can also be resolved directly, identically on
+/// every platform.
+///
+/// Returns null while the map is clustered and nothing is selected: the person
+/// nearest the tap may be rolled up inside a cluster the user was actually
+/// aiming at, and selecting them instead of expanding it would be wrong.
+MapUser? personNearTap({
+  required LatLng tap,
+  required List<MapUser> people,
+  required Map<String, LatLng> drawn,
+  required double zoom,
+  required double clusterMaxZoom,
+  required bool focused,
+}) {
+  if (zoom <= clusterMaxZoom && !focused) return null;
+
+  // A marker is about 54 pt across, so half of it plus slop is the honest
+  // radius. Converted from pixels at the current zoom, the tolerance tracks
+  // what the user can actually see.
+  final metresPerPixel = 156543.03392 *
+      math.cos(tap.latitude * math.pi / 180) /
+      math.pow(2, zoom);
+  final tolerance = metresPerPixel * 34;
+
+  MapUser? best;
+  var bestDistance = double.infinity;
+  for (final user in people) {
+    final at = drawn[user.id];
+    if (at == null) continue;
+    final distance = metresBetween(tap, at);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = user;
+    }
+  }
+  return bestDistance <= tolerance ? best : null;
+}
+
+/// Equirectangular approximation — exact enough over the tens of metres this is
+/// ever asked about, and far cheaper than haversine.
+double metresBetween(LatLng a, LatLng b) {
+  const metresPerDegree = 111320.0;
+  final dLat = (b.latitude - a.latitude) * metresPerDegree;
+  final dLng = (b.longitude - a.longitude) *
+      metresPerDegree *
+      math.cos(a.latitude * math.pi / 180);
+  return math.sqrt(dLat * dLat + dLng * dLng);
+}

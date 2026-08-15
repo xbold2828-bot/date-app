@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/selection_limits.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../core/utils/onboarding_maps.dart';
 import '../../../data/models/tag_model.dart';
 import '../../../data/models/user_model.dart';
 import '../../../providers/core_providers.dart';
 import '../../../providers/profile_provider.dart';
+import '../../common/widgets/widgets.dart';
 import '../widgets/onboarding_widgets.dart';
 import 'status_screen.dart';
 
@@ -29,7 +31,7 @@ class _BasicsScreen2State extends ConsumerState<BasicsScreen2> {
   final List<String> _intents = kIntentOptions.map((e) => e.key).toList();
 
   String? _selectedIntent;
-  final Set<String> _selectedPersonality = {};
+  Set<String> _selectedPersonality = {};
   bool _isLoading = false;
   bool _restoredFromServer = false;
 
@@ -48,7 +50,12 @@ class _BasicsScreen2State extends ConsumerState<BasicsScreen2> {
         }
       }
     }
-    _selectedPersonality.addAll(me.profile.personalityTags);
+    // Trimmed to the cap. An account that answered this before the limit
+    // existed keeps its first three rather than arriving over budget with no
+    // way to save.
+    _selectedPersonality.addAll(
+      me.profile.personalityTags.take(SelectionLimits.vibes),
+    );
   }
 
   Future<void> _onContinue() async {
@@ -123,11 +130,17 @@ class _BasicsScreen2State extends ConsumerState<BasicsScreen2> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'What are you looking for today?',
-                      style: TextStyle(fontSize: 13, color: AppColors.textGrey),
+                    Text(
+                      'What are you looking for today? '
+                      '${selectionHint(SelectionLimits.intent)}.',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textGrey,
+                      ),
                     ),
                     const SizedBox(height: 14),
+                    // One answer. Tapping a second replaces the first rather
+                    // than refusing the tap — see `applySelectionLimit`.
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -144,18 +157,32 @@ class _BasicsScreen2State extends ConsumerState<BasicsScreen2> {
                     const SizedBox(height: 32),
 
                     // ── Step 5 · personality ────────────────────────────
-                    const Text(
-                      'Your Atmosphere',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                      ),
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Your Atmosphere',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                        ),
+                        SelectionCounter(
+                          count: _selectedPersonality.length,
+                          max: SelectionLimits.vibes,
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'Select the qualities that describe you.',
-                      style: TextStyle(fontSize: 13, color: AppColors.textGrey),
+                    Text(
+                      'Select the qualities that describe you. '
+                      '${selectionHint(SelectionLimits.vibes)}.',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textGrey,
+                      ),
                     ),
                     const SizedBox(height: 14),
                     personality.when(
@@ -173,14 +200,15 @@ class _BasicsScreen2State extends ConsumerState<BasicsScreen2> {
                       error: (err, _) => _TagsUnavailable(
                         onRetry: () => ref.invalidate(tagsByCategoryProvider),
                       ),
-                      data: (grouped) => TagChipGroup(
+                      data: (grouped) => LimitedTagChipGroup(
                         tags: grouped[TagCategories.personality] ?? const <Tag>[],
                         selected: _selectedPersonality,
-                        onToggle: (slug) => setState(() {
-                          _selectedPersonality.contains(slug)
-                              ? _selectedPersonality.remove(slug)
-                              : _selectedPersonality.add(slug);
-                        }),
+                        max: SelectionLimits.vibes,
+                        onChanged: (next) =>
+                            setState(() => _selectedPersonality = next),
+                        onLimitReached: () => _showSnack(
+                          selectionLimitMessage('vibes', SelectionLimits.vibes),
+                        ),
                       ),
                     ),
 

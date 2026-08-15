@@ -71,6 +71,32 @@ conversations exist changes who belongs on the map.
 `GET /discovery/explore` and `DiscoveryService.getExplore` were **removed**; the
 Explore map no longer touches discovery at all.
 
+## Radar and Explore are separate feeds
+
+They answer different questions from different endpoints, and the only thing
+they share is the user's own location:
+
+| | Radar | Explore |
+|---|---|---|
+| Shows | every eligible stranger nearby | people you are vibing with |
+| Endpoint | `GET /discovery/nearby` | `GET /messaging/map` |
+| Provider | `nearbyProvider` | `exploreProvider` |
+| Costs | one of **10 free reveals a day** | nothing |
+
+**Nothing in Explore may refresh `nearbyProvider`.** That rule exists because
+breaking it broke Radar: the location sync refreshed the discovery feed on
+every re-anchor, so a few Explore visits drained the daily allowance, after
+which `/discovery/nearby` answered 402 and Radar rendered the paywall with no
+profiles on it at all. It looked exactly like "Explore has taken over Radar".
+
+`HomeScreen.didChangeAppLifecycleState` refuses to refresh Radar on resume for
+the same reason. Radar is a snapshot until pulled to refresh; nothing should
+spend a user's daily quota on their behalf in the background.
+
+The anchor therefore lives in `providers/location_provider.dart`, not in
+`explore_provider.dart` — it belongs to the whole app, and keeping it inside
+Explore is what let an Explore detail reach into Radar in the first place.
+
 ### The anchor
 
 `me.location.point` is the **anchor**: the point the server measures everyone's
@@ -90,6 +116,19 @@ for all of them, which reads as a hardcoded location.
 `MeView.location` therefore now carries `latitude`/`longitude`. That is the one
 view that goes only to the person the data is about; **no other user's view has
 ever carried a coordinate, and none may**.
+
+The automatic re-anchor **refuses a fix reporting worse than 1 km of accuracy**
+when an anchor already exists. A browser with no GPS answers from the IP
+address, which can be another suburb or another city; moving a real anchor there
+silently relocates the account and Radar then searches somewhere the user has
+never been — which is how several test accounts on one laptop stopped seeing
+each other. A coarse fix is still better than no anchor, so the guard only
+applies to accounts that already have one.
+
+Because that guard also blocks *correcting* an anchor that is already wrong,
+`LiveLocationLine` on the You tab offers **"Move my radar here"** whenever the
+live fix is more than 150 m from the stored anchor. Explicit, one tap, and the
+only route back for an anchor that has been stranded.
 
 `PATCH /location` also only writes `preferredBand` and `city` when the caller
 actually sends them. It is no longer onboarding-only, and unconditionally
@@ -201,6 +240,39 @@ current subject is always under the thumb and the way onwards is next to it.
 There is no profile preview. Tapping somebody focuses the map on them and points
 the composer at them; that is the whole interaction. Like and View Profile live
 on the Radar tab, where meeting somebody new is the point.
+
+### Picking somebody: what the map does
+
+`peopleLayerFilters` (in `marker_layout.dart`) decides which of the three
+person layers draws whom. It is a pure function because getting it wrong is
+invisible in review and glaring to a user:
+
+|                   | nobody picked | picked, raster ready  | picked, not ready |
+|---|---|---|---|
+| base people layer | everyone      | nobody                | just them, plain marker |
+| selected layer    | nobody        | just them, big marker | nobody |
+| clusters          | shown         | hidden                | hidden |
+
+The third column is the fix for a shipped bug. The selected marker is a larger
+raster built on demand, so it never exists on a first pick — and the map used
+to hide the crowd immediately while the selected layer still had nobody to
+draw. Tapping a face emptied the map, which reads as the tap having broken the
+screen rather than having selected anyone. If the raster then failed, the map
+stayed empty and the failure reached the console as an unhandled async error.
+Now the base layer covers until the raster lands, so **exactly one layer always
+draws the person in focus**, and a raster failure costs the highlight rather
+than the person.
+
+Taps resolve through `queryRenderedFeatures` first, then fall back to
+`personNearTap`, which measures the tap against the marker coordinates already
+held in Dart. The rendered query is the precise tool and the fragile one: every
+layer id in the request must exist, and maplibre-gl-js answers a request naming
+an unknown layer with a console error and an empty list — indistinguishable
+from a tap on the road. The fallback declines while the map is clustered, where
+the nearest person may be inside a cluster the user was aiming at.
+
+While somebody is in focus, `ExploreFocusPill` names them and offers one tap
+back to everyone. Without it the only route back is through the grid.
 
 ### The grid
 

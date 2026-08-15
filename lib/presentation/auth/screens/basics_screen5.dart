@@ -5,7 +5,7 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../core/utils/onboarding_maps.dart';
 import '../../../providers/core_providers.dart';
-import '../../../providers/explore_provider.dart';
+import '../../../providers/location_provider.dart';
 import '../../../providers/profile_provider.dart';
 import 'basics_screen7.dart';
 

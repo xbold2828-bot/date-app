@@ -2,11 +2,13 @@ import 'package:dating_app/core/errors/app_exceptions.dart';
 import 'package:dating_app/data/models/user_model.dart';
 import 'package:dating_app/data/models/map_user_model.dart';
 import 'package:dating_app/data/repositories/chat_repository.dart';
+import 'package:dating_app/data/models/discovery_user_model.dart';
+import 'package:dating_app/data/repositories/discovery_repository.dart';
 import 'package:dating_app/data/repositories/onboarding_repository.dart';
 import 'package:dating_app/data/repositories/profile_repository.dart';
 import 'package:dating_app/data/services/location_service.dart';
 import 'package:dating_app/providers/core_providers.dart';
-import 'package:dating_app/providers/explore_provider.dart';
+import 'package:dating_app/providers/location_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
@@ -299,6 +301,8 @@ void main() {
     expect(anchor!.latitude, closeTo(17.3850, 1e-6));
   });
 
+  _separationTests();
+
   test('MeLocation reports whether there is a point at all', () {
     expect(
       MeUser.fromJson(_meJson(latitude: 13.6, longitude: 79.4))
@@ -307,5 +311,144 @@ void main() {
       isTrue,
     );
     expect(MeUser.fromJson(_meJson()).location!.hasPoint, isFalse);
+  });
+}
+
+/// Radar and Explore are separate feeds and must stay that way.
+///
+/// `GET /discovery/nearby` spends a reveal from a ten-per-day free allowance.
+/// The location sync used to refresh it on every re-anchor, which drained the
+/// allowance in a handful of Explore visits — after which the endpoint answered
+/// 402 and the Radar grid rendered the paywall with no profiles on it at all.
+/// A background location sync has no business spending somebody's daily quota.
+class _CountingDiscoveryRepository implements DiscoveryRepository {
+  int nearbyCalls = 0;
+
+  @override
+  Future<NearbyPage> nearby({
+    int page = 1,
+    int limit = 20,
+    String? intent,
+    String? band,
+    List<String>? genders,
+    int? minAge,
+    int? maxAge,
+    bool? verifiedOnly,
+    bool? onlineOnly,
+    bool? recentlyActive,
+    List<String>? relationshipStatus,
+    List<String>? personalityTags,
+    List<String>? preferenceTags,
+  }) async {
+    nearbyCalls++;
+    return const NearbyPage(page: 1, limit: 20, source: 'free', items: <DiscoveryCard>[]);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} not stubbed');
+}
+
+void _separationTests() {
+  test('re-anchoring never spends a Radar reveal', () async {
+    final location = _FakeLocationService(_fix(13.6288, 79.4192));
+    final onboarding = _FakeOnboardingRepository(
+      _meJson(latitude: 13.6288, longitude: 79.4192),
+    );
+    final discovery = _CountingDiscoveryRepository();
+    final container = ProviderContainer(
+      overrides: [
+        locationServiceProvider.overrideWithValue(location),
+        onboardingRepositoryProvider.overrideWithValue(onboarding),
+        profileRepositoryProvider.overrideWithValue(
+          _FakeProfileRepository(_meJson(latitude: 17.3850, longitude: 78.4867)),
+        ),
+        discoveryRepositoryProvider.overrideWithValue(discovery),
+        chatRepositoryProvider.overrideWithValue(_FakeChatRepository()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    // A genuine move, so the anchor is rewritten.
+    await container.read(myLocationProvider.future);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(onboarding.writes, hasLength(1), reason: 'should have re-anchored');
+    expect(
+      discovery.nearbyCalls,
+      0,
+      reason: 'Radar must not be refetched by a location sync',
+    );
+  });
+
+  test('a coarse browser fix does not relocate an existing anchor', () async {
+    // A laptop with no GPS answers from the IP address and reports accuracy in
+    // the thousands of metres. Moving a real anchor there silently relocates
+    // the account, and Radar then searches a city the user has never been to —
+    // which is how several accounts on one machine stopped seeing each other.
+    final coarse = Position(
+      latitude: 19.0760,
+      longitude: 72.8777,
+      timestamp: DateTime.now(),
+      accuracy: 4000,
+      altitude: 0,
+      altitudeAccuracy: 0,
+      heading: 0,
+      headingAccuracy: 0,
+      speed: 0,
+      speedAccuracy: 0,
+    );
+    final location = _FakeLocationService(coarse);
+    final onboarding = _FakeOnboardingRepository(_meJson());
+    final container = ProviderContainer(
+      overrides: [
+        locationServiceProvider.overrideWithValue(location),
+        onboardingRepositoryProvider.overrideWithValue(onboarding),
+        profileRepositoryProvider.overrideWithValue(
+          _FakeProfileRepository(_meJson(latitude: 13.6288, longitude: 79.4192)),
+        ),
+        chatRepositoryProvider.overrideWithValue(_FakeChatRepository()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final anchor = await container.read(myLocationProvider.future);
+
+    expect(onboarding.writes, isEmpty);
+    expect(anchor!.latitude, closeTo(13.6288, 1e-6));
+  });
+
+  test('but a coarse fix is better than no anchor at all', () async {
+    final coarse = Position(
+      latitude: 19.0760,
+      longitude: 72.8777,
+      timestamp: DateTime.now(),
+      accuracy: 4000,
+      altitude: 0,
+      altitudeAccuracy: 0,
+      heading: 0,
+      headingAccuracy: 0,
+      speed: 0,
+      speedAccuracy: 0,
+    );
+    final location = _FakeLocationService(coarse);
+    final onboarding = _FakeOnboardingRepository(
+      _meJson(latitude: 19.0760, longitude: 72.8777),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        locationServiceProvider.overrideWithValue(location),
+        onboardingRepositoryProvider.overrideWithValue(onboarding),
+        // An account that never finished the location step.
+        profileRepositoryProvider
+            .overrideWithValue(_FakeProfileRepository(_meJson())),
+        chatRepositoryProvider.overrideWithValue(_FakeChatRepository()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(myLocationProvider.future);
+
+    expect(onboarding.writes, hasLength(1));
   });
 }

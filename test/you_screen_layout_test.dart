@@ -3,9 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:dating_app/data/models/media_model.dart';
+import 'package:dating_app/data/models/message_model.dart';
+import 'package:dating_app/data/models/paginated.dart';
+import 'package:dating_app/data/models/profile_model.dart';
 import 'package:dating_app/data/models/user_model.dart';
+import 'package:dating_app/data/repositories/chat_repository.dart';
 import 'package:dating_app/data/repositories/media_repository.dart';
 import 'package:dating_app/data/repositories/profile_repository.dart';
+import 'package:dating_app/presentation/common/widgets/widgets.dart';
 import 'package:dating_app/presentation/home/screens/you_screen.dart';
 import 'package:dating_app/providers/core_providers.dart';
 
@@ -27,11 +32,50 @@ MeUser _me({bool premium = false, bool verified = false}) => MeUser.fromJson({
     });
 
 class _FakeProfileRepository implements ProfileRepository {
-  _FakeProfileRepository(this._user);
+  _FakeProfileRepository(this._user, {this.stats});
   final MeUser _user;
+
+  /// Null stands for a counter fetch that failed — the row must dash rather
+  /// than print zeroes it does not have.
+  final ProfileStats? stats;
 
   @override
   Future<MeUser> me() async => _user;
+
+  @override
+  Future<ProfileStats> myStats() async =>
+      stats ?? (throw UnimplementedError('stats unavailable'));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} not stubbed');
+}
+
+/// Just enough inbox for the "Friends" metric, which is counted from the
+/// Vibing list on the device rather than fetched as a number.
+class _FakeChatRepository implements ChatRepository {
+  _FakeChatRepository(this.vibing);
+  final int vibing;
+
+  @override
+  Future<PageResult<ConversationSummary>> conversations({
+    String? state,
+    bool? archived,
+    int page = 1,
+    int limit = 20,
+  }) async =>
+      PageResult<ConversationSummary>(
+        items: List.generate(
+          state == 'vibing' ? vibing : 0,
+          (i) => ConversationSummary.fromJson({
+            'id': 'c$i',
+            'otherUser': {'id': 'u$i', 'displayName': 'Person $i'},
+            'state': 'vibing',
+          }),
+        ),
+        page: 1,
+        limit: limit,
+      );
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
@@ -71,6 +115,9 @@ void main() {
     required Size screen,
     int photos = 3,
     bool premium = false,
+    bool verified = false,
+    ProfileStats? stats,
+    int vibing = 0,
   }) async {
     tester.view.physicalSize = screen;
     tester.view.devicePixelRatio = 1.0;
@@ -79,15 +126,22 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          profileRepositoryProvider
-              .overrideWithValue(_FakeProfileRepository(_me(premium: premium))),
+          profileRepositoryProvider.overrideWithValue(
+            _FakeProfileRepository(
+              _me(premium: premium, verified: verified),
+              stats: stats,
+            ),
+          ),
           mediaRepositoryProvider
               .overrideWithValue(_FakeMediaRepository(photos)),
+          chatRepositoryProvider
+              .overrideWithValue(_FakeChatRepository(vibing)),
         ],
         child: const MaterialApp(home: Scaffold(body: YouScreen())),
       ),
     );
-    // Settle the two async providers; images stay unresolved by design.
+    // Settle the async providers; images stay unresolved by design, and the
+    // premium ring animates forever, so this cannot be pumpAndSettle.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
   }
@@ -110,5 +164,47 @@ void main() {
   testWidgets('the premium badge does not overflow', (tester) async {
     await pumpYou(tester, screen: const Size(320, 3000), premium: true);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a premium owner sees their own gold', (tester) async {
+    await pumpYou(tester, screen: const Size(375, 3000), premium: true);
+    expect(find.bySemanticsLabel('Premium member'), findsOneWidget);
+  });
+
+  testWidgets('a free account gets no gold', (tester) async {
+    await pumpYou(tester, screen: const Size(375, 3000));
+    expect(find.bySemanticsLabel('Premium member'), findsNothing);
+  });
+
+  // The tick is not gated on premium, or on whose profile this is.
+  testWidgets('a verified account wears its tick beside the name',
+      (tester) async {
+    await pumpYou(tester, screen: const Size(375, 3000), verified: true);
+    expect(find.byType(VerificationTick), findsWidgets);
+  });
+
+  group('metrics', () {
+    testWidgets('prints visits, likes and friends', (tester) async {
+      await pumpYou(
+        tester,
+        screen: const Size(375, 3000),
+        stats: const ProfileStats(profileViews: 128, likesReceived: 19),
+        vibing: 4,
+      );
+
+      expect(find.text('128'), findsOneWidget);
+      expect(find.text('19'), findsOneWidget);
+      // Counted from the Vibing list on the device, never fetched.
+      expect(find.text('4'), findsOneWidget);
+    });
+
+    // The counters must not be able to take the profile down with them.
+    testWidgets('survives a counter fetch that failed', (tester) async {
+      await pumpYou(tester, screen: const Size(375, 3000), vibing: 2);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('—'), findsNWidgets(2));
+      expect(find.text('2'), findsOneWidget);
+    });
   });
 }

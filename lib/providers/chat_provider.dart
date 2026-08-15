@@ -34,6 +34,20 @@ final conversationsProvider = AsyncNotifierProvider.family<
   ConversationsNotifier.new,
 );
 
+/// How many people I am actually talking to — the "Friends" metric.
+///
+/// Counted here, on the device, from the Vibing list rather than fetched as a
+/// number. There is no server-side notion of a friend in this product: a
+/// friendship *is* a conversation that got past the opener, so the list is the
+/// count, and a second source for it could only ever disagree with the inbox
+/// the person is looking at.
+///
+/// Null while the list is loading or failed — the metric renders "—" rather
+/// than claiming zero.
+final activeConversationCountProvider = Provider<int?>((ref) {
+  return ref.watch(conversationsProvider('vibing')).valueOrNull?.length;
+});
+
 /// Inbox unread badge. Kept as a notifier so the chat socket can bump it live.
 class UnreadCountNotifier extends AsyncNotifier<int> {
   @override

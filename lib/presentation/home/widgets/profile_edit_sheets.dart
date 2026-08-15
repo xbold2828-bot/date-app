@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/selection_limits.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../data/models/tag_model.dart';
 import '../../../providers/profile_provider.dart';
 import '../../auth/widgets/onboarding_widgets.dart';
+import '../../common/widgets/widgets.dart';
 
 /// Post-onboarding profile edits. Both sheets write through
 /// `PATCH /users/me/profile`, which is the only editable surface after the
@@ -176,7 +178,11 @@ class _EditVibesSheet extends ConsumerStatefulWidget {
 }
 
 class _EditVibesSheetState extends ConsumerState<_EditVibesSheet> {
-  late final Set<String> _selected = {...widget.initial};
+  // Trimmed to the cap: a profile that picked more before the limit existed
+  // keeps its first few rather than opening this sheet unable to save.
+  late Set<String> _selected = {
+    ...widget.initial.take(SelectionLimits.vibes),
+  };
   bool _isSaving = false;
 
   Future<void> _save() async {
@@ -204,9 +210,24 @@ class _EditVibesSheetState extends ConsumerState<_EditVibesSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Pick the qualities that describe you.',
-            style: TextStyle(fontSize: 13, color: AppColors.textGrey),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Pick the qualities that describe you. '
+                  '${selectionHint(SelectionLimits.vibes)}.',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textGrey,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              SelectionCounter(
+                count: _selected.length,
+                max: SelectionLimits.vibes,
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           ConstrainedBox(
@@ -225,14 +246,23 @@ class _EditVibesSheetState extends ConsumerState<_EditVibesSheet> {
                   "Couldn't load the options. Please try again.",
                   style: TextStyle(fontSize: 13, color: AppColors.textGrey),
                 ),
-                data: (grouped) => TagChipGroup(
+                data: (grouped) => LimitedTagChipGroup(
                   tags: grouped[TagCategories.personality] ?? const <Tag>[],
                   selected: _selected,
-                  onToggle: (slug) => setState(() {
-                    _selected.contains(slug)
-                        ? _selected.remove(slug)
-                        : _selected.add(slug);
-                  }),
+                  max: SelectionLimits.vibes,
+                  onChanged: (next) => setState(() => _selected = next),
+                  onLimitReached: () => ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          selectionLimitMessage(
+                            'vibes',
+                            SelectionLimits.vibes,
+                          ),
+                        ),
+                      ),
+                    ),
                 ),
               ),
             ),

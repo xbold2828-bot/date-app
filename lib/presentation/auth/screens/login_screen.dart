@@ -154,91 +154,100 @@ class _LoginScreenState extends State<LoginScreen> {
               constraints: BoxConstraints(
                 minHeight: constraints.maxHeight - 40,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Wordmark(size: 22),
-                  const SizedBox(height: 30),
+              // The scroll view offers unbounded height, and `ConstrainedBox`
+              // only raises the floor — so without this the Column below is
+              // shrink-wrapping while its `Spacer` is asking to fill, which is
+              // a layout assertion rather than a warning. IntrinsicHeight
+              // measures the content and hands the Column a tight height of
+              // `max(content, minHeight)`, which keeps both readings of the
+              // layout true: it fills a tall screen and scrolls a short one.
+              child: IntrinsicHeight(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Wordmark(size: 22),
+                    const SizedBox(height: 30),
 
-                  // The brand moment: proximity, drawn. Four rings, one per
-                  // distance band — none active, because nobody has a location
-                  // yet and the mark should not pretend otherwise.
-                  const Center(child: RadarMark(size: 104, animate: true)),
-                  const SizedBox(height: 30),
+                    // The brand moment: proximity, drawn. Four rings, one per
+                    // distance band — none active, because nobody has a location
+                    // yet and the mark should not pretend otherwise.
+                    const Center(child: RadarMark(size: 104, animate: true)),
+                    const SizedBox(height: 30),
 
-                  Text('18+ · Verified people only',
-                      style: AppTextStyles.eyebrow),
-                  const SizedBox(height: 10),
-                  Text("Who's around you\ntonight?",
-                      style: AppTextStyles.display),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Real, verified people nearby who want the same thing you '
-                    'do. No endless swiping.',
-                    style: AppTextStyles.bodyMuted,
-                  ),
+                    Text('18+ · Verified people only',
+                        style: AppTextStyles.eyebrow),
+                    const SizedBox(height: 10),
+                    Text("Who's around you\ntonight?",
+                        style: AppTextStyles.display),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Real, verified people nearby who want the same thing you '
+                      'do. No endless swiping.',
+                      style: AppTextStyles.bodyMuted,
+                    ),
 
-                  const SizedBox(height: 30),
+                    const SizedBox(height: 30),
 
-                  const SectionLabel('Phone number', topSpacing: 0),
-                  Row(
-                    children: [
-                      _CountryButton(
-                        country: _selectedCountry,
-                        onTap: _pickCountry,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: _phoneController,
-                          keyboardType: TextInputType.phone,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(
-                              int.parse(_selectedCountry['digits']!),
+                    const SectionLabel('Phone number', topSpacing: 0),
+                    Row(
+                      children: [
+                        _CountryButton(
+                          country: _selectedCountry,
+                          onTap: _pickCountry,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: _phoneController,
+                            keyboardType: TextInputType.phone,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(
+                                int.parse(_selectedCountry['digits']!),
+                              ),
+                            ],
+                            style: AppTextStyles.body,
+                            decoration: const InputDecoration(
+                              hintText: '000 000 0000',
                             ),
-                          ],
-                          style: AppTextStyles.body,
-                          decoration: const InputDecoration(
-                            hintText: '000 000 0000',
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  RadiusButton(
-                    // Says exactly what pressing it does; the next screen then
-                    // asks for the code it just sent.
-                    label: 'Send code',
-                    isLoading: _isLoading,
-                    onPressed: _onContinue,
-                  ),
-
-                  const SizedBox(height: 20),
-                  const _OrDivider(),
-                  const SizedBox(height: 20),
-
-                  RadiusButton(
-                    label: 'Continue with Google',
-                    kind: RadiusButtonKind.ghost,
-                    onPressed: _isLoading ? null : _onGoogleSignIn,
-                  ),
-
-                  const SizedBox(height: 28),
-                  const Spacer(),
-
-                  Center(
-                    child: Text(
-                      "By continuing you confirm you're 18 or older and agree "
-                      'to our Terms and Privacy Policy.',
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.caption.copyWith(fontSize: 11.5),
+                      ],
                     ),
-                  ),
-                ],
+
+                    const SizedBox(height: 18),
+
+                    RadiusButton(
+                      // Says exactly what pressing it does; the next screen then
+                      // asks for the code it just sent.
+                      label: 'Send code',
+                      isLoading: _isLoading,
+                      onPressed: _onContinue,
+                    ),
+
+                    const SizedBox(height: 20),
+                    const _OrDivider(),
+                    const SizedBox(height: 20),
+
+                    RadiusButton(
+                      label: 'Continue with Google',
+                      kind: RadiusButtonKind.ghost,
+                      onPressed: _isLoading ? null : _onGoogleSignIn,
+                    ),
+
+                    const SizedBox(height: 28),
+                    const Spacer(),
+
+                    Center(
+                      child: Text(
+                        "By continuing you confirm you're 18 or older and agree "
+                        'to our Terms and Privacy Policy.',
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.caption.copyWith(fontSize: 11.5),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

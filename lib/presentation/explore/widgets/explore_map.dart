@@ -153,14 +153,10 @@ class _ExploreMapState extends State<ExploreMap>
   /// hundred.
   Timer? _iconFlush;
 
-  /// A filter no feature satisfies, for emptying a layer without touching any
-  /// of its other properties. `setLayerProperties` would reset everything it
-  /// wasn't given; a filter only changes what is drawn.
-  static const List<Object> _matchNothing = [
-    '==',
-    ['literal', 0],
-    ['literal', 1],
-  ];
+  /// Above this zoom the clusterer stops rolling people up and every marker
+  /// is an individual. Shared by the source that does the clustering and the
+  /// tap fallback that must not fire while it is happening.
+  static const double _clusterMaxZoom = 14;
 
   /// Guards every async continuation that touches the platform: the tab can be
   /// switched away mid-flight, and talking to a disposed map throws.
@@ -280,7 +276,8 @@ class _ExploreMapState extends State<ExploreMap>
         featureTapsTriggersMapClick: true,
         onMapCreated: (controller) => _map = controller,
         onStyleLoadedCallback: _onStyleLoaded,
-        onMapClick: (point, _) => unawaited(_onTap(point)),
+        onMapClick: (point, coordinates) =>
+            unawaited(_onTap(point, coordinates)),
       ),
     );
   }
@@ -340,7 +337,7 @@ class _ExploreMapState extends State<ExploreMap>
         // Past this, everyone is drawn individually. It is deliberately below
         // the zoom where buildings extrude: arriving in the 3D city should
         // mean arriving at people, not at a number.
-        clusterMaxZoom: 14,
+        clusterMaxZoom: _clusterMaxZoom,
       ),
     );
     await map.addSource(
@@ -786,13 +783,18 @@ class _ExploreMapState extends State<ExploreMap>
         ? null
         : widget.users.where((user) => user.id == selectedId).firstOrNull;
 
-    // A selected person whose larger raster hasn't been built yet keeps their
-    // normal marker until it has, rather than vanishing from both layers.
+    // Is the bigger, brighter raster for this person on the GPU yet?
+    //
+    // On a first selection it never is — it is built on demand — and what the
+    // map does in that gap is the whole of this method's difficulty. It used to
+    // hide the crowd *and* draw nobody in their place, so tapping somebody
+    // blanked the map until the raster landed, and blanked it permanently if
+    // the raster failed. The person you just picked is the one thing that must
+    // stay on screen.
     final selectedImage = selected == null
         ? null
         : ExploreMarkerImages.imageId(selected, selected: true);
     final ready = selectedImage != null && _images.has(selectedImage);
-    final activeId = ready ? selectedId : '__none__';
 
     // Picking somebody empties the map of everyone else.
     //
@@ -802,68 +804,18 @@ class _ExploreMapState extends State<ExploreMap>
     // the map is also what makes the bottom composer unambiguous: there is
     // exactly one person on screen, and the message goes to them.
     final focused = selected != null;
+    final filters = peopleLayerFilters(selectedId: selectedId, ready: ready);
 
     try {
-      await _map!.setFilter(
-        _peopleLayer,
-        focused
-            ? _matchNothing
-            : [
-                'all',
-                [
-                  '!',
-                  ['has', 'point_count'],
-                ],
-                [
-                  '!=',
-                  ['get', 'id'],
-                  activeId,
-                ],
-              ],
-      );
-      await _map!.setFilter(
-        _peopleGroundLayer,
-        focused
-            ? [
-                'all',
-                [
-                  '!',
-                  ['has', 'point_count'],
-                ],
-                [
-                  '==',
-                  ['get', 'id'],
-                  selectedId,
-                ],
-              ]
-            : [
-                '!',
-                ['has', 'point_count'],
-              ],
-      );
-      await _map!.setFilter(_selectedLayer, [
-        'all',
-        [
-          '!',
-          ['has', 'point_count'],
-        ],
-        [
-          '==',
-          ['get', 'id'],
-          activeId,
-        ],
-      ]);
-      // Clusters are a way of reading a crowd. With one person on the map there
-      // is no crowd, and a "1" bubble beside them would be nonsense.
+      await _map!.setFilter(_peopleLayer, filters.base);
+      await _map!.setFilter(_peopleGroundLayer, filters.ground);
+      await _map!.setFilter(_selectedLayer, filters.selected);
       for (final layer in const [
         _clusterGlowLayer,
         _clusterLayer,
         _clusterCountLayer,
       ]) {
-        await _map!.setFilter(
-          layer,
-          focused ? _matchNothing : const ['has', 'point_count'],
-        );
+        await _map!.setFilter(layer, filters.clusters);
       }
     } catch (_) {
       return;
@@ -878,8 +830,15 @@ class _ExploreMapState extends State<ExploreMap>
     }
 
     if (selected != null && !ready) {
-      // Build it, then come back through here.
-      unawaited(_register(selected, selected: true));
+      // Build the bigger raster, then come back through here to swap it in.
+      //
+      // Failure is survivable now and must stay that way: the plain marker is
+      // already on screen from the filters above, so a photo that will not
+      // decode costs the highlight, not the person. Swallowing here is also
+      // what stops an unhandled async error reaching the console.
+      unawaited(
+        _register(selected, selected: true).catchError((Object _) {}),
+      );
       return;
     }
 
@@ -895,7 +854,7 @@ class _ExploreMapState extends State<ExploreMap>
 
   // ── Interaction ───────────────────────────────────────────────────────────
 
-  Future<void> _onTap(math.Point<double> point) async {
+  Future<void> _onTap(math.Point<double> point, LatLng coordinates) async {
     if (!_live) return;
 
     // A rect rather than the bare point: the incoming coordinate and the query
@@ -947,6 +906,28 @@ class _ExploreMapState extends State<ExploreMap>
         widget.onPersonTapped(person);
         return;
       }
+    }
+
+    // Nothing rendered answered. Fall back to geometry.
+    //
+    // `queryRenderedFeatures` is the precise tool and also the fragile one: it
+    // needs every layer id in the request to exist, and maplibre-gl-js answers
+    // a request naming an unknown layer with an error on the console and an
+    // empty list. That failure is indistinguishable from "you tapped the road",
+    // so a single mis-created layer silently costs the whole tap interaction.
+    // The markers' coordinates are already in Dart, so the tap can be resolved
+    // against them directly and identically on every platform.
+    final person = personNearTap(
+      tap: coordinates,
+      people: widget.users,
+      drawn: _drawn,
+      zoom: _map?.cameraPosition?.zoom ?? ExploreCamera.defaultZoom,
+      clusterMaxZoom: _clusterMaxZoom,
+      focused: widget.selectedId != null,
+    );
+    if (person != null) {
+      widget.onPersonTapped(person);
+      return;
     }
 
     widget.onBackgroundTapped();

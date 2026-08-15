@@ -6,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../data/models/map_user_model.dart';
 import '../../../providers/explore_provider.dart';
+import '../../../providers/location_provider.dart';
 import '../../../providers/match_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../../providers/realtime_provider.dart';
@@ -209,7 +210,11 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                     ),
                   ),
                   _sideChrome(viewMode: viewMode, locating: location.isLoading),
-                  _notice(exploreAsync: exploreAsync, location: location),
+                  _notice(
+                    exploreAsync: exploreAsync,
+                    location: location,
+                    selected: selected,
+                  ),
                 ],
               ),
             ),
@@ -260,6 +265,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   Widget _notice({
     required AsyncValue<List<MapUser>> exploreAsync,
     required AsyncValue<LatLng?> location,
+    required MapUser? selected,
   }) {
     return Positioned(
       left: 16,
@@ -283,6 +289,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
           child: _noticeContent(
             exploreAsync: exploreAsync,
             location: location,
+            selected: selected,
           ),
         ),
       ),
@@ -292,7 +299,18 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   Widget _noticeContent({
     required AsyncValue<List<MapUser>> exploreAsync,
     required AsyncValue<LatLng?> location,
+    required MapUser? selected,
   }) {
+    // Somebody is in focus: the map is showing them alone, and the only thing
+    // worth saying is who, and how to get back.
+    if (selected != null) {
+      return ExploreFocusPill(
+        key: ValueKey('focus.${selected.id}'),
+        name: selected.displayName,
+        onShowEveryone: _clearSelection,
+      );
+    }
+
     final locationError = location.error;
     if (locationError is LocationUnavailableException) {
       return ExploreNoticeCard(

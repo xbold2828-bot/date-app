@@ -387,20 +387,28 @@ class _RadarTab extends ConsumerWidget {
               colorIndex: index,
               // The sheet fetches the full profile itself; the seed is only so
               // the name and photo already on screen stay on screen.
-              onTap: () => showRadiusSheet<void>(
-                context: context,
-                builder: (_) => ProfileDetailSheet(
-                  userId: card.id,
-                  seed: ProfileSeed(
-                    name: card.displayName ?? 'Someone',
-                    age: card.age,
-                    photoUrl: card.primaryPhotoUrl,
-                    distanceBand: card.distanceBand,
-                    isOnline: online,
-                    colorIndex: index,
+              onTap: () {
+                // Counts as a visit on their profile. Not awaited, and it
+                // cannot throw — opening the sheet must not wait on, or be
+                // stopped by, a counter. The server ignores repeats within the
+                // day, so a scroll back and forth is one visit.
+                ref.read(recordProfileViewProvider)(card.id);
+
+                showRadiusSheet<void>(
+                  context: context,
+                  builder: (_) => ProfileDetailSheet(
+                    userId: card.id,
+                    seed: ProfileSeed(
+                      name: card.displayName ?? 'Someone',
+                      age: card.age,
+                      photoUrl: card.primaryPhotoUrl,
+                      distanceBand: card.distanceBand,
+                      isOnline: online,
+                      colorIndex: index,
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
         ),

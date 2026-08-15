@@ -7,13 +7,19 @@ import '../../../core/errors/app_exceptions.dart';
 import '../../../providers/subscription_provider.dart';
 import '../../common/widgets/widgets.dart';
 
-/// One purchasable plan.
+/// One purchasable plan, as this screen needs to draw it.
+///
+/// The words are here; the prices come from `GET /subscription/plans` so a
+/// price change does not need an app release. The values below are the
+/// fallback for a catalogue that has not loaded (or cannot), because a paywall
+/// that renders without prices is worse than one showing last-known ones.
 class _Plan {
   const _Plan({
     required this.id,
     required this.label,
     required this.sublabel,
     required this.price,
+    this.priceInr,
     this.isBestValue = false,
   });
 
@@ -23,7 +29,20 @@ class _Plan {
   /// What choosing this actually means, in plain terms.
   final String sublabel;
   final String price;
+
+  /// The rupee price, when the server sent one.
+  final String? priceInr;
+
   final bool isBestValue;
+
+  _Plan withPrices(String usd, String? inr) => _Plan(
+        id: id,
+        label: label,
+        sublabel: sublabel,
+        price: usd,
+        priceInr: inr,
+        isBestValue: isBestValue,
+      );
 }
 
 /// One thing Premium gets you. Written as a claim plus its consequence, so
@@ -47,7 +66,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   bool _isLoading = false;
   bool _isRestoring = false;
 
-  static const List<_Plan> _plans = [
+  static const List<_Plan> _fallbackPlans = [
     _Plan(
       id: 'monthly',
       label: '1 month',
@@ -72,6 +91,9 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   static const List<_Benefit> _benefits = [
     _Benefit('See everyone nearby', 'No daily limit on your radar.'),
     _Benefit('See who liked you', 'Every name, before you reply.'),
+    // Free accounts earn their unlocks by watching rewarded ads. Premium is
+    // the version of the app where that never comes up.
+    _Benefit('No ads, ever', 'Nothing to watch, nothing to sit through.'),
     _Benefit(
       'Every filter',
       'Online now, verified, situation, vibe and desires.',
@@ -79,8 +101,29 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
     _Benefit('Start any conversation', 'No cap on openers.'),
   ];
 
-  _Plan get _current =>
-      _plans.firstWhere((p) => p.id == _selectedPlan, orElse: () => _plans[0]);
+  /// The plans, priced by the server where it answered.
+  ///
+  /// The order and the words are this screen's; only the numbers come from the
+  /// catalogue. A plan the server does not offer keeps its fallback price
+  /// rather than disappearing mid-scroll.
+  List<_Plan> get _plans {
+    final catalogue = ref.watch(planCatalogueProvider).valueOrNull;
+    if (catalogue == null || catalogue.plans.isEmpty) return _fallbackPlans;
+
+    return [
+      for (final plan in _fallbackPlans)
+        () {
+          final priced = catalogue.plans.where((p) => p.plan == plan.id);
+          if (priced.isEmpty) return plan;
+          final option = priced.first;
+          return plan.withPrices(
+            option.priceLabel,
+            option.hasInrPrice ? option.priceInrLabel : null,
+          );
+        }(),
+    ];
+  }
+
 
   /// Buy the selected plan.
   ///
@@ -133,6 +176,14 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Read once per build: `_plans` watches the catalogue, and the button needs
+    // to agree with the cards about what the selected plan costs.
+    final plans = _plans;
+    final current = plans.firstWhere(
+      (p) => p.id == _selectedPlan,
+      orElse: () => plans.first,
+    );
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -178,7 +229,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
 
                   const SizedBox(height: 20),
 
-                  ..._plans.map(
+                  ...plans.map(
                     (plan) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: _PlanCard(
@@ -192,8 +243,10 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                   const SizedBox(height: 6),
                   RadiusButton(
                     // Carries the price, so nobody taps to find out what it
-                    // costs.
-                    label: 'Start Premium · ${_current.price}',
+                    // costs. The rupee figure stays on the card rather than
+                    // riding along here — two currencies on a button is a
+                    // button nobody reads.
+                    label: 'Start Premium · ${current.price}',
                     kind: RadiusButtonKind.gold,
                     isLoading: _isLoading,
                     onPressed: _onStartPremium,
@@ -248,12 +301,27 @@ class _PlanCard extends StatelessWidget {
       subtitle: plan.sublabel,
       selected: selected,
       onTap: onTap,
-      trailing: Text(
-        plan.price,
-        style: AppTextStyles.title.copyWith(
-          fontSize: 22,
-          color: selected ? AppColors.primaryDeep : AppColors.textDark,
-        ),
+      // Both currencies, one under the other. The dollar figure keeps the
+      // display face it has always had; the rupee price sits beneath it in
+      // caption type, because it is the same price said again rather than a
+      // second thing to decide between.
+      trailing: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            plan.price,
+            style: AppTextStyles.title.copyWith(
+              fontSize: 22,
+              color: selected ? AppColors.primaryDeep : AppColors.textDark,
+            ),
+          ),
+          if (plan.priceInr != null)
+            Text(
+              plan.priceInr!,
+              style: AppTextStyles.caption.copyWith(fontSize: 12),
+            ),
+        ],
       ),
     );
 

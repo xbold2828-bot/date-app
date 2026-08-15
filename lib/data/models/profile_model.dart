@@ -1,6 +1,25 @@
 List<String> _strs(dynamic v) =>
     (v as List?)?.map((e) => e.toString()).toList() ?? const [];
 
+/// The counters printed under a name: how many people opened this profile, and
+/// how many liked it.
+///
+/// Both come from `GET /profiles/me/stats` (mine) or ride along on
+/// `GET /profiles/:id` (someone else's). The third number the UI shows —
+/// friends — is deliberately absent: it is the length of the active
+/// conversation list and is counted on the device, never fetched.
+class ProfileStats {
+  final int profileViews;
+  final int likesReceived;
+
+  const ProfileStats({this.profileViews = 0, this.likesReceived = 0});
+
+  factory ProfileStats.fromJson(Map<String, dynamic> json) => ProfileStats(
+        profileViews: (json['profileViews'] as num?)?.toInt() ?? 0,
+        likesReceived: (json['likesReceived'] as num?)?.toInt() ?? 0,
+      );
+}
+
 /// `GET /profiles/:id` — the tap-through profile popup for another user.
 ///
 /// The adult "desires" ([preferenceTags]) are only present when the viewer is
@@ -35,6 +54,10 @@ class PublicProfile {
   /// We liked each other. Implies [hasLiked].
   final bool isMatch;
 
+  /// Their visit and like counts. Never null — a profile from an older backend
+  /// simply reads as zeroes.
+  final ProfileStats stats;
+
   const PublicProfile({
     required this.id,
     this.displayName,
@@ -56,6 +79,7 @@ class PublicProfile {
     this.photos = const [],
     this.hasLiked = false,
     this.isMatch = false,
+    this.stats = const ProfileStats(),
   });
 
   factory PublicProfile.fromJson(Map<String, dynamic> json) => PublicProfile(
@@ -80,5 +104,8 @@ class PublicProfile {
         photos: _strs(json['photos']),
         hasLiked: json['hasLiked'] as bool? ?? false,
         isMatch: json['isMatch'] as bool? ?? false,
+        stats: ProfileStats.fromJson(
+          Map<String, dynamic>.from(json['stats'] as Map? ?? const {}),
+        ),
       );
 }
