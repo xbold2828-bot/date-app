@@ -162,12 +162,6 @@ class _LiveLocationLineState extends ConsumerState<LiveLocationLine> {
       final me = await ref.read(onboardingRepositoryProvider).updateLocation(
             latitude: fix.latitude,
             longitude: fix.longitude,
-            // Unchanged, so the radius they chose survives the write.
-            preferredBand: ref
-                .read(meProvider)
-                .valueOrNull
-                ?.location
-                ?.preferredBand,
           );
       ref.read(meProvider.notifier).setMe(me);
       if (!mounted) return;

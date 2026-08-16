@@ -106,13 +106,12 @@ class _FakeOnboardingRepository implements OnboardingRepository {
   Future<MeUser> updateLocation({
     required double latitude,
     required double longitude,
-    String? preferredBand,
     String? city,
   }) async {
     writes.add({
       'latitude': latitude,
       'longitude': longitude,
-      'preferredBand': preferredBand,
+      'city': city,
     });
     final error = failure;
     if (error != null) throw error;
@@ -200,9 +199,11 @@ void main() {
     expect(anchor.longitude, closeTo(79.4192, 1e-6));
   });
 
-  test('carries the saved radius through the write', () async {
-    // The server no longer clears an omitted band, but sending it back means a
-    // client outliving a rollback cannot silently widen somebody's discovery.
+  test('the anchor write carries coordinates and nothing else', () async {
+    // Re-anchoring used to resend the saved `preferredBand` so the radius the
+    // user picked survived the write. Nobody picks a radius any more — the
+    // screen that asked is gone — so the write is coordinates alone, and a
+    // band left on an old account is not resurrected by moving.
     final container = containerWith(
       _meJson(
         latitude: 17.3850,
@@ -212,7 +213,10 @@ void main() {
     );
     await container.read(myLocationProvider.future);
 
-    expect(onboarding.writes.single['preferredBand'], '5-10 km');
+    expect(onboarding.writes.single.keys, unorderedEquals(
+      <String>['latitude', 'longitude', 'city'],
+    ));
+    expect(onboarding.writes.single['city'], isNull);
   });
 
   test('does not write for GPS jitter', () async {
@@ -329,7 +333,6 @@ class _CountingDiscoveryRepository implements DiscoveryRepository {
     int page = 1,
     int limit = 20,
     String? intent,
-    String? band,
     List<String>? genders,
     int? minAge,
     int? maxAge,
@@ -341,7 +344,14 @@ class _CountingDiscoveryRepository implements DiscoveryRepository {
     List<String>? preferenceTags,
   }) async {
     nearbyCalls++;
-    return const NearbyPage(page: 1, limit: 20, source: 'free', items: <DiscoveryCard>[]);
+    return const NearbyPage(
+      page: 1,
+      limit: 30,
+      total: 0,
+      hasMore: false,
+      source: 'free',
+      items: <DiscoveryCard>[],
+    );
   }
 
   @override

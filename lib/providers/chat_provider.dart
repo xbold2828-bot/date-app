@@ -34,18 +34,27 @@ final conversationsProvider = AsyncNotifierProvider.family<
   ConversationsNotifier.new,
 );
 
+/// How many people are in one inbox tab, or null while it is loading.
+///
+/// Counted here, on the device, from the list itself rather than fetched as a
+/// number — the same reasoning as [activeConversationCountProvider]: a second
+/// source for the count could only ever disagree with the rows the person is
+/// looking at. The list is fetched with a limit of 50, so this saturates there;
+/// an inbox that big has other problems.
+final conversationCountProvider = Provider.family<int?, String?>((ref, state) {
+  return ref.watch(conversationsProvider(state)).valueOrNull?.length;
+});
+
 /// How many people I am actually talking to — the "Friends" metric.
 ///
-/// Counted here, on the device, from the Vibing list rather than fetched as a
-/// number. There is no server-side notion of a friend in this product: a
-/// friendship *is* a conversation that got past the opener, so the list is the
-/// count, and a second source for it could only ever disagree with the inbox
-/// the person is looking at.
+/// There is no server-side notion of a friend in this product: a friendship
+/// *is* a conversation that got past the opener, so the Vibing list is the
+/// count.
 ///
 /// Null while the list is loading or failed — the metric renders "—" rather
 /// than claiming zero.
 final activeConversationCountProvider = Provider<int?>((ref) {
-  return ref.watch(conversationsProvider('vibing')).valueOrNull?.length;
+  return ref.watch(conversationCountProvider('vibing'));
 });
 
 /// Inbox unread badge. Kept as a notifier so the chat socket can bump it live.
@@ -123,6 +132,23 @@ class MessagesNotifier
       for (final m in current) m.fromMe ? m.copyWith(read: true) : m,
     ]);
   }
+
+  /// Swap a message for its new version — an edit or a delete, from either
+  /// side.
+  ///
+  /// Replace in place rather than remove-and-append: a deleted message keeps
+  /// its slot in the thread, so the reply underneath it still has something to
+  /// be answering. Silently dropping the row would leave the conversation
+  /// reading as a non-sequitur.
+  void replace(Message message) {
+    if (_disposed) return;
+    final current = state.valueOrNull;
+    if (current == null) return;
+    if (!current.any((m) => m.id == message.id)) return;
+    state = AsyncData([
+      for (final m in current) m.id == message.id ? message : m,
+    ]);
+  }
 }
 
 final messagesProvider = AsyncNotifierProvider.autoDispose
@@ -181,6 +207,46 @@ class ChatActions {
   Future<void> deleteConversation(String conversationId) async {
     await ref.read(chatRepositoryProvider).deleteConversation(conversationId);
     _refreshInbox();
+  }
+
+  /// Mute or unmute a thread.
+  ///
+  /// Only the inbox and the badge move: nothing about delivery changes, and the
+  /// other person cannot tell. The badge is refreshed rather than adjusted by
+  /// hand — the server decides what counts, and guessing here is how the number
+  /// on the tab starts disagreeing with the one behind it.
+  Future<void> setMuted(String conversationId, bool muted) async {
+    final repo = ref.read(chatRepositoryProvider);
+    muted ? await repo.mute(conversationId) : await repo.unmute(conversationId);
+    ref.invalidate(conversationsProvider);
+    ref.invalidate(archivedConversationsProvider);
+    await ref.read(unreadCountProvider.notifier).refresh();
+  }
+
+  /// Rewrite one of my own messages. Premium — a free member gets 402/403 from
+  /// the server, which the caller surfaces as the paywall.
+  Future<void> editMessage(
+    String conversationId,
+    String messageId,
+    String body,
+  ) async {
+    final updated =
+        await ref.read(chatRepositoryProvider).editMessage(messageId, body);
+    ref.read(messagesProvider(conversationId).notifier).replace(updated);
+    // The inbox preview is the server's copy of the last message, and an edit
+    // to the newest one changes it.
+    ref.invalidate(conversationsProvider);
+  }
+
+  /// Take one of my own messages back, for both sides. Premium.
+  Future<void> deleteMessage(
+    String conversationId,
+    String messageId,
+  ) async {
+    final tombstone =
+        await ref.read(chatRepositoryProvider).deleteMessage(messageId);
+    ref.read(messagesProvider(conversationId).notifier).replace(tombstone);
+    ref.invalidate(conversationsProvider);
   }
 
   /// Block someone, then clear them out of every list they could appear in.

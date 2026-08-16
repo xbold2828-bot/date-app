@@ -56,12 +56,10 @@ void main() {
     /// count request.
     test('two identical filters are equal and hash alike', () {
       const a = DiscoveryFilter(
-        band: '10 km+',
         genders: ['woman'],
         personalityTags: ['gym'],
       );
       const b = DiscoveryFilter(
-        band: '10 km+',
         genders: ['woman'],
         personalityTags: ['gym'],
       );
@@ -92,7 +90,6 @@ void main() {
     test('withoutPremium keeps the free filters and drops the rest', () {
       const filter = DiscoveryFilter(
         intent: 'casual',
-        band: '2-5 km',
         genders: ['woman'],
         minAge: 25,
         maxAge: 40,
@@ -107,7 +104,6 @@ void main() {
       final free = filter.withoutPremium();
 
       expect(free.intent, 'casual');
-      expect(free.band, '2-5 km');
       expect(free.genders, ['woman']);
       expect(free.minAge, 25);
       expect(free.maxAge, 40);
@@ -117,7 +113,6 @@ void main() {
     test('reset clears the sheet but keeps the intent chip', () {
       const filter = DiscoveryFilter(
         intent: 'dating',
-        band: '<2 km',
         genders: ['man'],
         verifiedOnly: true,
       );
@@ -125,7 +120,6 @@ void main() {
       final reset = filter.clearedToDefaults();
 
       expect(reset.intent, 'dating');
-      expect(reset.band, isNull);
       expect(reset.genders, isEmpty);
       expect(reset.verifiedOnly, isFalse);
       expect(reset.isFullAgeRange, isTrue);

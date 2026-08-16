@@ -3,10 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
+import '../../../core/utils/screen_guard.dart';
 import '../../../data/models/message_model.dart';
+import '../../../providers/profile_provider.dart';
 import '../../../providers/chat_provider.dart';
 import '../../../providers/realtime_provider.dart';
 import '../../common/widgets/widgets.dart';
@@ -52,7 +56,11 @@ class ChatDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatDetailScreen> createState() => _ChatDetailScreenState();
 }
 
-class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
+/// Screenshots are blocked while a conversation is open — what two people say
+/// to each other is theirs. Android only, and a deterrent rather than a
+/// guarantee; see [ScreenGuard].
+class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
+    with ScreenGuardMixin {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<StreamSubscription<dynamic>> _subs = [];
@@ -108,6 +116,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       ref.read(messagesProvider(convId).notifier).addIncoming(incoming.message);
       ref.read(chatActionsProvider).markRead(convId);
       _scrollToBottom();
+    }));
+    _subs.add(chat.updates.listen((update) {
+      if (!_isLive(update.conversationId)) return;
+      // They edited or took back something already on this screen. Swapped in
+      // place, so a deleted message keeps its slot and the reply underneath it
+      // still has something to be answering.
+      ref.read(messagesProvider(convId).notifier).replace(update.message);
     }));
     _subs.add(chat.reads.listen((receipt) {
       if (!_isLive(receipt.conversationId)) return;
@@ -313,11 +328,37 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       conversationId: convId,
       userId: _otherId,
       userName: widget.userName,
+      isMuted: _isMuted,
     );
     // Deleting, blocking or archiving from inside the thread means this screen
     // is now showing something that is no longer in the inbox.
+    //
+    // Reporting, muting and unmuting are the exceptions: all three leave the
+    // thread exactly where it was, and closing it would be a strange way to
+    // confirm that nothing moved.
     if (!mounted || result == null) return;
-    if (result != ChatActionResult.reported) Navigator.pop(context);
+    const stayOpen = {
+      ChatActionResult.reported,
+      ChatActionResult.muted,
+      ChatActionResult.unmuted,
+    };
+    if (!stayOpen.contains(result)) Navigator.pop(context);
+  }
+
+  /// Whether I have muted this thread, read from the inbox rather than held
+  /// here — the row and the header menu have to agree, and the inbox is the
+  /// copy that gets refreshed when either of them changes it.
+  bool get _isMuted {
+    final convId = _convId;
+    if (convId == null) return false;
+    for (final state in const [null, 'vibing', 'new_energy']) {
+      final list = ref.read(conversationsProvider(state)).valueOrNull;
+      if (list == null) continue;
+      for (final c in list) {
+        if (c.id == convId) return c.muted;
+      }
+    }
+    return false;
   }
 
   Widget _buildTopBar() {
@@ -481,6 +522,10 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
   Widget _buildMessageBubble(Message msg) {
     final isMine = msg.fromMe;
+    // A tombstone is not a message: it recedes, and it is not something you can
+    // copy, edit or delete again.
+    final deleted = msg.deleted;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Column(
@@ -493,29 +538,69 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Flexible(
-                child: Container(
-                  constraints: BoxConstraints(
-                    maxWidth: MediaQuery.of(context).size.width * 0.72,
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: isMine ? AppColors.primary : AppColors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(18),
-                      topRight: const Radius.circular(18),
-                      bottomLeft: Radius.circular(isMine ? 18 : 4),
-                      bottomRight: Radius.circular(isMine ? 4 : 18),
-                    ),
-                    border:
-                        isMine ? null : Border.all(color: AppColors.inputBorder),
-                  ),
-                  child: Text(
-                    msg.body,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isMine ? AppColors.white : AppColors.textDark,
-                      height: 1.4,
+                child: Semantics(
+                  button: !deleted,
+                  label: deleted ? null : 'Message options',
+                  child: GestureDetector(
+                    // Long-press: the gesture every other messaging app has
+                    // trained people to try. A visible button on each bubble
+                    // would be permanent clutter for an occasional action.
+                    onLongPress: deleted ? null : () => _openMessageActions(msg),
+                    child: Container(
+                      constraints: BoxConstraints(
+                        maxWidth: MediaQuery.of(context).size.width * 0.72,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: deleted
+                            ? AppColors.background
+                            : (isMine ? AppColors.primary : AppColors.white),
+                        borderRadius: BorderRadius.only(
+                          topLeft: const Radius.circular(18),
+                          topRight: const Radius.circular(18),
+                          bottomLeft: Radius.circular(isMine ? 18 : 4),
+                          bottomRight: Radius.circular(isMine ? 4 : 18),
+                        ),
+                        border: isMine && !deleted
+                            ? null
+                            : Border.all(color: AppColors.inputBorder),
+                      ),
+                      child: deleted
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.block,
+                                  size: 13,
+                                  color: AppColors.textGrey,
+                                ),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    msg.body,
+                                    style: const TextStyle(
+                                      fontSize: 13.5,
+                                      color: AppColors.textGrey,
+                                      fontStyle: FontStyle.italic,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Text(
+                              msg.body,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: isMine
+                                    ? AppColors.white
+                                    : AppColors.textDark,
+                                height: 1.4,
+                              ),
+                            ),
                     ),
                   ),
                 ),
@@ -532,7 +617,20 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                   _formatTime(msg.sentAt),
                   style: const TextStyle(fontSize: 10, color: AppColors.textGrey),
                 ),
-                if (isMine) ...[
+                // Always shown, to both sides. An edit nobody can see is a way
+                // to make somebody doubt what they read.
+                if (msg.edited) ...[
+                  const SizedBox(width: 4),
+                  const Text(
+                    'edited',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: AppColors.textGrey,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+                if (isMine && !deleted) ...[
                   const SizedBox(width: 4),
                   Icon(
                     msg.read ? Icons.done_all : Icons.check,
@@ -547,6 +645,114 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         ],
       ),
     );
+  }
+
+  /// Copy / edit / delete for one message.
+  ///
+  /// Copy is offered on anybody's message — it is their words on your screen
+  /// either way. Edit and delete are only ever offered on your own, and only
+  /// to premium; the server enforces both, this just avoids presenting an
+  /// action that would be refused.
+  Future<void> _openMessageActions(Message msg) async {
+    final isPremium =
+        ref.read(meProvider).valueOrNull?.premium.isActive ?? false;
+
+    final action = await showRadiusSheet<_MessageAction>(
+      context: context,
+      builder: (_) => _MessageActionsSheet(
+        canModify: msg.fromMe,
+        isPremium: isPremium,
+      ),
+    );
+    if (action == null || !mounted) return;
+
+    switch (action) {
+      case _MessageAction.copy:
+        await Clipboard.setData(ClipboardData(text: msg.body));
+        if (mounted) showRadiusToast(context, 'Copied', tone: ToastTone.success);
+      case _MessageAction.edit:
+        await _editMessage(msg);
+      case _MessageAction.delete:
+        await _deleteMessage(msg);
+      case _MessageAction.upgrade:
+        if (mounted) {
+          showRadiusToast(
+            context,
+            'Editing and deleting messages are premium features',
+          );
+        }
+    }
+  }
+
+  Future<void> _editMessage(Message msg) async {
+    final convId = _convId;
+    if (convId == null) return;
+
+    final next = await showRadiusSheet<String>(
+      context: context,
+      builder: (_) => _EditMessageSheet(original: msg.body),
+    );
+    final trimmed = next?.trim();
+    if (trimmed == null || trimmed.isEmpty || trimmed == msg.body) return;
+
+    try {
+      await ref
+          .read(chatActionsProvider)
+          .editMessage(convId, msg.id, trimmed);
+    } on AppException catch (e) {
+      if (mounted) showRadiusToast(context, e.message, tone: ToastTone.error);
+    }
+  }
+
+  Future<void> _deleteMessage(Message msg) async {
+    final convId = _convId;
+    if (convId == null) return;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.panel,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Delete this message?',
+          style: AppTextStyles.title.copyWith(fontSize: 18),
+        ),
+        // Said plainly, because the alternative is somebody believing they
+        // erased something that is still legible to the other person.
+        content: Text(
+          'It disappears for both of you. ${widget.userName} will see that a '
+          'message was deleted, in the place it was.',
+          style: AppTextStyles.bodyMuted,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(
+              'Cancel',
+              style: AppTextStyles.bodyStrong
+                  .copyWith(color: AppColors.textGrey),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(
+              'Delete',
+              style: AppTextStyles.bodyStrong.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    try {
+      await ref.read(chatActionsProvider).deleteMessage(convId, msg.id);
+    } on AppException catch (e) {
+      if (mounted) showRadiusToast(context, e.message, tone: ToastTone.error);
+    }
   }
 
   Widget _buildTypingIndicator() {
@@ -632,6 +838,198 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     );
   }
 
+}
+
+enum _MessageAction { copy, edit, delete, upgrade }
+
+/// What you can do with one message.
+///
+/// Copy is here for anybody's message. Edit and delete are yours only, and
+/// premium — shown but locked to a free member rather than hidden, because a
+/// feature nobody can see is a feature nobody upgrades for, and silently
+/// missing options read as a broken menu.
+class _MessageActionsSheet extends StatelessWidget {
+  const _MessageActionsSheet({
+    required this.canModify,
+    required this.isPremium,
+  });
+
+  /// This is my own message. Editing somebody else's words is not on offer at
+  /// any price.
+  final bool canModify;
+
+  final bool isPremium;
+
+  @override
+  Widget build(BuildContext context) {
+    return RadiusSheet(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _MessageActionRow(
+            icon: Icons.copy_outlined,
+            label: 'Copy',
+            onTap: () => Navigator.pop(context, _MessageAction.copy),
+          ),
+          if (canModify) ...[
+            _MessageActionRow(
+              icon: Icons.edit_outlined,
+              label: 'Edit',
+              locked: !isPremium,
+              onTap: () => Navigator.pop(
+                context,
+                isPremium ? _MessageAction.edit : _MessageAction.upgrade,
+              ),
+            ),
+            _MessageActionRow(
+              icon: Icons.delete_outline,
+              label: 'Delete',
+              danger: true,
+              locked: !isPremium,
+              onTap: () => Navigator.pop(
+                context,
+                isPremium ? _MessageAction.delete : _MessageAction.upgrade,
+              ),
+            ),
+          ],
+          const SizedBox(height: 6),
+        ],
+      ),
+    );
+  }
+}
+
+class _MessageActionRow extends StatelessWidget {
+  const _MessageActionRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.danger = false,
+    this.locked = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool danger;
+  final bool locked;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = danger ? AppColors.primary : AppColors.textDark;
+
+    return Semantics(
+      button: true,
+      label: locked ? '$label, premium' : label,
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+            child: Row(
+              children: [
+                Icon(icon, size: 21, color: locked ? AppColors.iconMuted : color),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: AppTextStyles.bodyStrong.copyWith(
+                      fontSize: 15,
+                      color: locked ? AppColors.iconMuted : color,
+                    ),
+                  ),
+                ),
+                if (locked)
+                  const Icon(
+                    Icons.lock_outline,
+                    size: 15,
+                    color: AppColors.iconMuted,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Rewriting a message, in the same shape as writing one.
+///
+/// Opens on the existing text with the cursor at the end rather than empty:
+/// an edit is usually a word, and clearing the field would make fixing a typo
+/// mean retyping the sentence.
+class _EditMessageSheet extends StatefulWidget {
+  const _EditMessageSheet({required this.original});
+
+  final String original;
+
+  @override
+  State<_EditMessageSheet> createState() => _EditMessageSheetState();
+}
+
+class _EditMessageSheetState extends State<_EditMessageSheet> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.original,
+  )..selection = TextSelection.collapsed(offset: widget.original.length);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RadiusSheet(
+      title: 'Edit message',
+      child: Padding(
+        // Lifts the field clear of the keyboard the autofocus raises.
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'They will see that this message was edited.',
+              style: AppTextStyles.caption,
+            ),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.inputBorder),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              child: TextField(
+                controller: _controller,
+                autofocus: true,
+                maxLines: null,
+                maxLength: 4000,
+                style: AppTextStyles.body,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  counterText: '',
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            RadiusButton(
+              label: 'Save',
+              onPressed: () =>
+                  Navigator.pop(context, _controller.text.trim()),
+            ),
+            const SizedBox(height: 6),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// A match nobody has written to yet.

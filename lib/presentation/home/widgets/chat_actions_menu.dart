@@ -17,6 +17,10 @@ enum ChatActionResult {
   blocked,
   unblocked,
   reported,
+  /// Muting leaves the thread exactly where it is, so unlike the rest of these
+  /// it is never a reason for an open conversation to close.
+  muted,
+  unmuted,
 }
 
 /// The block/delete/archive/report menu.
@@ -31,6 +35,7 @@ Future<ChatActionResult?> showChatActionsMenu(
   required String userId,
   required String userName,
   bool isArchived = false,
+  bool isMuted = false,
 }) {
   return showRadiusSheet<ChatActionResult>(
     context: context,
@@ -39,6 +44,7 @@ Future<ChatActionResult?> showChatActionsMenu(
       userId: userId,
       userName: userName,
       isArchived: isArchived,
+      isMuted: isMuted,
     ),
   );
 }
@@ -49,12 +55,14 @@ class _ChatActionsSheet extends ConsumerStatefulWidget {
     required this.userId,
     required this.userName,
     required this.isArchived,
+    required this.isMuted,
   });
 
   final String conversationId;
   final String userId;
   final String userName;
   final bool isArchived;
+  final bool isMuted;
 
   @override
   ConsumerState<_ChatActionsSheet> createState() => _ChatActionsSheetState();
@@ -96,6 +104,26 @@ class _ChatActionsSheetState extends ConsumerState<_ChatActionsSheet> {
             () => actions.archive(widget.conversationId),
             result: ChatActionResult.archived,
             confirmation: 'Archived',
+          );
+  }
+
+  /// Mute is the quiet option between doing nothing and blocking somebody.
+  ///
+  /// Worth being precise about in the copy, because people reasonably assume a
+  /// mute stops delivery or is somehow visible: it does neither. It only takes
+  /// the thread out of the badge.
+  Future<void> _toggleMute() {
+    final actions = ref.read(chatActionsProvider);
+    return widget.isMuted
+        ? _run(
+            () => actions.setMuted(widget.conversationId, false),
+            result: ChatActionResult.unmuted,
+            confirmation: 'Notifications on',
+          )
+        : _run(
+            () => actions.setMuted(widget.conversationId, true),
+            result: ChatActionResult.muted,
+            confirmation: 'Muted — messages still arrive, quietly',
           );
   }
 
@@ -212,6 +240,15 @@ class _ChatActionsSheetState extends ConsumerState<_ChatActionsSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _ActionRow(
+            icon: widget.isMuted
+                ? Icons.notifications_active_outlined
+                : Icons.notifications_off_outlined,
+            label: widget.isMuted
+                ? 'Unmute ${widget.userName}'
+                : 'Mute ${widget.userName}',
+            onTap: _busy ? null : _toggleMute,
+          ),
           _ActionRow(
             icon: widget.isArchived
                 ? Icons.unarchive_outlined

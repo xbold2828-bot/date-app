@@ -2,6 +2,7 @@ import 'package:dating_app/core/theme/app_theme.dart';
 import 'package:dating_app/data/models/discovery_user_model.dart';
 import 'package:dating_app/data/models/map_user_model.dart';
 import 'package:dating_app/presentation/explore/widgets/explore_people_grid.dart';
+import 'package:dating_app/presentation/common/widgets/radius_sheet.dart';
 import 'package:dating_app/presentation/explore/widgets/explore_people_strip.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,11 +20,20 @@ MapUser _person(String name, {bool online = false}) => MapUser(
       longitude: 79.4,
     );
 
+/// Overrides the text scale while keeping everything else the view reports.
+///
+/// A bare `MediaQueryData` would also hand the child a zero-sized screen, and
+/// the grid sizes itself to a fraction of the screen height — so it would build
+/// nothing at all and every assertion below would fail for the wrong reason.
 Widget _host(Widget child, {double textScale = 1.0}) => MaterialApp(
       theme: AppTheme.light,
-      home: MediaQuery(
-        data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
-        child: Scaffold(body: child),
+      home: Builder(
+        builder: (context) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(textScale),
+          ),
+          child: Scaffold(body: child),
+        ),
       ),
     );
 
@@ -210,6 +220,37 @@ void main() {
       expect(find.text('All people (3)'), findsOneWidget);
       await tester.tap(find.text('Olivia'));
       expect(picked?.id, 'olivia');
+    });
+
+    // Fixed, not content-sized, and the SAME fixed height a profile opens at.
+    // With four people it used to be a strip at the bottom of the screen that
+    // read as a toast rather than a destination, and with forty it was almost
+    // full-screen — the same sheet, two shapes. Asserted against the shared
+    // constant so the two sheets cannot drift apart again.
+    testWidgets('opens at the profile sheet height whatever it contains',
+        (tester) async {
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      Future<double> heightWith(int count) async {
+        await tester.pumpWidget(_host(
+          ExplorePeopleGrid(
+            people: [
+              for (var i = 0; i < count; i++) _person('Person$i'),
+            ],
+            selectedId: null,
+            onSelect: (_) {},
+            onClose: () {},
+            onShowAll: () {},
+          ),
+        ));
+        return tester.getSize(find.byType(ExplorePeopleGrid)).height;
+      }
+
+      const expected = 800 * kSheetHeightFraction;
+      expect(await heightWith(2), closeTo(expected, 1));
+      expect(await heightWith(40), closeTo(expected, 1));
     });
 
     testWidgets('search narrows the grid and reports the fraction',

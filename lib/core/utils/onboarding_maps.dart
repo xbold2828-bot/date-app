@@ -84,12 +84,3 @@ String intentLabel(String value) => _intentLabels[value] ?? humanizeSlug(value);
 
 String relationshipStatusLabel(String value) =>
     kRelationshipStatusLabels[value] ?? humanizeSlug(value);
-
-/// Normalises a radius label/value to the exact backend `DistanceBand`
-/// (the UI uses en-dashes; the API expects hyphens).
-String? normalizeDistanceBand(String? raw) {
-  if (raw == null) return null;
-  final v = raw.replaceAll('–', '-').replaceAll('—', '-').trim();
-  const bands = {'<2 km', '2-5 km', '5-10 km', '10 km+'};
-  return bands.contains(v) ? v : null;
-}

@@ -110,6 +110,16 @@ class ApiConstants {
   static String conversationUnarchive(String conversationId) =>
       '/messaging/conversations/$conversationId/unarchive';
 
+  /// Mute / unmute, per-user. Stops the thread counting towards the inbox
+  /// badge; delivery is unchanged and the other person cannot tell.
+  static String conversationMute(String conversationId) =>
+      '/messaging/conversations/$conversationId/mute';
+  static String conversationUnmute(String conversationId) =>
+      '/messaging/conversations/$conversationId/unmute';
+
+  /// PATCH to edit, DELETE to take back — both premium, both sender-only.
+  static String message(String messageId) => '/messaging/messages/$messageId';
+
   /// DELETE — removes the thread from MY inbox only.
   static String conversation(String conversationId) =>
       '/messaging/conversations/$conversationId';
@@ -131,6 +141,11 @@ class SocketConstants {
   static const String chatMessage = 'chat:message';
   static const String chatRead = 'chat:read';
   static const String chatTyping = 'chat:typing';
+
+  /// A message the sender edited or took back. Carries the whole replacement
+  /// view rather than a diff, so the receiving client swaps the row and never
+  /// has to reason about what changed.
+  static const String chatMessageUpdated = 'chat:message:updated';
 
   /// Pushed to the person who did NOT complete the match — they are elsewhere
   /// in the app and would otherwise not learn about it until they opened the

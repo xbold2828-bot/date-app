@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/selection_limits.dart';
+import '../../../core/constants/tag_categories.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../core/utils/onboarding_maps.dart';
 import '../../../data/models/tag_model.dart';
@@ -230,13 +231,6 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
   }
 
   Widget _editor(Map<String, List<Tag>> grouped, bool loadingTags) {
-    // "Into" spans six categories but is one answer, so the chips are pooled
-    // and the cap counts the pool — the same list the profile prints.
-    final intoTags = [
-      for (final category in TagCategories.preferences)
-        ...grouped[category] ?? const <Tag>[],
-    ];
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -326,18 +320,20 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
           ),
           _Field(
             label: 'Into',
-            hint: selectionHint(SelectionLimits.into),
-            counter: SelectionCounter(
-              count: _into.length,
-              max: SelectionLimits.into,
-            ),
-            child: LimitedTagChipGroup(
-              tags: intoTags,
-              selected: _into,
-              max: SelectionLimits.into,
-              onChanged: (next) => setState(() => _into = next),
-              onLimitReached: () =>
-                  _snack(selectionLimitMessage('desires', SelectionLimits.into)),
+            hint: 'Every group, the same as when you signed up.',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // "Into" is one answer to the API — a single flat
+                // `preferenceTags` list — but six questions to the person
+                // answering it, each with its own allowance. They live under
+                // one heading rather than as six sibling fields: laid out flat
+                // the word "Into" was just one of six category names, and the
+                // section people came here to edit had no name at all.
+                for (final category in TagCategories.preferences)
+                  if ((grouped[category] ?? const <Tag>[]).isNotEmpty)
+                    _intoGroup(category, grouped[category]!),
+              ],
             ),
           ),
           _Field(
@@ -382,6 +378,57 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
           onPressed: _dirty ? _save : null,
         ),
       ],
+    );
+  }
+
+  /// One desires group inside the "Into" section, capped on its own.
+  ///
+  /// `_into` is kept flat because that is the shape `PATCH
+  /// /onboarding/preferences` takes and the shape the profile prints. The group
+  /// hands the chips only its own category's slice and folds the answer back
+  /// in, so a cap counts that group and nothing else — the same rule the
+  /// funnel's step 6 applies, and the same headings it uses.
+  Widget _intoGroup(String category, List<Tag> tags) {
+    final title = TagCategories.label(category);
+    final max = SelectionLimits.intoIn(category);
+    final slugs = {for (final tag in tags) tag.slug};
+    final chosen = _into.intersection(slugs);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: AppTextStyles.bodyStrong.copyWith(fontSize: 13.5),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                selectionHint(max),
+                style: AppTextStyles.caption.copyWith(fontSize: 11),
+              ),
+              const SizedBox(width: 8),
+              SelectionCounter(count: chosen.length, max: max),
+            ],
+          ),
+          const SizedBox(height: 8),
+          LimitedTagChipGroup(
+            tags: tags,
+            selected: chosen,
+            max: max,
+            onChanged: (next) => setState(() {
+              _into = {..._into.difference(slugs), ...next};
+            }),
+            onLimitReached: () =>
+                _snack(selectionLimitMessage('${title.toLowerCase()} tags', max)),
+          ),
+        ],
+      ),
     );
   }
 

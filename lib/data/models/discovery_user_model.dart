@@ -77,6 +77,20 @@ class NearbyPage {
   final String? city;
   final int page;
   final int limit;
+
+  /// How many people are behind the current filters in total, ranked. The
+  /// server caps this at its candidate pool, so it is what the feed will
+  /// actually hand over rather than what the database matched.
+  final int total;
+
+  /// The server's own answer about whether another page exists.
+  ///
+  /// Inferred from `items.length >= limit` before the API returned it, which
+  /// was wrong in exactly one place and it was the place people noticed: a
+  /// final page that happened to be full showed "Show more people", and
+  /// tapping it produced nothing.
+  final bool hasMore;
+
   final String source;
   final List<DiscoveryCard> items;
 
@@ -84,20 +98,30 @@ class NearbyPage {
     this.city,
     required this.page,
     required this.limit,
+    required this.total,
+    required this.hasMore,
     required this.source,
     required this.items,
   });
 
-  factory NearbyPage.fromJson(Map<String, dynamic> json) => NearbyPage(
-        city: json['city'] as String?,
-        page: (json['page'] as num?)?.toInt() ?? 1,
-        limit: (json['limit'] as num?)?.toInt() ?? 20,
-        source: json['source'] as String? ?? 'free',
-        items: ((json['items'] as List?) ?? const [])
-            .whereType<Map>()
-            .map((e) => DiscoveryCard.fromJson(Map<String, dynamic>.from(e)))
-            .toList(),
-      );
+  factory NearbyPage.fromJson(Map<String, dynamic> json) {
+    final page = (json['page'] as num?)?.toInt() ?? 1;
+    final limit = (json['limit'] as num?)?.toInt() ?? 30;
+    final items = ((json['items'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => DiscoveryCard.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
 
-  bool get hasMore => items.length >= limit;
+    return NearbyPage(
+      city: json['city'] as String?,
+      page: page,
+      limit: limit,
+      total: (json['total'] as num?)?.toInt() ?? items.length,
+      // Falls back to the old inference so the app still pages against a
+      // server that predates the field.
+      hasMore: json['hasMore'] as bool? ?? items.length >= limit,
+      source: json['source'] as String? ?? 'free',
+      items: items,
+    );
+  }
 }

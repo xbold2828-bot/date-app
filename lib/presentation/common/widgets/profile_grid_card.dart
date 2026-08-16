@@ -177,9 +177,13 @@ class ProfileGridCard extends StatelessWidget {
                           fontVariations: const [FontVariation('wght', 700)],
                         ),
                       ),
+                      // Distance only. Presence is the green dot in the
+                      // corner — appending "· online" here said it a second
+                      // time, and it was the half that got truncated first on
+                      // a narrow card.
                       if (distanceBand != null && distanceBand!.isNotEmpty)
                         Text(
-                          isOnline ? '$distanceBand · online' : distanceBand!,
+                          distanceBand!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: AppTextStyles.caption.copyWith(
@@ -199,13 +203,18 @@ class ProfileGridCard extends StatelessWidget {
   }
 }
 
+/// "Here right now", and the card's only statement of it.
+///
+/// Sized up from 9px: at that size, over a photo, against a white ring, it read
+/// as a rendering artefact rather than a signal — and it is now the *whole*
+/// signal, since the "· online" text that used to back it up is gone.
 class _PresenceDot extends StatelessWidget {
   const _PresenceDot();
 
   @override
   Widget build(BuildContext context) => Container(
-        width: 9,
-        height: 9,
+        width: 13,
+        height: 13,
         decoration: BoxDecoration(
           color: const Color(0xFF3BD07E),
           shape: BoxShape.circle,

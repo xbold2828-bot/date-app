@@ -28,6 +28,20 @@ class Env {
   /// Backend REST base URL — already includes the `/api/v1` prefix.
   static const String apiBaseUrl = String.fromEnvironment('API_BASE_URL');
 
+  /// The **Web** OAuth client ID, used as `serverClientId` for native Google
+  /// sign-in on Android/iOS.
+  ///
+  /// It must be the Web client, not the Android one. The Android client is
+  /// matched implicitly by package name + signing SHA-1 and is never named in
+  /// code; this value is what `requestIdToken` stamps as the `aud` of the ID
+  /// token, and Supabase only accepts a token whose `aud` is in its Google
+  /// provider's authorised client IDs. Passing an Android client ID here fails
+  /// with `ApiException: 10` (DEVELOPER_ERROR).
+  ///
+  /// Not in [_required] — a web-only build never reaches the native path.
+  static const String googleWebClientId =
+      String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
+
   /// Socket.io origin. The `/presence` and `/chat` namespaces are appended by
   /// the socket services, so this must NOT carry a path.
   static const String socketBaseUrl =

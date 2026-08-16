@@ -22,6 +22,7 @@ class MapUser {
     required this.card,
     required this.latitude,
     required this.longitude,
+    this.distanceMeters,
   });
 
   final DiscoveryCard card;
@@ -29,6 +30,15 @@ class MapUser {
   /// Generalized map position — see the class comment. Not a GPS fix.
   final double latitude;
   final double longitude;
+
+  /// How far away they actually are, in metres, rounded server-side to 10.
+  ///
+  /// Measured between the real points, so it does NOT agree with the distance
+  /// between [latitude]/[longitude] and your own marker — those are both
+  /// generalized. The number is the true one; the pins are the approximate
+  /// ones. Null on a payload from a backend that predates the field, or when
+  /// the viewer has no location of their own.
+  final num? distanceMeters;
 
   String get id => card.id;
   String get displayName => card.displayName ?? 'Someone';
@@ -54,6 +64,11 @@ class MapUser {
     final card = DiscoveryCard.fromJson(json);
     if (card.id.isEmpty) return null;
 
-    return MapUser(card: card, latitude: latitude, longitude: longitude);
+    return MapUser(
+      card: card,
+      latitude: latitude,
+      longitude: longitude,
+      distanceMeters: json['distanceMeters'] as num?,
+    );
   }
 }

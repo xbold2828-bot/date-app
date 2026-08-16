@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
+import '../../../core/utils/distance_format.dart';
 import '../../../core/utils/onboarding_maps.dart';
+import '../../../core/utils/screen_guard.dart';
 import '../../../data/models/profile_model.dart';
 import '../../../providers/chat_provider.dart';
 import '../../../providers/match_provider.dart';
@@ -54,7 +56,11 @@ class ProfileDetailSheet extends ConsumerStatefulWidget {
   ConsumerState<ProfileDetailSheet> createState() => _ProfileDetailSheetState();
 }
 
-class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet> {
+/// Screenshots are blocked while this sheet is open — somebody else's photos
+/// are theirs, and this is the only lever the platform gives us. Android only,
+/// and a deterrent rather than a guarantee; see [ScreenGuard].
+class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
+    with ScreenGuardMixin {
   final TextEditingController _openerController = TextEditingController();
   bool _isSending = false;
   bool _likeInFlight = false;
@@ -171,61 +177,60 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet> {
         profile?.isOnline ??
         widget.seed.isOnline;
 
+    const radius = BorderRadius.vertical(top: Radius.circular(26));
+
     return Container(
-      height: MediaQuery.sizeOf(context).height * 0.88,
+      height: MediaQuery.sizeOf(context).height * kSheetHeightFraction,
       decoration: const BoxDecoration(
         color: AppColors.panel,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+        borderRadius: radius,
       ),
-      child: Column(
-        children: [
-          Container(
-            width: 44,
-            height: 5,
-            margin: const EdgeInsets.only(top: 10, bottom: 2),
-            decoration: BoxDecoration(
-              color: AppColors.inputBorder,
-              borderRadius: BorderRadius.circular(5),
-            ),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _PhotoCarousel(
-                    photos: _photos(profile),
-                    fallbackInitial: _name,
-                    colorIndex: widget.seed.colorIndex,
-                    isOnline: isOnline,
-                    onClose: () => Navigator.pop(context),
-                  ),
-                  _Details(
-                    profile: profile,
-                    seed: widget.seed,
-                    isOnline: isOnline,
-                    failedToLoad: async.hasError,
-                    onRetry: () =>
-                        ref.invalidate(publicProfileProvider(widget.userId)),
-                    tagLabels:
-                        ref.watch(tagLabelsProvider).valueOrNull ?? const {},
-                  ),
-                ],
+      // Clipped so the photo can run all the way to the sheet's top edge and
+      // still take its rounded corners. There was a grab handle up here on a
+      // strip of panel; it cost 17px of empty cream above every photo, and the
+      // sheet is draggable and has a close button with or without it.
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _PhotoCarousel(
+                      photos: _photos(profile),
+                      fallbackInitial: _name,
+                      colorIndex: widget.seed.colorIndex,
+                      onClose: () => Navigator.pop(context),
+                    ),
+                    _Details(
+                      profile: profile,
+                      seed: widget.seed,
+                      isOnline: isOnline,
+                      failedToLoad: async.hasError,
+                      onRetry: () =>
+                          ref.invalidate(publicProfileProvider(widget.userId)),
+                      tagLabels:
+                          ref.watch(tagLabelsProvider).valueOrNull ?? const {},
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          _ActionBar(
-            controller: _openerController,
-            isSending: _isSending,
-            liked: _liked,
-            isMatch: profile?.isMatch ?? false,
-            // Terminal: once it is on, it stays on and stops accepting taps.
-            likeEnabled: !_likeInFlight && !_liked,
-            name: _name,
-            onLike: _onLike,
-            onSend: _sendOpener,
-          ),
-        ],
+            _ActionBar(
+              controller: _openerController,
+              isSending: _isSending,
+              liked: _liked,
+              isMatch: profile?.isMatch ?? false,
+              // Terminal: once it is on, it stays on and stops accepting taps.
+              likeEnabled: !_likeInFlight && !_liked,
+              name: _name,
+              onLike: _onLike,
+              onSend: _sendOpener,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -246,19 +251,21 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet> {
 ///
 /// Dots only appear for an actual set: a single photo with a lone dot under it
 /// looks like a carousel that failed to load the rest.
+///
+/// Presence is deliberately not here. There used to be an "Online now" pill in
+/// the top-left corner, which said the same thing as the green dot six lines
+/// below it and said it over the person's face.
 class _PhotoCarousel extends StatefulWidget {
   const _PhotoCarousel({
     required this.photos,
     required this.fallbackInitial,
     required this.colorIndex,
-    required this.isOnline,
     required this.onClose,
   });
 
   final List<String> photos;
   final String fallbackInitial;
   final int colorIndex;
-  final bool isOnline;
   final VoidCallback onClose;
 
   @override
@@ -366,9 +373,6 @@ class _PhotoCarouselState extends State<_PhotoCarousel> {
               ),
             ),
           ),
-
-          if (widget.isOnline)
-            const Positioned(top: 18, left: 16, child: _OnlineFlag()),
         ],
       ),
     );
@@ -461,44 +465,6 @@ class _Placeholder extends StatelessWidget {
   }
 }
 
-class _OnlineFlag extends StatelessWidget {
-  const _OnlineFlag();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.38),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 7,
-            height: 7,
-            decoration: const BoxDecoration(
-              color: Color(0xFF3BD07E),
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            'Online now',
-            style: AppTextStyles.caption.copyWith(
-              fontSize: 11,
-              color: AppColors.white,
-              fontWeight: FontWeight.w700,
-              fontVariations: const [FontVariation('wght', 700)],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ── Details ──────────────────────────────────────────────────────────────────
 
 /// Everything the person chose during onboarding, in the order it was asked.
@@ -528,9 +494,17 @@ class _Details extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = profile?.displayName ?? seed.name;
     final age = profile?.age ?? seed.age;
+
+    // The opened profile is the one surface that says how far away somebody
+    // actually is — "190 ft", not "<2 km". Falls back to the band while the
+    // profile is still in flight (the seed only ever carried a band) and on a
+    // profile with no location to measure from.
     final band = profile?.distanceBand ?? seed.distanceBand;
+    final distance = formatDistanceAway(profile?.distanceMeters) ??
+        (band != null && band.isNotEmpty ? '$band away' : null);
+
     final place = [
-      if (band != null && band.isNotEmpty) '$band AWAY',
+      if (distance != null) distance.toUpperCase(),
       if (profile?.city != null && profile!.city!.isNotEmpty) profile!.city!,
     ].join(' · ');
 
@@ -557,12 +531,20 @@ class _Details extends StatelessWidget {
             const SizedBox(height: 7),
             Row(
               children: [
-                Container(
-                  width: 9,
-                  height: 9,
-                  decoration: const BoxDecoration(
-                    color: AppColors.primary,
-                    shape: BoxShape.circle,
+                // Presence, and the only place this profile states it: green
+                // when they are here, muted when they are not. The pill that
+                // used to sit on the photo said the same thing twice.
+                Semantics(
+                  label: isOnline ? 'Online now' : 'Offline',
+                  child: Container(
+                    width: isOnline ? 12 : 9,
+                    height: isOnline ? 12 : 9,
+                    decoration: BoxDecoration(
+                      color: isOnline
+                          ? const Color(0xFF3BD07E)
+                          : AppColors.iconMuted,
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 7),
@@ -588,22 +570,15 @@ class _Details extends StatelessWidget {
             _CouldNotLoad(onRetry: onRetry),
           ],
 
-          // Visits and likes. "Friends" is omitted here on purpose — it is
-          // counted from the viewer's own inbox and cannot be known for
-          // somebody else.
-          if (profile != null) ...[
-            const SizedBox(height: 18),
-            ProfileMetricsRow(
-              visits: profile!.stats.profileViews,
-              likes: profile!.stats.likesReceived,
-              friends: null,
-              compact: true,
-              omitUnknown: true,
-            ),
-          ],
+          // Visits and likes used to sit here. They are somebody's popularity
+          // scoreboard, and printing them on the profile you are deciding
+          // about turns a person into a ranking — "4 visits" reads as a verdict
+          // on them either way. They stay on the "Me" tab, where they are
+          // yours to look at.
 
           if (profile?.bio != null && profile!.bio!.trim().isNotEmpty) ...[
             const SizedBox(height: 18),
+            const SectionLabel('About'),
             Text(
               profile!.bio!,
               style: AppTextStyles.body.copyWith(height: 1.55),

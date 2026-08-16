@@ -84,16 +84,18 @@ class OnboardingRepository {
           body: {'skipped': skipped}));
 
   /// Step 9 — `PATCH /location`.
+  ///
+  /// The endpoint also takes a `preferredBand`, which this app no longer
+  /// sends: the search radius is not something anyone is asked to choose, so
+  /// there is no value to put there. See [BasicsScreen5].
   Future<MeUser> updateLocation({
     required double latitude,
     required double longitude,
-    String? preferredBand,
     String? city,
   }) async {
     final body = <String, dynamic>{
       'latitude': latitude,
       'longitude': longitude,
-      if (preferredBand != null) 'preferredBand': preferredBand,
       if (city != null) 'city': city,
     };
     return _me(await _api.patch(ApiConstants.location, body: body));

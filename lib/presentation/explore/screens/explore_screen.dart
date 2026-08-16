@@ -4,15 +4,12 @@ import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/errors/app_exceptions.dart';
+import '../../../core/utils/distance_format.dart';
 import '../../../data/models/map_user_model.dart';
 import '../../../providers/explore_provider.dart';
 import '../../../providers/location_provider.dart';
-import '../../../providers/match_provider.dart';
-import '../../../providers/profile_provider.dart';
 import '../../../providers/realtime_provider.dart';
 import '../../common/widgets/widgets.dart';
-import '../../home/screens/premium_screen.dart';
-import '../../home/widgets/discovery_filter_sheet.dart';
 import '../widgets/explore_composer.dart';
 import '../widgets/explore_controls.dart';
 import '../widgets/explore_map.dart';
@@ -121,7 +118,6 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     final style = ref.watch(exploreMapStyleProvider);
     final location = ref.watch(myLocationProvider);
     final exploreAsync = ref.watch(exploreProvider);
-    final me = ref.watch(meProvider).valueOrNull;
     final presence = ref.watch(presenceProvider);
     final selectedId = ref.watch(exploreSelectionProvider);
     final viewMode = ref.watch(exploreViewModeProvider);
@@ -138,6 +134,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
             card: user.card.withOnline(online),
             latitude: user.latitude,
             longitude: user.longitude,
+            distanceMeters: user.distanceMeters,
           )
         else
           user,
@@ -167,19 +164,16 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
         ),
         data: (styleString) => Column(
           children: [
+            // No header. It was a glass card carrying the word "Explore" — on
+            // the Explore tab — and a search button for a set the strip below
+            // it already shows in full. Only the count it also carried was
+            // worth keeping, and that now floats over the map where it costs
+            // no layout at all.
             SafeArea(
               bottom: false,
               child: Column(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                    child: ExploreHeader(
-                      count: users.length,
-                      isLoading: exploreAsync.isLoading,
-                      onSearch: () => _openGrid(users),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   ExplorePeopleStrip(
                     people: users,
                     selectedId: selectedId,
@@ -207,6 +201,14 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                       viewMode: viewMode,
                       onPersonTapped: _select,
                       onBackgroundTapped: _clearSelection,
+                    ),
+                  ),
+                  Positioned(
+                    top: 12,
+                    left: 14,
+                    child: ExploreCountPill(
+                      count: users.length,
+                      isLoading: exploreAsync.isLoading,
                     ),
                   ),
                   _sideChrome(viewMode: viewMode, locating: location.isLoading),
@@ -307,6 +309,12 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       return ExploreFocusPill(
         key: ValueKey('focus.${selected.id}'),
         name: selected.displayName,
+        // How far away they actually are, not the band. Falls back to the band
+        // on a payload that predates the number.
+        distance: formatDistanceAway(selected.distanceMeters) ??
+            (selected.distanceBand.isEmpty
+                ? null
+                : '${selected.distanceBand} away'),
         onShowEveryone: _clearSelection,
       );
     }

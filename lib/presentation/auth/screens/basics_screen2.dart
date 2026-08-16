@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/selection_limits.dart';
+import '../../../core/constants/tag_categories.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../core/utils/onboarding_maps.dart';
 import '../../../data/models/tag_model.dart';

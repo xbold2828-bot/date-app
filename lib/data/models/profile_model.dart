@@ -38,6 +38,15 @@ class PublicProfile {
   final bool desiresLocked;
   final List<String>? hardNos;
   final String? distanceBand;
+
+  /// Straight-line metres to me, rounded server-side to the nearest 10.
+  ///
+  /// The tap-through profile prints this instead of the band — it is the one
+  /// surface that gives a number. Null on a profile with no location set, or
+  /// from a backend that predates the field, which is why the band is still
+  /// carried alongside it as the fallback.
+  final num? distanceMeters;
+
   final String? city;
   final bool isOnline;
   final bool isVerified;
@@ -72,6 +81,7 @@ class PublicProfile {
     this.desiresLocked = true,
     this.hardNos,
     this.distanceBand,
+    this.distanceMeters,
     this.city,
     this.isOnline = false,
     this.isVerified = false,
@@ -97,6 +107,7 @@ class PublicProfile {
         desiresLocked: json['desiresLocked'] as bool? ?? true,
         hardNos: json['hardNos'] == null ? null : _strs(json['hardNos']),
         distanceBand: json['distanceBand'] as String?,
+        distanceMeters: json['distanceMeters'] as num?,
         city: json['city'] as String?,
         isOnline: json['isOnline'] as bool? ?? false,
         isVerified: json['isVerified'] as bool? ?? false,

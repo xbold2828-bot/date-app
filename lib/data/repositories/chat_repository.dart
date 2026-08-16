@@ -98,6 +98,45 @@ class ChatRepository {
   Future<void> unarchive(String conversationId) =>
       _api.post(ApiConstants.conversationUnarchive(conversationId));
 
+  /// `POST /messaging/conversations/:id/mute` — stop this thread counting
+  /// towards the Chats badge.
+  ///
+  /// Per-user and invisible to the other person. Messages keep arriving and
+  /// the row keeps its own unread count; muting is about the badge, which is
+  /// the part that actually interrupts anyone.
+  Future<void> mute(String conversationId) =>
+      _api.post(ApiConstants.conversationMute(conversationId));
+
+  /// `POST /messaging/conversations/:id/unmute`.
+  Future<void> unmute(String conversationId) =>
+      _api.post(ApiConstants.conversationUnmute(conversationId));
+
+  /// `PATCH /messaging/messages/:id` — rewrite one of my own messages.
+  ///
+  /// Premium (403 otherwise) and sender-only (404 otherwise). The result is
+  /// marked `edited`, which both sides see.
+  Future<Message> editMessage(String messageId, String body) async {
+    final data = await _api.patch(
+      ApiConstants.message(messageId),
+      body: {'body': body},
+    );
+    return Message.fromJson(
+      Map<String, dynamic>.from((data as Map)['message'] as Map),
+    );
+  }
+
+  /// `DELETE /messaging/messages/:id` — take a message back, for both sides.
+  ///
+  /// Premium and sender-only. Returns the tombstone that replaces it: the row
+  /// stays in the thread saying it was deleted, rather than vanishing and
+  /// leaving the other person's reply answering nothing.
+  Future<Message> deleteMessage(String messageId) async {
+    final data = await _api.delete(ApiConstants.message(messageId));
+    return Message.fromJson(
+      Map<String, dynamic>.from((data as Map)['message'] as Map),
+    );
+  }
+
   /// `DELETE /messaging/conversations/:id` — remove from MY inbox.
   ///
   /// Per-user: the other person keeps their copy, and a new message from them

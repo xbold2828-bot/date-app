@@ -60,11 +60,21 @@ final chatRealtimeProvider = Provider<void>((ref) {
   final service = ref.watch(chatServiceProvider);
   final sub = service.messages.listen((incoming) {
     // A message in the thread that's currently open is marked read on arrival,
-    // so counting it here would leave a dot that never clears.
+    // so counting it here would leave a dot that never clears. A muted thread
+    // is not counted either — the server has already left it out of the total,
+    // and bumping here would make the badge disagree with its own source until
+    // the next refresh.
     final active = ref.read(activeConversationProvider);
-    if (incoming.conversationId != active) {
+    if (incoming.conversationId != active && !incoming.muted) {
       ref.read(unreadCountProvider.notifier).bump();
     }
+    ref.invalidate(conversationsProvider);
+  });
+
+  // An edit or a delete by the other person. The inbox preview is the server's
+  // copy of the last message, so it has to be re-read; the open thread, if
+  // any, swaps the row itself through its own listener.
+  final updateSub = service.updates.listen((_) {
     ref.invalidate(conversationsProvider);
   });
 
@@ -77,5 +87,6 @@ final chatRealtimeProvider = Provider<void>((ref) {
   });
 
   ref.onDispose(sub.cancel);
+  ref.onDispose(updateSub.cancel);
   ref.onDispose(matchSub.cancel);
 });

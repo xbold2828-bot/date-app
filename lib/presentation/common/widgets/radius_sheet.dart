@@ -3,6 +3,17 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 
+/// How much of the screen a full-height sheet takes.
+///
+/// One number, because "as big as the profile" is a thing several sheets are
+/// meant to be, and three of them each picking their own fraction is how the
+/// same gesture ends up producing three different-sized panels.
+///
+/// Never the whole screen: a sheet has to read as something covering the app
+/// rather than as the app itself, and the strip of scrim above it is what says
+/// so.
+const double kSheetHeightFraction = 0.88;
+
 /// Chrome for a bottom sheet: grab handle, title row, optional trailing
 /// action, and a scrolling body.
 ///
@@ -36,7 +47,7 @@ class RadiusSheet extends StatelessWidget {
       // Never taller than most of the screen: the sheet has to read as
       // something covering the app, not as the app itself.
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+        maxHeight: MediaQuery.sizeOf(context).height * kSheetHeightFraction,
       ),
       decoration: const BoxDecoration(
         color: AppColors.panel,

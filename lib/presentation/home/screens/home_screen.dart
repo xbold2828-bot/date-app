@@ -292,9 +292,6 @@ class _RadarTab extends ConsumerWidget {
             child: RadarHeader(
               name: me?.displayName,
               city: nearbyAsync.valueOrNull?.city ?? me?.location?.city,
-              band: DistanceRing.fromBand(
-                filter.band ?? me?.location?.preferredBand,
-              ),
             ),
           ),
           SliverToBoxAdapter(
@@ -352,8 +349,8 @@ class _RadarTab extends ConsumerWidget {
       return SliverToBoxAdapter(
         child: _EmptyState(
           title: 'Quiet in your radius right now',
-          body: 'Nobody matches these filters at this distance. Widen the '
-              'circle — your people might be one band away.',
+          body: 'Nobody nearby matches these filters. Clear a few and check '
+              'back — who is around changes through the day.',
           action: RadiusButton(
             label: 'Open filters',
             kind: RadiusButtonKind.ghost,
@@ -436,26 +433,26 @@ class _RadarTab extends ConsumerWidget {
   }
 }
 
-/// Greeting, place, and the radar showing how wide the circle is set.
+/// Greeting, place, and the mark.
+///
+/// The mark used to fill its rings to the radius the account was set to. There
+/// is no such setting any more — nobody picks a search radius — so it renders
+/// as the plain brand mark and the line under the greeting is just the city.
 class RadarHeader extends StatelessWidget {
-  const RadarHeader({super.key, this.name, this.city, this.band});
+  const RadarHeader({super.key, this.name, this.city});
 
   final String? name;
   final String? city;
-  final DistanceRing? band;
 
   @override
   Widget build(BuildContext context) {
-    final place = [
-      if (city != null && city!.isNotEmpty) city,
-      if (band != null) band!.label,
-    ].join(' · ');
+    final place = (city ?? '').trim();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
       child: Row(
         children: [
-          RadarMark(size: 36, activeBand: band),
+          const RadarMark(size: 36),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -483,8 +480,12 @@ class RadarHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          const _PremiumPill(),
-          const SizedBox(width: 8),
+          // No Premium pill. It sat between the greeting and Filters as a
+          // permanent advertisement on the screen people open the app to use,
+          // and it squeezed the name into an ellipsis to do it. Premium is
+          // still reachable from the "You" tab and from every paywall that has
+          // an actual reason to appear.
+          //
           // Filters sits in the header rather than at the tail of the chip
           // row: there it was only reachable after scrolling past eight intent
           // chips, which buried the one control that fixes an empty radar.
@@ -522,54 +523,6 @@ class _FilterButton extends StatelessWidget {
               Icons.tune,
               size: 18,
               color: AppColors.textDark,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PremiumPill extends StatelessWidget {
-  const _PremiumPill();
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Radius Premium',
-      excludeSemantics: true,
-      child: Material(
-        color: AppColors.goldTint,
-        borderRadius: BorderRadius.circular(999),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(999),
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const PremiumScreen()),
-          ),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: const Color(0xFFE5D5AE)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.auto_awesome,
-                    size: 13, color: Color(0xFF7A5A14)),
-                const SizedBox(width: 5),
-                Text(
-                  'Premium',
-                  style: AppTextStyles.caption.copyWith(
-                    fontSize: 11.5,
-                    color: const Color(0xFF7A5A14),
-                    fontWeight: FontWeight.w700,
-                    fontVariations: const [FontVariation('wght', 700)],
-                  ),
-                ),
-              ],
             ),
           ),
         ),

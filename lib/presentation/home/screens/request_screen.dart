@@ -85,8 +85,8 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen>
             controller: _tabController,
             indicatorSize: TabBarIndicatorSize.tab,
             tabs: const [
-              Tab(text: 'Vibing'),
-              Tab(text: 'New Energy'),
+              _CountedTab(label: 'Vibing', state: 'vibing'),
+              _CountedTab(label: 'New Energy', state: 'new_energy'),
             ],
           ),
         ),
@@ -110,6 +110,71 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen>
           ),
         ),
       ],
+    );
+  }
+}
+
+/// A tab that says how many people are behind it.
+///
+/// The two tabs are the whole navigation of this screen, and without a number
+/// on them the only way to find out whether New Energy has anything in it is to
+/// go and look. The count comes from the same list the tab opens, so it can
+/// never disagree with what is underneath.
+///
+/// Nothing is drawn while the list is loading, and nothing is drawn at zero:
+/// an empty tab already says "nothing here" with its own empty state, and a
+/// grey "0" beside the label is just a worse way of saying it.
+class _CountedTab extends ConsumerWidget {
+  const _CountedTab({required this.label, required this.state});
+
+  final String label;
+  final String state;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = ref.watch(conversationCountProvider(state));
+
+    return Tab(
+      child: Semantics(
+        label: count == null || count == 0 ? label : '$label, $count people',
+        excludeSemantics: true,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (count != null && count > 0) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 6.5,
+                  vertical: 1.5,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryTint,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '$count',
+                  style: AppTextStyles.caption.copyWith(
+                    fontSize: 11,
+                    height: 1.25,
+                    color: AppColors.primaryDeep,
+                    fontWeight: FontWeight.w700,
+                    fontVariations: const [FontVariation('wght', 700)],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -197,6 +262,7 @@ class ConversationTile extends StatelessWidget {
     final name = other.displayName ?? 'Someone';
     final snippet = conversation.lastMessage?.snippet ?? 'Say hello';
     final unread = conversation.unread;
+    final muted = conversation.muted;
 
     return Semantics(
       button: true,
@@ -204,6 +270,7 @@ class ConversationTile extends StatelessWidget {
         name,
         snippet,
         if (unread > 0) '$unread unread',
+        if (muted) 'muted',
         if (online) 'online now',
       ].join(', '),
       excludeSemantics: true,
@@ -237,11 +304,27 @@ class ConversationTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.bodyStrong.copyWith(fontSize: 15),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.bodyStrong.copyWith(fontSize: 15),
+                        ),
+                      ),
+                      // The one visible trace of a mute. Without it the row
+                      // reads as an inbox that has quietly stopped working.
+                      if (muted) ...[
+                        const SizedBox(width: 6),
+                        const Icon(
+                          Icons.notifications_off_outlined,
+                          size: 14,
+                          color: AppColors.iconMuted,
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 3),
                   Text(
@@ -275,7 +358,9 @@ class ConversationTile extends StatelessWidget {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.primary,
+                      // A muted thread still counts its own messages — it just
+                      // stops shouting about them.
+                      color: muted ? AppColors.iconMuted : AppColors.primary,
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
@@ -297,6 +382,7 @@ class ConversationTile extends StatelessWidget {
               userId: other.id,
               userName: name,
               isArchived: isArchived,
+              isMuted: muted,
             ),
           ],
         ),
@@ -325,12 +411,14 @@ class _RowMenu extends StatelessWidget {
     required this.userId,
     required this.userName,
     required this.isArchived,
+    required this.isMuted,
   });
 
   final String conversationId;
   final String userId;
   final String userName;
   final bool isArchived;
+  final bool isMuted;
 
   @override
   Widget build(BuildContext context) {
@@ -345,6 +433,7 @@ class _RowMenu extends StatelessWidget {
           userId: userId,
           userName: userName,
           isArchived: isArchived,
+          isMuted: isMuted,
         ),
         borderRadius: BorderRadius.circular(999),
         child: const Padding(

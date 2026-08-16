@@ -7,6 +7,7 @@ import '../../../core/errors/app_exceptions.dart';
 import '../../../data/models/map_user_model.dart';
 import '../../../providers/chat_provider.dart';
 import '../../common/widgets/widgets.dart';
+import '../../home/screens/profile_detail_sheet.dart';
 import '../../home/widgets/message_limit_paywall.dart';
 import 'explore_avatar.dart';
 
@@ -21,8 +22,10 @@ import 'explore_avatar.dart';
 /// conversation, same New-Energy gating, same 402 paywall when the daily
 /// allowance runs out. There is no second messaging path.
 ///
-/// With nobody selected there is no addressee, so the field goes quiet and says
-/// what to do instead of failing on send.
+/// With nobody selected there is no addressee and no bar: it collapses to
+/// nothing rather than sitting there disabled. A permanent strip across the
+/// bottom of the map whose only content is an instruction not to use it is
+/// worse than the space it occupies.
 class ExploreComposer extends ConsumerStatefulWidget {
   const ExploreComposer({super.key, required this.recipient});
 
@@ -93,10 +96,41 @@ class _ExploreComposerState extends ConsumerState<ExploreComposer> {
     }
   }
 
+  /// Open the full profile of whoever the composer is addressed to.
+  ///
+  /// Their face is already on screen here and it is the only thing identifying
+  /// who the message is going to, so it should be the way to check. Same sheet
+  /// the radar grid opens — there is one profile view in the app.
+  void _openProfile(MapUser recipient) {
+    showRadiusSheet<void>(
+      context: context,
+      builder: (_) => ProfileDetailSheet(
+        userId: recipient.id,
+        seed: ProfileSeed(
+          name: recipient.displayName,
+          age: recipient.age,
+          photoUrl: recipient.primaryPhotoUrl,
+          distanceBand: recipient.distanceBand,
+          isOnline: recipient.isOnline,
+          // The map has no grid position to colour a fallback from; the id's
+          // hash keeps it stable per person instead of flickering per rebuild.
+          colorIndex: recipient.id.hashCode,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final recipient = widget.recipient;
-    final enabled = recipient != null && !_sending;
+
+    // Nobody selected, nothing here. There used to be a disabled field saying
+    // "Pick someone to message" — a permanent bar across the bottom of the map
+    // whose only content was an instruction not to use it. The map is what the
+    // screen is for, and it gets the space back.
+    if (recipient == null) return const SizedBox.shrink();
+
+    final enabled = !_sending;
     final canSend = enabled && _controller.text.trim().isNotEmpty;
 
     return Container(
@@ -112,29 +146,21 @@ class _ExploreComposerState extends ConsumerState<ExploreComposer> {
       ),
       child: Row(
         children: [
-          if (recipient != null)
-            ExploreAvatar(
-              name: recipient.displayName,
-              photoUrl: recipient.primaryPhotoUrl,
-              size: 38,
-              isOnline: recipient.isOnline,
-              showOnlineDot: false,
-            )
-          else
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.white,
-                border: Border.all(color: AppColors.inputBorder),
-              ),
-              child: const Icon(
-                Icons.chat_bubble_outline,
-                size: 17,
-                color: AppColors.iconMuted,
+          Semantics(
+            button: true,
+            label: "Open ${recipient.displayName}'s profile",
+            excludeSemantics: true,
+            child: GestureDetector(
+              onTap: () => _openProfile(recipient),
+              child: ExploreAvatar(
+                name: recipient.displayName,
+                photoUrl: recipient.primaryPhotoUrl,
+                size: 38,
+                isOnline: recipient.isOnline,
+                showOnlineDot: false,
               ),
             ),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Container(
@@ -154,9 +180,7 @@ class _ExploreComposerState extends ConsumerState<ExploreComposer> {
                 onSubmitted: (_) => _send(),
                 style: AppTextStyles.body,
                 decoration: InputDecoration(
-                  hintText: recipient == null
-                      ? 'Pick someone to message'
-                      : 'Message ${recipient.displayName}…',
+                  hintText: 'Message ${recipient.displayName}…',
                   hintStyle: AppTextStyles.body.copyWith(
                     color: AppColors.textGrey,
                   ),
@@ -173,9 +197,7 @@ class _ExploreComposerState extends ConsumerState<ExploreComposer> {
           Semantics(
             button: true,
             enabled: canSend,
-            label: recipient == null
-                ? 'Pick someone on the map to message them'
-                : 'Send to ${recipient.displayName}',
+            label: 'Send to ${recipient.displayName}',
             excludeSemantics: true,
             child: GestureDetector(
               onTap: canSend ? _send : null,

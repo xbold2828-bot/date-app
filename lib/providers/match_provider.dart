@@ -15,11 +15,14 @@ const int kAgeFilterMin = 18;
 const int kAgeFilterMax = 60;
 
 /// Active discovery filters: the intent chips plus everything in the filter
-/// sheet. Free members get radius / show-me / age / intent; the rest is premium
-/// and the API rejects it (403) for everyone else.
+/// sheet. Free members get show-me / age / intent; the rest is premium and the
+/// API rejects it (403) for everyone else.
+///
+/// There is no distance filter. `GET /discovery/nearby` still accepts a
+/// `band`, but the app no longer asks anyone to pick one — see
+/// `BasicsScreen5` — so the server's wide default is what everybody gets.
 class DiscoveryFilter {
   final String? intent; // null = All
-  final String? band;
   final List<String> genders;
   final int minAge;
   final int maxAge;
@@ -34,7 +37,6 @@ class DiscoveryFilter {
 
   const DiscoveryFilter({
     this.intent,
-    this.band,
     this.genders = const [],
     this.minAge = kAgeFilterMin,
     this.maxAge = kAgeFilterMax,
@@ -67,7 +69,6 @@ class DiscoveryFilter {
   /// turn every request into a 403.
   DiscoveryFilter withoutPremium() => DiscoveryFilter(
         intent: intent,
-        band: band,
         genders: genders,
         minAge: minAge,
         maxAge: maxAge,
@@ -76,8 +77,6 @@ class DiscoveryFilter {
   DiscoveryFilter copyWith({
     String? intent,
     bool clearIntent = false,
-    String? band,
-    bool clearBand = false,
     List<String>? genders,
     int? minAge,
     int? maxAge,
@@ -90,7 +89,6 @@ class DiscoveryFilter {
   }) =>
       DiscoveryFilter(
         intent: clearIntent ? null : (intent ?? this.intent),
-        band: clearBand ? null : (band ?? this.band),
         genders: genders ?? this.genders,
         minAge: minAge ?? this.minAge,
         maxAge: maxAge ?? this.maxAge,
@@ -110,7 +108,6 @@ class DiscoveryFilter {
       identical(this, other) ||
       other is DiscoveryFilter &&
           other.intent == intent &&
-          other.band == band &&
           listEquals(other.genders, genders) &&
           other.minAge == minAge &&
           other.maxAge == maxAge &&
@@ -124,7 +121,6 @@ class DiscoveryFilter {
   @override
   int get hashCode => Object.hash(
         intent,
-        band,
         Object.hashAll(genders),
         minAge,
         maxAge,
@@ -147,7 +143,6 @@ final nearbyCountProvider =
     FutureProvider.autoDispose.family<int, DiscoveryFilter>((ref, filter) {
   return ref.watch(discoveryRepositoryProvider).nearbyCount(
         intent: filter.intent,
-        band: filter.band,
         genders: filter.genders,
         minAge: filter.isFullAgeRange ? null : filter.minAge,
         maxAge: filter.isFullAgeRange ? null : filter.maxAge,
@@ -217,7 +212,6 @@ class NearbyNotifier extends AsyncNotifier<NearbyState> {
       final res = await repo.nearby(
         page: page,
         intent: filter.intent,
-        band: filter.band,
         genders: filter.genders,
         minAge: filter.isFullAgeRange ? null : filter.minAge,
         maxAge: filter.isFullAgeRange ? null : filter.maxAge,
@@ -230,7 +224,7 @@ class NearbyNotifier extends AsyncNotifier<NearbyState> {
       );
       final items = page == 1
           ? res.items
-          : [...?previous?.items, ...res.items];
+          : _appendNew(previous?.items ?? const [], res.items);
       return NearbyState(
         items: items,
         city: res.city ?? previous?.city,
@@ -247,6 +241,25 @@ class NearbyNotifier extends AsyncNotifier<NearbyState> {
       return (previous ?? const NearbyState())
           .copyWith(needsLocation: true, loadingMore: false);
     }
+  }
+
+  /// Append a page, dropping anyone already on screen.
+  ///
+  /// The server ranks once and pages through one cached ordering, so pages do
+  /// not normally overlap. They can at the seam: the ordering expires while
+  /// somebody is still scrolling, and the next page is cut from a freshly
+  /// ranked feed. Grids do not survive duplicate ids, and "I keep seeing the
+  /// same person twice" is not a bug anybody reports as a caching problem — so
+  /// the client refuses the duplicate rather than trusting the seam.
+  static List<DiscoveryCard> _appendNew(
+    List<DiscoveryCard> existing,
+    List<DiscoveryCard> incoming,
+  ) {
+    final seen = {for (final card in existing) card.id};
+    return [
+      ...existing,
+      ...incoming.where((card) => seen.add(card.id)),
+    ];
   }
 
   Future<void> refresh() async {

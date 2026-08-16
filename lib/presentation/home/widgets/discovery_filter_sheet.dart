@@ -3,19 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/tag_categories.dart';
 import '../../../data/models/tag_model.dart';
 import '../../../providers/match_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../screens/premium_screen.dart';
-
-/// Search radius. Values are the backend `DistanceBand` strings verbatim — the
-/// API validates against the enum, so labels are cosmetic but values are not.
-const List<({String label, String blurb, String band})> _radiusOptions = [
-  (label: 'Immediate', blurb: 'Under 2 km', band: '<2 km'),
-  (label: 'Local', blurb: '2 – 5 km', band: '2-5 km'),
-  (label: 'Extended', blurb: '5 – 10 km', band: '5-10 km'),
-  (label: 'Regional', blurb: '10 km+', band: '10 km+'),
-];
 
 /// "Show me" — `Gender` enum values, minus self-describe (not a useful filter).
 const List<({String label, String value})> _genderOptions = [
@@ -48,19 +40,15 @@ const List<({String label, String value})> _situationOptions = [
 
 /// Premium tag sections, in display order. Slugs come from `GET /tags`, never
 /// hardcoded — the API rejects anything outside the catalogue.
-const List<({String title, String category})> _tagSections = [
-  (title: 'Atmosphere', category: TagCategories.personality),
-  (title: 'Role & energy', category: TagCategories.roleEnergy),
-  (title: 'Into', category: TagCategories.into),
-  (title: 'Scenario', category: TagCategories.scenario),
-  (title: 'Experience', category: TagCategories.experience),
+const List<String> _tagSections = [
+  TagCategories.personality,
+  TagCategories.roleEnergy,
+  TagCategories.into,
+  TagCategories.scenario,
+  TagCategories.experience,
 ];
 
 /// Everything that filters the Nearby feed.
-///
-/// The radius is the one that surprises people: the backend turns the active
-/// band into a hard `maxDistance` on the geo query, so anyone farther away isn't
-/// ranked lower — they're not returned at all.
 Future<void> showDiscoveryFilterSheet(BuildContext context) =>
     showModalBottomSheet<void>(
       context: context,
@@ -106,9 +94,6 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
   Widget build(BuildContext context) {
     final me = ref.watch(meProvider).valueOrNull;
     final isPremium = me?.premium.isActive ?? false;
-    // With no explicit override the server falls back to the radius chosen
-    // during onboarding — surface it so the section doesn't look unset.
-    final fallbackBand = me?.location?.preferredBand;
     final tags = ref.watch(tagsByCategoryProvider);
 
     return DraggableScrollableSheet(
@@ -134,26 +119,6 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
                   _sectionHeader('Free', 'Available on every account'),
                   const SizedBox(height: 18),
 
-                  _label('SEARCH RADIUS'),
-                  const _Hint(
-                    "People outside your radius aren't shown at all. Widen it "
-                    'if the circle looks emptier than you expect.',
-                  ),
-                  const SizedBox(height: 12),
-                  ..._radiusOptions.map((option) {
-                    final isFallback =
-                        _draft.band == null && fallbackBand == option.band;
-                    return _RadioTile(
-                      title: option.label,
-                      subtitle: isFallback
-                          ? '${option.blurb} · your saved default'
-                          : option.blurb,
-                      selected: _draft.band == option.band || isFallback,
-                      onTap: () => _edit(_draft.copyWith(band: option.band)),
-                    );
-                  }),
-
-                  const SizedBox(height: 24),
                   _label('SHOW ME'),
                   const _Hint('Leave all unselected to see everyone.'),
                   const SizedBox(height: 12),
@@ -292,17 +257,19 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
                       ),
                     ],
                     data: (grouped) => [
-                      for (final section in _tagSections)
-                        if ((grouped[section.category] ?? const <Tag>[])
+                      for (final category in _tagSections)
+                        if ((grouped[category] ?? const <Tag>[])
                             .isNotEmpty) ...[
                           const SizedBox(height: 20),
-                          _label(section.title.toUpperCase(),
-                              locked: !isPremium),
+                          _label(
+                            TagCategories.label(category).toUpperCase(),
+                            locked: !isPremium,
+                          ),
                           const SizedBox(height: 12),
                           _tagChips(
-                            tags: grouped[section.category]!,
-                            isPersonality: section.category ==
-                                TagCategories.personality,
+                            tags: grouped[category]!,
+                            isPersonality:
+                                category == TagCategories.personality,
                             enabled: isPremium,
                           ),
                         ],
@@ -592,86 +559,6 @@ class _Chip extends StatelessWidget {
               color: selected ? AppColors.primary : AppColors.textDark,
               fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RadioTile extends StatelessWidget {
-  const _RadioTile({
-    required this.title,
-    required this.subtitle,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: selected
-                ? AppColors.primary.withOpacity(0.06)
-                : AppColors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: selected ? AppColors.primary : AppColors.inputBorder,
-              width: selected ? 1.5 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: selected ? AppColors.primary : AppColors.white,
-                  border: Border.all(
-                    color: selected ? AppColors.primary : AppColors.inputBorder,
-                    width: 2,
-                  ),
-                ),
-                child: selected
-                    ? const Icon(Icons.check, size: 12, color: AppColors.white)
-                    : null,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color:
-                            selected ? AppColors.primary : AppColors.textDark,
-                      ),
-                    ),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textGrey,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ),
         ),
       ),

@@ -1,3 +1,5 @@
+import 'tag_categories.dart';
+
 /// How many things a person may pick, per onboarding question.
 ///
 /// One place, because the same four questions are answered twice: once in the
@@ -18,14 +20,34 @@ class SelectionLimits {
   /// "My situation" — relationship status. Exactly one.
   static const int situation = 1;
 
-  /// "Interests & vibes" — personality tags.
+  /// "Your atmosphere" — personality tags.
   static const int vibes = 3;
 
-  /// "Into" — the desires step, counted across *all* of its categories
-  /// (role & energy, into, scenario, intensity, experience, fantasy) rather
-  /// than per section. The profile renders them as one flat list, so that is
-  /// the list being capped.
-  static const int into = 3;
+  /// "Into" — the desires step, capped **per category** rather than as one
+  /// budget across the step.
+  ///
+  /// A single pooled cap made the six groups compete: three picks spent on
+  /// role & energy left nothing for scenario or fantasy, so most people
+  /// answered the first section and none of the rest. Each group now carries
+  /// its own allowance.
+  ///
+  /// Experience is the exception at one. It is a fact about you rather than a
+  /// preference — "new & curious" and "very experienced" cannot both be true —
+  /// so it reads as a single answer, and picking a second swaps rather than
+  /// refuses (see `applySelectionLimit`).
+  static const Map<String, int> intoByCategory = {
+    TagCategories.roleEnergy: 3,
+    TagCategories.into: 3,
+    TagCategories.scenario: 3,
+    TagCategories.intensity: 3,
+    TagCategories.experience: 1,
+    TagCategories.fantasySetting: 3,
+  };
+
+  /// The cap for one desires category. Three is the fallback, so a category
+  /// added to the server's catalogue before it is listed here still behaves
+  /// like the rest instead of becoming unlimited.
+  static int intoIn(String category) => intoByCategory[category] ?? 3;
 
   /// Hard no's are boundaries, not preferences. Never capped.
   static const int? hardNos = null;

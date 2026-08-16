@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/selection_limits.dart';
+import '../../../core/constants/tag_categories.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../data/models/tag_model.dart';
 import '../../../data/models/user_model.dart';
@@ -22,10 +23,10 @@ import 'basics_screen4.dart';
 /// `BusinessConfig.requireVerificationForDesires`) — everyone can select
 /// anything, and saving none is still allowed.
 ///
-/// Desires are capped at [SelectionLimits.into] across *all six* sections, not
-/// per section; hard no's are never capped. Both limits are the same constants
-/// the "Me" tab's editor enforces, so an answer given in the funnel and an
-/// answer edited later obey one rule.
+/// Each section carries its own cap ([SelectionLimits.intoByCategory]) rather
+/// than sharing one budget across the step; hard no's are never capped. Both
+/// limits are the same constants the "Me" tab's editor enforces, so an answer
+/// given in the funnel and an answer edited later obey one rule.
 class BasicsScreen3 extends ConsumerStatefulWidget {
   const BasicsScreen3({super.key});
 
@@ -34,31 +35,41 @@ class BasicsScreen3 extends ConsumerStatefulWidget {
 }
 
 class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
-  static const Map<String, String> _sectionTitles = {
-    TagCategories.roleEnergy: 'Role & energy',
-    TagCategories.into: 'Into',
-    TagCategories.scenario: 'Scenario',
-    TagCategories.intensity: 'Intensity',
-    TagCategories.experience: 'Experience',
-    TagCategories.fantasySetting: 'Fantasy & setting',
-  };
-
   Set<String> _selectedPreferences = {};
   Set<String> _selectedHardNos = {};
   bool _showHardNosOnProfile = true;
   bool _isLoading = false;
-  bool _restoredFromServer = false;
+  bool _restoredHardNos = false;
+  bool _restoredPreferences = false;
 
-  void _restore(MeUser me) {
-    if (_restoredFromServer) return;
-    _restoredFromServer = true;
-    // Trimmed to the cap — an account that answered before the limit existed
-    // would otherwise land here already over budget.
-    _selectedPreferences.addAll(
-      me.profile.preferenceTags.take(SelectionLimits.into),
-    );
+  void _restoreHardNos(MeUser me) {
+    if (_restoredHardNos) return;
+    _restoredHardNos = true;
     _selectedHardNos.addAll(me.profile.hardNos);
     _showHardNosOnProfile = me.profile.showHardNosOnProfile;
+  }
+
+  /// Waits for the catalogue, because a saved slug says nothing about which
+  /// section it belongs to — and the caps are per section now.
+  ///
+  /// Each category is trimmed to its own cap, so an account that answered
+  /// before these limits existed lands here inside them rather than over
+  /// budget with a counter reading 6/3. Slugs the catalogue no longer carries
+  /// are dropped: the API would reject them on save anyway, and nothing on
+  /// this screen could show them.
+  void _restorePreferences(MeUser me, Map<String, List<Tag>> grouped) {
+    if (_restoredPreferences) return;
+    _restoredPreferences = true;
+
+    final saved = me.profile.preferenceTags;
+    for (final category in TagCategories.preferences) {
+      final slugs = {
+        for (final tag in grouped[category] ?? const <Tag>[]) tag.slug,
+      };
+      _selectedPreferences.addAll(
+        saved.where(slugs.contains).take(SelectionLimits.intoIn(category)),
+      );
+    }
   }
 
   Future<void> _onSave() async {
@@ -98,9 +109,11 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
   @override
   Widget build(BuildContext context) {
     final me = ref.watch(meProvider).valueOrNull;
-    if (me != null) _restore(me);
+    if (me != null) _restoreHardNos(me);
 
     final tags = ref.watch(tagsByCategoryProvider);
+    final catalogue = tags.valueOrNull;
+    if (me != null && catalogue != null) _restorePreferences(me, catalogue);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -120,25 +133,11 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
                       style: AppTextStyles.display,
                     ),
                     const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Pick your ${SelectionLimits.into} — across all of '
-                            'these — and they stay private until you match '
-                            'with someone.',
-                            style: AppTextStyles.caption,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        // The budget is shared across every section below, so
-                        // the counter lives up here with the instruction
-                        // rather than beside any one group.
-                        SelectionCounter(
-                          count: _selectedPreferences.length,
-                          max: SelectionLimits.into,
-                        ),
-                      ],
+                    Text(
+                      'Answer as many of these as you like — each one has its '
+                      'own allowance, and they all stay private until you '
+                      'match with someone.',
+                      style: AppTextStyles.caption,
                     ),
 
                     const SizedBox(height: 20),
@@ -161,35 +160,7 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
                           // ── Step 6 · preference sections ──────────────
                           for (final category in TagCategories.preferences)
                             if ((grouped[category] ?? const <Tag>[]).isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 28),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    OnboardingSectionLabel(
-                                      _sectionTitles[category] ?? category,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    LimitedTagChipGroup(
-                                      tags: grouped[category]!,
-                                      selected: _selectedPreferences,
-                                      // One budget, six sections. The cap is on
-                                      // the answer, not on any section of it —
-                                      // the profile prints them as one list.
-                                      max: SelectionLimits.into,
-                                      onChanged: (next) => setState(
-                                        () => _selectedPreferences = next,
-                                      ),
-                                      onLimitReached: () => _showSnack(
-                                        selectionLimitMessage(
-                                          'desires in total',
-                                          SelectionLimits.into,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                              _preferenceSection(category, grouped[category]!),
 
                           // ── Step 7 · hard no's ────────────────────────
                           _hardNosCard(grouped[TagCategories.hardNo] ?? const []),
@@ -211,6 +182,52 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// One desires group, with its own cap and its own counter.
+  ///
+  /// `_selectedPreferences` stays a single flat set — it is what gets PATCHed,
+  /// and the profile prints it as one list — so the group hands the chips only
+  /// the slice of it that belongs to this category, and folds the answer back
+  /// in on change. Counting the whole set here would let one section's picks
+  /// fill up another's.
+  Widget _preferenceSection(String category, List<Tag> tags) {
+    final title = TagCategories.label(category);
+    final max = SelectionLimits.intoIn(category);
+    final slugs = {for (final tag in tags) tag.slug};
+    final chosen = _selectedPreferences.intersection(slugs);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: OnboardingSectionLabel(title)),
+              SelectionCounter(count: chosen.length, max: max),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(selectionHint(max), style: AppTextStyles.caption),
+          const SizedBox(height: 12),
+          LimitedTagChipGroup(
+            tags: tags,
+            selected: chosen,
+            max: max,
+            onChanged: (next) => setState(() {
+              _selectedPreferences = {
+                ..._selectedPreferences.difference(slugs),
+                ...next,
+              };
+            }),
+            onLimitReached: () => _showSnack(
+              selectionLimitMessage('${title.toLowerCase()} tags', max),
+            ),
+          ),
+        ],
       ),
     );
   }

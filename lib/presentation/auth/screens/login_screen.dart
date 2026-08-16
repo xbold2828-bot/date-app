@@ -88,12 +88,55 @@ class _LoginScreenState extends State<LoginScreen> {
           (route) => false,
         );
       }
-    } catch (e) {
+    } catch (e, stack) {
+      // Native Google Sign-In fails for configuration reasons far more often
+      // than transient ones, and those reasons are only distinguishable by the
+      // Play Services status code. Swallowing them into "try again" hides the
+      // difference between "no Android OAuth client for this package + SHA-1"
+      // (code 10) and an actual network blip (code 7).
+      debugPrint('Google sign-in failed: $e');
+      debugPrintStack(stackTrace: stack);
+
       if (mounted) {
-        showRadiusToast(context, "Couldn't sign in with Google. Try again.");
+        showRadiusToast(context, _googleSignInMessage(e));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// Turns a Google sign-in failure into something that names the cause.
+  ///
+  /// The codes come from `com.google.android.gms.common.api.ApiException`, which
+  /// the plugin surfaces as a [PlatformException] whose message carries the
+  /// numeric status.
+  String _googleSignInMessage(Object error) {
+    if (error is! PlatformException) {
+      return "Couldn't sign in with Google. Try again.";
+    }
+
+    // The plugin wraps the native failure as
+    // `com.google.android.gms.common.api.ApiException: <status>: <detail>`, so
+    // the status is the first integer in the message. Matching on the number
+    // rather than a substring keeps "12501" from being read as a 7 or a 10.
+    final status = int.tryParse(
+      RegExp(r'\b(\d+)\b').firstMatch(error.message ?? '')?.group(1) ?? '',
+    );
+
+    switch (status) {
+      case 10:
+        return 'Google sign-in not configured for this build '
+            '(DEVELOPER_ERROR 10) — the package name and signing SHA-1 are '
+            'not registered as an Android OAuth client.';
+      case 12501:
+        return 'Sign-in cancelled.';
+      case 12500:
+        return 'Google sign-in failed (12500) — check the Play Services '
+            'account on this device.';
+      case 7:
+        return 'Network error reaching Google. Check the connection.';
+      default:
+        return 'Google sign-in failed: ${error.code} — ${error.message}';
     }
   }
 

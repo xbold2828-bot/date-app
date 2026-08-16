@@ -13,11 +13,16 @@ class DiscoveryRepository {
   /// out of free allowance + credits, or [BadRequestException] (400) when the
   /// user hasn't set a location. `verifiedOnly`/`onlineOnly` are premium-only
   /// (403 otherwise).
+  ///
+  /// The order is the server's: 60% proximity, 40% presence and last seen. A
+  /// page is a slice of one ranking held server-side for the length of a
+  /// scroll, so page 2 continues page 1 rather than re-sorting underneath it.
+  ///
+  /// Thirty per page — ten rows of the three-column grid.
   Future<NearbyPage> nearby({
     int page = 1,
-    int limit = 20,
+    int limit = 30,
     String? intent,
-    String? band,
     List<String>? genders,
     int? minAge,
     int? maxAge,
@@ -34,7 +39,6 @@ class DiscoveryRepository {
         page: page,
         limit: limit,
         intent: intent,
-        band: band,
         genders: genders,
         minAge: minAge,
         maxAge: maxAge,
@@ -53,7 +57,6 @@ class DiscoveryRepository {
   /// sheet's "Show N people" button. Costs no free view and spends no credits.
   Future<int> nearbyCount({
     String? intent,
-    String? band,
     List<String>? genders,
     int? minAge,
     int? maxAge,
@@ -68,7 +71,6 @@ class DiscoveryRepository {
       ApiConstants.discoveryNearbyCount,
       query: nearbyQuery(
         intent: intent,
-        band: band,
         genders: genders,
         minAge: minAge,
         maxAge: maxAge,
@@ -89,7 +91,6 @@ class DiscoveryRepository {
     int? page,
     int? limit,
     String? intent,
-    String? band,
     List<String>? genders,
     int? minAge,
     int? maxAge,
@@ -108,7 +109,6 @@ class DiscoveryRepository {
       if (page != null) 'page': page,
       if (limit != null) 'limit': limit,
       if (intent != null) 'intent': intent,
-      if (band != null) 'band': band,
       if (minAge != null) 'minAge': minAge,
       if (maxAge != null) 'maxAge': maxAge,
       if (verifiedOnly == true) 'verifiedOnly': true,

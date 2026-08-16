@@ -3,12 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
-import '../../../core/utils/onboarding_maps.dart';
 import '../../../providers/core_providers.dart';
 import '../../../providers/location_provider.dart';
 import '../../../providers/profile_provider.dart';
+import '../../common/widgets/widgets.dart';
 import 'basics_screen7.dart';
 
+/// Step 9 · location.
+///
+/// Location permission, and nothing else. This screen used to open with a 2×2
+/// grid of search radii — Immediate / Local / Extended / Regional — which asked
+/// people to size a circle before they had seen a single profile, and then
+/// quietly capped discovery at that answer forever. The server already caps
+/// the search at a wide default, and distance still reaches people as a coarse
+/// band on each card, so the question bought nothing it did not also cost.
 class BasicsScreen5 extends ConsumerStatefulWidget {
   const BasicsScreen5({super.key});
 
@@ -17,15 +25,7 @@ class BasicsScreen5 extends ConsumerStatefulWidget {
 }
 
 class _BasicsScreen5State extends ConsumerState<BasicsScreen5> {
-  String? _selectedRadius;
   bool _isLoading = false;
-
-  final List<Map<String, String>> _radiusOptions = [
-    {'label': 'Immediate', 'value': '<2 km'},
-    {'label': 'Local', 'value': '2–5 km'},
-    {'label': 'Extended', 'value': '5–10 km'},
-    {'label': 'Regional', 'value': '10 km+'},
-  ];
 
   Future<void> _onAllow() async {
     setState(() => _isLoading = true);
@@ -38,7 +38,6 @@ class _BasicsScreen5State extends ConsumerState<BasicsScreen5> {
       final me = await ref.read(onboardingRepositoryProvider).updateLocation(
             latitude: position.latitude,
             longitude: position.longitude,
-            preferredBand: normalizeDistanceBand(_selectedRadius),
           );
       ref.read(meProvider.notifier).setMe(me);
 
@@ -75,200 +74,127 @@ class _BasicsScreen5State extends ConsumerState<BasicsScreen5> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 16),
+        child: Column(
+          children: [
+            const StepHeader(step: 9, label: 'LOCATION'),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 40),
 
-              // Top bar
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 26,
-                        height: 26,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.textDark, width: 2),
-                        ),
-                        child: const Center(
-                          child: Icon(Icons.circle, size: 10, color: AppColors.primary),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Radius',
-                        style: AppTextStyles.title,
-                      ),
-                    ],
-                  ),
-                  // Progress indicator
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: 80,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(2),
-                          child: LinearProgressIndicator(
-                            value: 5 / 6,
-                            minHeight: 3,
-                            backgroundColor: AppColors.inputBorder,
-                            valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                    // The mark, doing the job the radius grid used to: saying
+                    // what this screen is about without a paragraph.
+                    const Center(child: RadarMark(size: 132, animate: true)),
+
+                    const SizedBox(height: 40),
+
+                    Text(
+                      'Turn on location',
+                      style: AppTextStyles.display,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Radius uses your location to connect you with people '
+                      'physically near you right now. Without it there is '
+                      'nobody to show you.',
+                      style: TextStyle(fontSize: 13, color: AppColors.textGrey),
+                    ),
+
+                    const SizedBox(height: 28),
+
+                    _note(
+                      icon: Icons.shield_outlined,
+                      text: 'Others only see a band — "2-5 km away" — never '
+                          'your exact spot, and never a number.',
+                    ),
+                    const SizedBox(height: 10),
+                    _note(
+                      icon: Icons.tune,
+                      text: 'You can turn this off any time in your phone’s '
+                          'settings. Nothing else on your profile depends on '
+                          'it.',
+                    ),
+
+                    const SizedBox(height: 36),
+
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _onAllow,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
                           ),
+                          elevation: 0,
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        '5/6',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textGrey,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 40),
-
-              Text(
-                'Your Radius',
-                style: AppTextStyles.display,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Radius uses your location to connect you with people physically near you right now.',
-                style: TextStyle(fontSize: 13, color: AppColors.textGrey),
-              ),
-
-              const SizedBox(height: 40),
-
-              // 2x2 radius grid
-              GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 2,
-                children: _radiusOptions.map((option) {
-                  final selected = _selectedRadius == option['value'];
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedRadius = option['value']),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? AppColors.primary.withOpacity(0.08)
-                            : AppColors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: selected ? AppColors.primary : AppColors.inputBorder,
-                          width: selected ? 1.5 : 1,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            option['label']!,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: selected ? AppColors.primary : AppColors.textGrey,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            option['value']!,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: selected ? AppColors.primary : AppColors.textDark,
-                            ),
-                          ),
-                        ],
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.4,
+                                  color: AppColors.white,
+                                ),
+                              )
+                            : const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.near_me,
+                                      color: AppColors.white, size: 18),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Allow location',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
 
-              const Spacer(),
-
-              // Privacy note
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.07),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-                ),
-                child: Row(
-                  children: const [
-                    Icon(Icons.shield_outlined, size: 16, color: AppColors.primary),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        "Others only see a band, never your exact spot.",
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),
-
-              const SizedBox(height: 20),
-
-              // Allow location button
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _onAllow,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: AppColors.white)
-                      : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.near_me, color: AppColors.white, size: 18),
-                            SizedBox(width: 8),
-                            Text(
-                              'Allow location',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
-              ),
-
-              const SizedBox(height: 32),
-            ],
-          ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _note({required IconData icon, required String text}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: AppColors.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.primary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

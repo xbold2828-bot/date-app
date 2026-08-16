@@ -68,98 +68,65 @@ class GlassSurface extends StatelessWidget {
   }
 }
 
-/// Title, the live count of who is on the map, and the way to search it.
+/// "5 people" — the whole of what the old header carried that was worth
+/// keeping.
 ///
-/// No filter button: filters parameterise a search for strangers, and this map
-/// shows conversations the user already has. A control that changed nothing
-/// would be worse than no control.
-class ExploreHeader extends StatelessWidget {
-  const ExploreHeader({
+/// It used to be a glass card with the word "Explore" on the Explore tab, a
+/// subtitle, and a search button for a set the strip underneath already shows
+/// in full. What people actually read off it was the number, so the number is
+/// what is left, floated over the map instead of taking a row of layout.
+class ExploreCountPill extends StatelessWidget {
+  const ExploreCountPill({
     super.key,
     required this.count,
     required this.isLoading,
-    required this.onSearch,
   });
 
   final int count;
   final bool isLoading;
-  /// Opens the full grid with its search field — the way to reach somebody by
-  /// name rather than by scrolling the strip or hunting the map.
-  final VoidCallback onSearch;
 
   @override
   Widget build(BuildContext context) {
     // "Vibing" is the app's own word for a conversation both people are in,
     // and it is the exact rule for who is on this map. Anything vaguer —
     // "nearby", "friends" — would describe a different set of people.
-    final subtitle = switch (count) {
+    final label = switch (count) {
       _ when isLoading => 'Finding your people…',
-      0 => 'Nobody on your map yet',
-      1 => '1 person you are vibing with',
-      _ => '$count people you are vibing with',
+      0 => 'Nobody here yet',
+      1 => '1 person vibing',
+      _ => '$count people vibing',
     };
 
-    return GlassSurface(
-      padding: const EdgeInsets.fromLTRB(16, 11, 8, 11),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.auto_awesome,
-                      size: 15,
-                      color: AppColors.primary,
-                    ),
-                    const SizedBox(width: 7),
-                    Semantics(
-                      header: true,
-                      child: Text(
-                        'Explore',
-                        style: AppTextStyles.title.copyWith(fontSize: 19),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.caption.copyWith(fontSize: 11.5),
-                ),
-              ],
+    return Semantics(
+      label: label,
+      excludeSemantics: true,
+      child: GlassSurface(
+        radius: 999,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.auto_awesome,
+              size: 14,
+              color: AppColors.primary,
             ),
-          ),
-          Semantics(
-            button: true,
-            label: 'Search people nearby',
-            excludeSemantics: true,
-            child: IconButton(
-              onPressed: onSearch,
-              visualDensity: VisualDensity.compact,
-              icon: const Icon(
-                Icons.search,
-                size: 21,
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: AppTextStyles.caption.copyWith(
+                fontSize: 12,
                 color: AppColors.textDark,
+                fontWeight: FontWeight.w700,
+                fontVariations: const [FontVariation('wght', 700)],
               ),
-              tooltip: 'Search',
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
-
-/// The flat/tilted pill.
-///
-/// Two words rather than an icon: "3D" is the whole explanation, and a tilted
-/// -cube glyph at this size is a smudge.
 class ExploreViewToggle extends StatelessWidget {
   const ExploreViewToggle({
     super.key,
@@ -337,109 +304,6 @@ class _ExploreCircleButtonState extends State<ExploreCircleButton> {
   }
 }
 
-/// The radius bands, as a scrolling row of pills.
-///
-/// The values are the backend `DistanceBand` strings verbatim, matched to the
-/// ones the filter sheet already sends — this control is a shortcut into the
-/// existing filter, not a second radius system. Selecting one writes to
-/// `discoveryFilterProvider`, which is what reloads the map.
-class ExploreRadiusBar extends StatelessWidget {
-  const ExploreRadiusBar({
-    super.key,
-    required this.selected,
-    required this.fallback,
-    required this.onChanged,
-  });
-
-  /// The explicit choice, or null when the account's saved default applies.
-  final String? selected;
-
-  /// The band chosen during onboarding, shown as active when nothing overrides
-  /// it — otherwise the row looks unset on a perfectly configured account.
-  final String? fallback;
-
-  final ValueChanged<String> onChanged;
-
-  /// Label → backend band value. Mirrors `_radiusOptions` in
-  /// [showDiscoveryFilterSheet]; the API validates against the enum, so the
-  /// labels are cosmetic and the values are not.
-  static const List<({String label, String band})> bands = [
-    (label: '<2 km', band: '<2 km'),
-    (label: '2–5 km', band: '2-5 km'),
-    (label: '5–10 km', band: '5-10 km'),
-    (label: '10 km+', band: '10 km+'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final active = selected ?? fallback;
-
-    return SizedBox(
-      height: 42,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: bands.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final option = bands[index];
-          final isActive = option.band == active;
-          return Semantics(
-            button: true,
-            selected: isActive,
-            label: 'Search radius ${option.label}',
-            excludeSemantics: true,
-            child: GestureDetector(
-              onTap: isActive ? null : () => onChanged(option.band),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOut,
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  gradient: isActive
-                      ? const LinearGradient(
-                          colors: [
-                            AppMapColors.markerStart,
-                            AppMapColors.markerEnd,
-                          ],
-                        )
-                      : null,
-                  color: isActive
-                      ? null
-                      : AppColors.panel.withValues(alpha: 0.9),
-                  border: Border.all(
-                    color: isActive
-                        ? Colors.transparent
-                        : AppColors.inputBorder,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.textDark.withValues(alpha: 0.1),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Text(
-                  option.label,
-                  style: AppTextStyles.caption.copyWith(
-                    fontSize: 12.5,
-                    color: isActive ? AppColors.white : AppColors.textDark,
-                    fontWeight: FontWeight.w700,
-                    fontVariations: const [FontVariation('wght', 700)],
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
 /// "You are looking at Emma. Tap to go back to everyone."
 ///
 /// With one person on the map, the map itself no longer says who — every other
@@ -452,16 +316,28 @@ class ExploreFocusPill extends StatelessWidget {
     super.key,
     required this.name,
     required this.onShowEveryone,
+    this.distance,
   });
 
   final String name;
+
+  /// How far away they actually are — "450 m away", not a band.
+  ///
+  /// This is the one thing the map cannot show you. The marker is deliberately
+  /// generalized, so the gap between two pins is not a distance anybody should
+  /// read off the screen; the number is measured server-side between the real
+  /// points and stated here instead. Null when neither side has a location.
+  final String? distance;
+
   final VoidCallback onShowEveryone;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Showing $name only. Tap to show everyone again.',
+      label: distance == null
+          ? 'Showing $name only. Tap to show everyone again.'
+          : 'Showing $name only, $distance. Tap to show everyone again.',
       excludeSemantics: true,
       child: GlassSurface(
         radius: 999,
@@ -477,16 +353,29 @@ class ExploreFocusPill extends StatelessWidget {
             ),
             const SizedBox(width: 7),
             Flexible(
-              child: Text(
-                'Showing $name',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.caption.copyWith(
-                  fontSize: 12.5,
-                  color: AppColors.textDark,
-                  fontWeight: FontWeight.w700,
-                  fontVariations: const [FontVariation('wght', 700)],
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Showing $name',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.caption.copyWith(
+                      fontSize: 12.5,
+                      color: AppColors.textDark,
+                      fontWeight: FontWeight.w700,
+                      fontVariations: const [FontVariation('wght', 700)],
+                    ),
+                  ),
+                  if (distance != null)
+                    Text(
+                      distance!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.caption.copyWith(fontSize: 11),
+                    ),
+                ],
               ),
             ),
             const SizedBox(width: 10),

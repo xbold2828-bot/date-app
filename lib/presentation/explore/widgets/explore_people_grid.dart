@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../data/models/map_user_model.dart';
+import '../../common/widgets/widgets.dart';
 import 'explore_avatar.dart';
 
 /// Everyone at once — the "All" view, reached from either "All" tile or from
@@ -67,6 +68,15 @@ class _ExplorePeopleGridState extends State<ExplorePeopleGrid> {
     final people = _visible;
 
     return Container(
+      // Exactly the height a profile opens at — [kSheetHeightFraction], not a
+      // number of its own.
+      //
+      // It used to size itself to its contents, so the sheet was a different
+      // height for four people than for forty; with four it was a strip at the
+      // bottom of the screen that read as a toast rather than a destination.
+      // A sheet people open to browse should be the same object every time,
+      // and the same object as the other sheet they open to browse.
+      height: MediaQuery.sizeOf(context).height * kSheetHeightFraction,
       decoration: const BoxDecoration(
         color: AppColors.background,
         borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
@@ -74,7 +84,6 @@ class _ExplorePeopleGridState extends State<ExplorePeopleGrid> {
       child: SafeArea(
         top: false,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
             _header(),
             _searchField(),

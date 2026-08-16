@@ -1,4 +1,5 @@
 import 'package:dating_app/core/constants/selection_limits.dart';
+import 'package:dating_app/core/constants/tag_categories.dart';
 import 'package:dating_app/core/theme/app_theme.dart';
 import 'package:dating_app/presentation/common/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -139,12 +140,41 @@ void main() {
       expect(selected, hasLength(6));
     });
 
-    test('the product limits are 1 / 1 / 3 / 3 / unlimited', () {
+    test('the product limits are 1 / 1 / 3 / unlimited', () {
       expect(SelectionLimits.intent, 1);
       expect(SelectionLimits.situation, 1);
       expect(SelectionLimits.vibes, 3);
-      expect(SelectionLimits.into, 3);
       expect(SelectionLimits.hardNos, isNull);
+    });
+
+    // Desires are capped per section, not as one budget across the step —
+    // three picks in "role & energy" must not close "scenario".
+    test('every desires category carries its own cap', () {
+      for (final category in TagCategories.preferences) {
+        expect(
+          SelectionLimits.intoByCategory.containsKey(category),
+          isTrue,
+          reason: '$category has no cap',
+        );
+      }
+      expect(SelectionLimits.intoIn(TagCategories.roleEnergy), 3);
+      expect(SelectionLimits.intoIn(TagCategories.into), 3);
+      expect(SelectionLimits.intoIn(TagCategories.scenario), 3);
+      expect(SelectionLimits.intoIn(TagCategories.intensity), 3);
+      expect(SelectionLimits.intoIn(TagCategories.fantasySetting), 3);
+      // Experience is a fact, not a preference: exactly one.
+      expect(SelectionLimits.intoIn(TagCategories.experience), 1);
+    });
+
+    // Experience is capped at one, and a one-of question swaps rather than
+    // refusing — so the second tap must never be a dead end.
+    test('picking a second experience swaps the first', () {
+      final next = applySelectionLimit(
+        {'new_and_curious'},
+        'experienced',
+        SelectionLimits.intoIn(TagCategories.experience),
+      );
+      expect(next, {'experienced'});
     });
   });
 

@@ -118,11 +118,6 @@ class MyLocationNotifier extends AsyncNotifier<LatLng?> {
           await ref.read(onboardingRepositoryProvider).updateLocation(
                 latitude: fix.latitude,
                 longitude: fix.longitude,
-                // Sent back unchanged so the radius the user chose survives the
-                // write. The server no longer clears an omitted band, but a
-                // client that outlives a server rollback should not widen
-                // somebody's discovery to the 50 km fallback behind their back.
-                preferredBand: stored?.preferredBand,
               );
       ref.read(meProvider.notifier).setMe(updated);
 
