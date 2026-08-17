@@ -37,21 +37,31 @@ MAP_TILES_URL=https://tiles.stadiamaps.com/data/openmaptiles.json?api_key={key}
 
 ## Who is on the map
 
-**Only the people you are vibing with.** Not discovery, not matches, not
-everyone nearby.
+**The people you are vibing with who have agreed to be seen.** Not discovery,
+not matches, not everyone nearby.
 
 ```
-conversations (state: VIBING)  →  MessagingService.mapPeople
-                               →  GET /messaging/map
-                               →  ChatRepository.mapPeople
-                               →  exploreProvider  →  ExploreMap
+conversations (VIBING + NEW_ENERGY)  →  MessagingService.mapPeople
+                                     →  canSeeMapPosition(their setting, my id)
+                                     →  GET /messaging/map
+                                     →  ChatRepository.mapPeople
+                                     →  exploreProvider  →  ExploreMap
 ```
 
 VIBING means the recipient replied, so both people have opted into the
-conversation. **NEW_ENERGY is deliberately excluded**: that state is one person
-who reached out and has not been answered, and a location is not something to
-hand an unanswered sender. The rule is enforced server-side, in the repository
-query — not by filtering in the client.
+conversation. **NEW_ENERGY is excluded unless that person chose to share with
+"everyone"**: the state is one person who reached out and has not been
+answered, and a location is not something to hand an unanswered sender by
+default.
+
+On top of the conversation, everybody carries their own answer to *who can see
+me* — off, everyone, all friends, or a named few. It is set in the "Me" tab
+(`LocationSharingScreen`) and enforced server-side in `mapPeople`, ahead of
+reading anyone's coordinates. Neither rule is a client-side filter.
+
+**So an empty map is not necessarily a bug.** Somebody whose friends have all
+switched sharing off sees nothing, and that is the feature working. The people
+strip below the map thins out the same way, since it is fed by the same list.
 
 Consequences worth stating, because they are why controls that used to be here
 have gone:
@@ -167,6 +177,7 @@ visibly lag the ground under rotation and pitch.
 |---|---|
 | Terrain, roads, 3D buildings | `assets/map/explore_style.json`, a real style document |
 | People | GeoJSON source → symbol layer, icons rasterised by `ExploreMarkerImages` |
+| Distances | Same source → text-only symbol layer, offset to the right of the face |
 | Clusters | Same source, `cluster: true` → circle + count layers |
 | You | Second GeoJSON source → pulse, core, `YOU` label |
 
@@ -177,8 +188,8 @@ people are on screen. There is no per-person animation controller.
 
 `setLayerProperties` sends its property map *without* skipping nulls, so
 anything omitted is reset to default. Every property set therefore goes through
-one builder (`_personProperties`, `_mePulseProperties`) used by both layer
-creation and the animation ticks.
+one builder (`_personProperties`, `_distanceProperties`, `_mePulseProperties`)
+used by both layer creation and the animation ticks.
 
 ### Editing the style
 
@@ -251,7 +262,13 @@ invisible in review and glaring to a user:
 |---|---|---|---|
 | base people layer | everyone      | nobody                | just them, plain marker |
 | selected layer    | nobody        | just them, big marker | nobody |
+| distance labels   | everyone      | hidden                | hidden |
 | clusters          | shown         | hidden                | hidden |
+
+Distance labels go dark in focus for two reasons: the pill over the composer is
+already printing the same number, and the offsets that place a label beside a
+face are computed against the *ordinary* marker's geometry — beside the larger
+selected raster the same offsets land inside the ring.
 
 The third column is the fix for a shipped bug. The selected marker is a larger
 raster built on demand, so it never exists on a first pick — and the map used

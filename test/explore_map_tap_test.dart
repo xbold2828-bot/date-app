@@ -85,6 +85,22 @@ void main() {
       expect(_drawsNothing(f.clusters), isTrue);
     });
 
+    test('labels every face with its distance while nobody is picked', () {
+      // The whole point of the label: how far away somebody is, without
+      // having to select them to find out.
+      final f = peopleLayerFilters(selectedId: null, ready: false);
+      expect(_drawsEveryone(f.distance), isTrue);
+    });
+
+    test('drops the labels once one person is in focus', () {
+      // The focus pill over the composer already prints their distance, and
+      // the selected marker is a larger raster than the offsets assume.
+      for (final ready in [false, true]) {
+        final f = peopleLayerFilters(selectedId: 'emma', ready: ready);
+        expect(_drawsNothing(f.distance), isTrue, reason: 'ready: $ready');
+      }
+    });
+
     test('never lets a null id pin a layer to a real person', () {
       final f = peopleLayerFilters(selectedId: null, ready: true);
       expect(_pinnedId(f.selected), isNot('emma'));

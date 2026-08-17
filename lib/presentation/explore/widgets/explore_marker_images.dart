@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/painting.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' show MapLibreMapController;
 
@@ -48,10 +49,36 @@ class ExploreMarkerImages {
   /// `icon-size` asks for, so matching the screen's DPR would only make the
   /// bitmap's crispness depend on which phone generated it.
   ///
-  /// MapLibre treats an added image as 1×, so the layer divides by this to get
-  /// back to life size — see `ExploreMap._personProperties`.
+  /// The layer divides by this to get back to life size — but by how much
+  /// depends on the platform, so ask [iconSizeFor] rather than dividing here.
   static const double rasterScale = 3;
   static const double _scale = rasterScale;
+
+  /// The `icon-size` that draws these rasters at life size on this platform.
+  ///
+  /// ## The same bitmap is not the same size everywhere
+  ///
+  /// MapLibre sizes an icon as `bitmapPixels ÷ image.pixelRatio × icon-size`,
+  /// and the plugin hands it a different `pixelRatio` on each platform:
+  ///
+  ///   * **web** — `maplibre_gl_web` passes `{'pixelRatio': 1}` outright, so
+  ///     a 162 px bitmap is 162 CSS px.
+  ///   * **Android** — the PNG is decoded by `BitmapFactory`, which leaves the
+  ///     bitmap stamped with the *device* density; MapLibre reads that back as
+  ///     `density ÷ 160`, which is the device pixel ratio.
+  ///   * **iOS** — `UIImage(data:scale: UIScreen.main.scale)`, which is the
+  ///     device pixel ratio again.
+  ///
+  /// So a flat `1 / rasterScale` — correct on the web, where these markers
+  /// were tuned — came out as `1 / (rasterScale × dpr)` on a phone. On a 3×
+  /// screen that is a third of the intended size, which is exactly what "the
+  /// faces are tiny on Android" turned out to be.
+  ///
+  /// Multiplying by the device's own ratio on native cancels the plugin's, and
+  /// the same 54 dp disc lands on every platform. It is pixel-perfect where
+  /// the ratio and [rasterScale] agree, and merely resampled elsewhere.
+  static double iconSizeFor(double devicePixelRatio) =>
+      (kIsWeb ? 1.0 : devicePixelRatio) / rasterScale;
 
   /// Longest a photo fetch may hold up a marker. Past this the person is drawn
   /// with their initial — a marker that is late is worse than one that is

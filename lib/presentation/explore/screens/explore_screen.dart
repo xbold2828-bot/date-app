@@ -100,17 +100,16 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   Future<void> _centerOnMe() async {
     final location = ref.read(myLocationProvider).valueOrNull;
     if (location != null) {
-      // Centre, without touching the zoom. Somebody who pulled back to take in
-      // a 10 km radius pressed this to re-find themselves in it, not to be
-      // dropped back to street level.
-      await _map.centerOn(location);
+      // Centre *and* zoom in, the way a maps app's locate button does. See
+      // ExploreMapController.goToMe for why keeping the zoom was wrong.
+      await _map.goToMe(location);
       return;
     }
     // No fix yet — asking again is the useful thing a "centre on me" button can
     // do, including re-raising a permission prompt that was dismissed.
     await ref.read(myLocationProvider.notifier).refresh();
     final retried = ref.read(myLocationProvider).valueOrNull;
-    if (retried != null) await _map.centerOn(retried);
+    if (retried != null) await _map.goToMe(retried);
   }
 
   @override
@@ -173,7 +172,12 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
               bottom: false,
               child: Column(
                 children: [
-                  const SizedBox(height: 6),
+                  // Off the status bar rather than tucked under it. The strip
+                  // was the first thing below the notch, which put a row of
+                  // tappable faces where the top of the screen is already busy
+                  // with the clock and the signal bars — it read as system
+                  // chrome and was awkward to aim at.
+                  const SizedBox(height: 16),
                   ExplorePeopleStrip(
                     people: users,
                     selectedId: selectedId,

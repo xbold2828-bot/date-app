@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/distance_format.dart';
 import '../../../data/models/map_user_model.dart';
 import '../../../providers/explore_provider.dart';
 import '../marker_layout.dart';
@@ -25,6 +26,10 @@ class ExploreMapController {
   /// active view mode implies.
   Future<void> centerOn(LatLng target, {double? zoom}) async =>
       _state?.centerOn(target, zoom: zoom);
+
+  /// Go to [target] and settle close enough to read the street, the way a maps
+  /// app's locate button does. Never zooms *out* — see [_ExploreMapState.goToMe].
+  Future<void> goToMe(LatLng target) async => _state?.goToMe(target);
 
   /// Step the zoom by [delta], for the on-screen +/− buttons.
   Future<void> zoomBy(double delta) async => _state?.zoomBy(delta);
@@ -102,6 +107,7 @@ class _ExploreMapState extends State<ExploreMap>
   static const _peopleGroundLayer = 'radius-people-ground';
   static const _peopleLayer = 'radius-people';
   static const _selectedLayer = 'radius-people-selected';
+  static const _peopleDistanceLayer = 'radius-people-distance';
   static const _mePulseLayer = 'radius-me-pulse';
   static const _meCoreLayer = 'radius-me-core';
   static const _meLabelLayer = 'radius-me-label';
@@ -162,6 +168,15 @@ class _ExploreMapState extends State<ExploreMap>
   /// switched away mid-flight, and talking to a disposed map throws.
   bool get _live => mounted && _styleReady && _map != null;
 
+  /// The screen's pixel ratio, which the people layer's `icon-size` has to
+  /// cancel out on native — see [ExploreMarkerImages.iconSizeFor].
+  ///
+  /// Read from the view rather than baked in, because it belongs to the
+  /// display the map happens to be on: a desktop window dragged between a
+  /// Retina screen and a plain one changes it mid-session, and markers sized
+  /// for the old one would be left half or double size.
+  double _devicePixelRatio = 1;
+
   @override
   void initState() {
     super.initState();
@@ -174,6 +189,17 @@ class _ExploreMapState extends State<ExploreMap>
     // change is the one push that must always land.
     _entrance.addStatusListener(_onAnimationStatus);
     _selection.addStatusListener(_onAnimationStatus);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final ratio = MediaQuery.devicePixelRatioOf(context);
+    if (ratio == _devicePixelRatio) return;
+    _devicePixelRatio = ratio;
+    // Anything already on screen was sized against the old ratio. Safe before
+    // the map exists — the push is a no-op until the style is ready.
+    unawaited(_pushPersonProperties());
   }
 
   @override
@@ -235,7 +261,9 @@ class _ExploreMapState extends State<ExploreMap>
 
   static String _markerIdentity(MapUser user) =>
       '${user.id}|${user.isOnline}|${user.primaryPhotoUrl}'
-      '|${user.latitude}|${user.longitude}';
+      // The distance is drawn beside the face, so a person who moved closer is
+      // a redraw even though their generalized pin snapped to the same grid.
+      '|${user.latitude}|${user.longitude}|${user.distanceMeters}';
 
   @override
   Widget build(BuildContext context) {
@@ -476,6 +504,20 @@ class _ExploreMapState extends State<ExploreMap>
       enableInteraction: false,
     );
 
+    // How far away each face is, printed beside it.
+    //
+    // Above the marker layers so a label is never buried under the person
+    // standing behind them, and on its own layer rather than as the people
+    // layer's `textField`: that layer is rewritten on every animation tick, and
+    // scaling a distance with the entrance would leave the number stretching.
+    await map.addSymbolLayer(
+      _peopleSource,
+      _peopleDistanceLayer,
+      _distanceProperties(),
+      filter: notCluster,
+      enableInteraction: false,
+    );
+
     // You. Not a dating profile — a pulse, a dot, and a word.
     await map.addCircleLayer(
       _meSource,
@@ -549,9 +591,10 @@ class _ExploreMapState extends State<ExploreMap>
 
     return SymbolLayerProperties(
       iconImage: ['get', 'icon'],
-      // The bitmaps are rasterised at 3× and MapLibre treats an added image as
-      // 1×, so a third is life size.
-      iconSize: (1 / ExploreMarkerImages.rasterScale) * scale,
+      // Life size, which is not the same number on every platform — the
+      // plugin declares these bitmaps at a different pixel ratio on native
+      // than on the web. See ExploreMarkerImages.iconSizeFor.
+      iconSize: ExploreMarkerImages.iconSizeFor(_devicePixelRatio) * scale,
       // The marker's tail tip sits on the coordinate.
       iconAnchor: 'bottom',
       // People are the point of the map: they overlap each other and they
@@ -566,6 +609,46 @@ class _ExploreMapState extends State<ExploreMap>
       // is unless somebody has deliberately rotated it — southern markers are
       // the near ones, so latitude straight through puts the near marker over
       // the far one instead of behind it.
+      symbolSortKey: ['get', 'sort'],
+    );
+  }
+
+  /// "450 m", set beside a person's face.
+  ///
+  /// ## Where the offsets come from
+  ///
+  /// The marker bitmap is anchored `bottom`, so its tail tip is on the
+  /// coordinate and everything else is above it. At life size that puts the
+  /// centre of the photo disc `disc/2 + glow + tail` ≈ 43 px up, and its right
+  /// edge `disc/2` ≈ 27 px across. `text-offset` is in ems of [_distanceSize],
+  /// so those two distances become the constants below — the label lands level
+  /// with the face and just clear of the ring, at every zoom, because both the
+  /// marker and the text are sized in screen space rather than on the ground.
+  static const double _distanceSize = 11.5;
+
+  SymbolLayerProperties _distanceProperties({double progress = 1}) {
+    return SymbolLayerProperties(
+      textField: ['get', 'distance'],
+      textFont: const ['Noto Sans Bold'],
+      textSize: _distanceSize,
+      // Left edge of the text at the offset point, so a long value grows away
+      // from the face rather than back across it.
+      textAnchor: 'left',
+      textOffset: const [2.9, -3.75],
+      textColor: AppMapColors.plum.toHexStringRGB(),
+      // The map under a marker is pastel road and building fill, not a flat
+      // ground colour, so the halo is what keeps the number legible.
+      textHaloColor: AppColors.white.toHexStringRGB(),
+      textHaloWidth: 1.9,
+      textHaloBlur: 0.3,
+      textOpacity: Curves.easeOut.transform(progress.clamp(0, 1)),
+      // Same as the faces: people are the point of the map, so their labels
+      // are not candidates for the label engine to drop.
+      textAllowOverlap: true,
+      textIgnorePlacement: true,
+      // Upright through every rotation and tilt.
+      textRotationAlignment: 'viewport',
+      textPitchAlignment: 'viewport',
       symbolSortKey: ['get', 'sort'],
     );
   }
@@ -618,6 +701,12 @@ class _ExploreMapState extends State<ExploreMap>
           progress: _selection.value,
           selected: true,
         ),
+      );
+      // Fades in with the crowd it labels. Only the entrance drives it — a
+      // selection empties this layer rather than scaling it.
+      await map.setLayerProperties(
+        _peopleDistanceLayer,
+        _distanceProperties(progress: _entrance.value),
       );
     } catch (_) {
       // The style can be torn down between the tick and the call landing.
@@ -688,6 +777,12 @@ class _ExploreMapState extends State<ExploreMap>
                 'properties': {
                   'id': user.id,
                   'icon': _iconFor[user.id] ?? _fallbackIcon,
+                  // Printed beside the face by _peopleDistanceLayer. Empty
+                  // rather than absent when the server sent no number: a
+                  // missing property makes `['get', 'distance']` null, and
+                  // maplibre-gl-js logs an expression error for every feature
+                  // it evaluates that on.
+                  'distance': formatDistance(user.distanceMeters) ?? '',
                   // Higher for people further north, so painting order runs
                   // back-to-front on a tilted map.
                   'sort': at.latitude,
@@ -810,6 +905,7 @@ class _ExploreMapState extends State<ExploreMap>
       await _map!.setFilter(_peopleLayer, filters.base);
       await _map!.setFilter(_peopleGroundLayer, filters.ground);
       await _map!.setFilter(_selectedLayer, filters.selected);
+      await _map!.setFilter(_peopleDistanceLayer, filters.distance);
       for (final layer in const [
         _clusterGlowLayer,
         _clusterLayer,
@@ -984,6 +1080,34 @@ class _ExploreMapState extends State<ExploreMap>
         duration: ExploreCamera.transition,
       );
     } catch (_) {}
+  }
+
+  /// The locate button's move: centre on the user *and* arrive somewhere they
+  /// can see where they are.
+  ///
+  /// [centerOn] deliberately keeps the current zoom, which is right when the
+  /// camera is already somewhere deliberate. It was wrong here. Pressing
+  /// "where am I" from a city-wide view re-centred the map and left it city
+  /// wide, so the answer to "where am I" was a purple dot in a field of
+  /// rooftops — the button appeared to do nothing, because the only thing that
+  /// moved was scenery.
+  ///
+  /// So it zooms to street level, and takes the *larger* of that and where the
+  /// camera already is: somebody who had zoomed into their own building and
+  /// then panned away is asking to go back, not to be pulled back out.
+  Future<void> goToMe(LatLng target) async {
+    final map = _map;
+    if (map == null || !_styleReady) return;
+
+    // A later GPS fix must not drag the camera off the spot they just asked
+    // for — see _centerOnFirstFix.
+    _centeredOnFirstFix = true;
+
+    final current = map.cameraPosition?.zoom ?? ExploreCamera.defaultZoom;
+    await centerOn(
+      target,
+      zoom: math.max(current, ExploreCamera.meZoom),
+    );
   }
 
   /// Open the camera around everyone the map is showing, not at a fixed zoom.

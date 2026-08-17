@@ -12,8 +12,24 @@ class DiscoveryCard {
   final List<String> intent;
   final List<String> personalityTags;
   final String distanceBand;
+
+  /// How far away they are, in metres, rounded server-side.
+  ///
+  /// The band above is still here and still used — the Explore strip speaks
+  /// bands, and a viewer with no location of their own gets neither. Cards
+  /// print this when it is there and fall back to the band when it is not,
+  /// which is also what happens against a server that predates the field.
+  ///
+  /// Null on a locked card by design: the server drops it rather than the UI
+  /// hiding it, so a blurred stranger cannot be placed.
+  final num? distanceMeters;
+
   final String? city;
   final bool isOnline;
+
+  /// When they were last seen. Null when unknown, and on locked cards.
+  final DateTime? lastActiveAt;
+
   final bool isVerified;
   final String? primaryPhotoUrl;
   final bool locked;
@@ -27,8 +43,10 @@ class DiscoveryCard {
     this.intent = const [],
     this.personalityTags = const [],
     this.distanceBand = '',
+    this.distanceMeters,
     this.city,
     this.isOnline = false,
+    this.lastActiveAt,
     this.isVerified = false,
     this.primaryPhotoUrl,
     this.locked = false,
@@ -47,8 +65,10 @@ class DiscoveryCard {
         intent: intent,
         personalityTags: personalityTags,
         distanceBand: distanceBand,
+        distanceMeters: distanceMeters,
         city: city,
         isOnline: online,
+        lastActiveAt: lastActiveAt,
         isVerified: isVerified,
         primaryPhotoUrl: primaryPhotoUrl,
         locked: locked,
@@ -63,8 +83,10 @@ class DiscoveryCard {
         intent: _strs(json['intent']),
         personalityTags: _strs(json['personalityTags']),
         distanceBand: json['distanceBand'] as String? ?? '',
+        distanceMeters: json['distanceMeters'] as num?,
         city: json['city'] as String?,
         isOnline: json['isOnline'] as bool? ?? false,
+        lastActiveAt: DateTime.tryParse(json['lastActiveAt'] as String? ?? ''),
         isVerified: json['isVerified'] as bool? ?? false,
         primaryPhotoUrl: json['primaryPhotoUrl'] as String?,
         locked: json['locked'] as bool? ?? false,

@@ -1,3 +1,7 @@
+import 'location_sharing_model.dart';
+
+export 'location_sharing_model.dart' show LocationAudience, LocationSharing;
+
 /// Helpers shared by the model layer.
 List<String> _stringList(dynamic v) =>
     (v as List?)?.map((e) => e.toString()).toList() ?? const [];
@@ -173,6 +177,11 @@ class MeUser {
   final Premium premium;
   final MeProfile profile;
   final MeLocation? location;
+
+  /// Who can see me on the Explore map. Rides along on every self-view so the
+  /// "Me" tab can state the current setting without a second request.
+  final LocationSharing locationSharing;
+
   final OnboardingProgress onboarding;
   final DateTime? createdAt;
   final DateTime? lastActiveAt;
@@ -193,6 +202,7 @@ class MeUser {
     required this.premium,
     required this.profile,
     this.location,
+    this.locationSharing = LocationSharing.initial,
     required this.onboarding,
     this.createdAt,
     this.lastActiveAt,
@@ -224,6 +234,11 @@ class MeUser {
             ? null
             : MeLocation.fromJson(
                 Map<String, dynamic>.from(json['location'] as Map),
+              ),
+        locationSharing: json['locationSharing'] == null
+            ? LocationSharing.initial
+            : LocationSharing.fromJson(
+                Map<String, dynamic>.from(json['locationSharing'] as Map),
               ),
         onboarding: OnboardingProgress.fromJson(
           Map<String, dynamic>.from(json['onboarding'] as Map? ?? const {}),

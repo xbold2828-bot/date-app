@@ -74,6 +74,12 @@ class ExploreCamera {
   /// 3D city, not just a bigger flat one.
   static const double focusZoom = 15.5;
 
+  /// Where the locate button settles. A step past [focusZoom]: tapping a person
+  /// is a question about them and wants them in context, while "where am I" is
+  /// a question about the ground underfoot and wants the block, not the
+  /// district.
+  static const double meZoom = 16.5;
+
   static const double minZoom = 3;
   static const double maxZoom = 19;
 

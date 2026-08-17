@@ -379,6 +379,8 @@ class _RadarTab extends ConsumerWidget {
               name: card.displayName ?? 'Someone',
               age: card.age,
               distanceBand: card.distanceBand,
+              distanceMeters: card.distanceMeters,
+              lastActiveAt: card.lastActiveAt,
               photoUrl: card.primaryPhotoUrl,
               isOnline: online,
               colorIndex: index,

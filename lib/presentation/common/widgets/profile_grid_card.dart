@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/utils/distance_format.dart';
+import '../../../core/utils/last_seen_format.dart';
 
 /// The palette that stands in for a missing photo. Warm, muted, and distinct
 /// enough that two adjacent cards never look like the same person.
@@ -31,9 +33,17 @@ LinearGradient avatarGradient(int index) => LinearGradient(
 /// Replaces the two near-identical implementations that had grown in the
 /// Radar and Likes tabs.
 ///
-/// Distance is always shown as a *band* — never a number. That is a promise
-/// the product makes about privacy, and it is enforced here by only ever
-/// accepting a pre-banded string.
+/// ## Distance
+///
+/// The card prints a **number** when the server sent one — "190 ft", "450 m",
+/// "2.4 mi" — and falls back to the coarse band otherwise. Both paths exist
+/// because both cases are real: a viewer who never finished the location step
+/// has no distance to anybody, a locked card is deliberately sent without one,
+/// and a server that predates the field sends the band alone.
+///
+/// The precision is the server's decision, not this widget's. It arrives
+/// already rounded (see `roundDistanceMetres`), and rounding again in
+/// [formatDistance] is presentational. Nothing here may sharpen it.
 class ProfileGridCard extends StatelessWidget {
   const ProfileGridCard({
     super.key,
@@ -42,6 +52,8 @@ class ProfileGridCard extends StatelessWidget {
     required this.onTap,
     this.age,
     this.distanceBand,
+    this.distanceMeters,
+    this.lastActiveAt,
     this.photoUrl,
     this.isOnline = false,
     this.isVerified = false,
@@ -51,8 +63,15 @@ class ProfileGridCard extends StatelessWidget {
   final String name;
   final int? age;
 
-  /// e.g. "2-5 km". Never a precise distance.
+  /// e.g. "2-5 km". The fallback for when [distanceMeters] is absent.
   final String? distanceBand;
+
+  /// Metres, already rounded by the server. Preferred over [distanceBand].
+  final num? distanceMeters;
+
+  /// When they were last around. Ignored while [isOnline] — the green dot and
+  /// "Online now" would be the same sentence twice.
+  final DateTime? lastActiveAt;
 
   final String? photoUrl;
   final bool isOnline;
@@ -74,6 +93,27 @@ class ProfileGridCard extends StatelessWidget {
 
   String get _title => age != null ? '$name, $age' : name;
 
+  /// The number when there is one, the band when there is not.
+  String? get _distance {
+    final exact = formatDistance(distanceMeters);
+    if (exact != null) return exact;
+    final band = distanceBand;
+    return band == null || band.isEmpty ? null : band;
+  }
+
+  /// "Last seen", suppressed while the presence dot is already saying it.
+  String? get _lastSeen =>
+      isOnline ? null : formatLastSeen(lastActiveAt, isOnline: false);
+
+  /// "450 m · 2h ago". Either half stands on its own when the other is
+  /// missing, which is the common case rather than the exotic one: a viewer
+  /// with no location of their own has no distances at all, and an account
+  /// that has never connected has no last-seen.
+  String? get _meta {
+    final parts = [?_distance, ?_lastSeen];
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final semantics = blurred
@@ -82,8 +122,8 @@ class ProfileGridCard extends StatelessWidget {
             _title,
             if (isVerified) 'verified',
             if (isOnline) 'online now',
-            if (distanceBand != null && distanceBand!.isNotEmpty)
-              '$distanceBand away',
+            if (_distance case final d?) '$d away',
+            if (_lastSeen case final seen?) 'last seen $seen',
           ].join(', ');
 
     return Semantics(
@@ -177,13 +217,15 @@ class ProfileGridCard extends StatelessWidget {
                           fontVariations: const [FontVariation('wght', 700)],
                         ),
                       ),
-                      // Distance only. Presence is the green dot in the
-                      // corner — appending "· online" here said it a second
-                      // time, and it was the half that got truncated first on
-                      // a narrow card.
-                      if (distanceBand != null && distanceBand!.isNotEmpty)
+                      // Distance and last-seen, one line. Presence is still
+                      // only the green dot in the corner — appending "·
+                      // online" here said it a second time, and it was the
+                      // half that got truncated first on a narrow card, which
+                      // is also why last-seen drops out entirely while
+                      // somebody is online rather than competing for the room.
+                      if (_meta case final meta?)
                         Text(
-                          distanceBand!,
+                          meta,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: AppTextStyles.caption.copyWith(

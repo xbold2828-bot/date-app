@@ -217,6 +217,7 @@ class PeopleLayerFilters {
     required this.base,
     required this.selected,
     required this.ground,
+    required this.distance,
     required this.clusters,
   });
 
@@ -230,6 +231,13 @@ class PeopleLayerFilters {
 
   /// The dot on the ground under each marker.
   final List<Object> ground;
+
+  /// The "450 m" label beside each face.
+  ///
+  /// Empty while somebody is in focus: the pill over the composer already
+  /// prints their distance, and the selected marker is drawn from a larger
+  /// raster, so a label offset for the ordinary one would sit inside it.
+  final List<Object> distance;
 
   /// The three cluster layers, which share a filter.
   final List<Object> clusters;
@@ -268,6 +276,7 @@ PeopleLayerFilters peopleLayerFilters({
     selected:
         focused && ready ? onlyPersonFilter(selectedId) : matchNothingFilter,
     ground: focused ? onlyPersonFilter(selectedId) : unclusteredFilter,
+    distance: focused ? matchNothingFilter : unclusteredFilter,
     // Clusters are a way of reading a crowd. With one person on the map there
     // is no crowd, and a "1" bubble beside them would be nonsense.
     clusters: focused ? matchNothingFilter : const ['has', 'point_count'],

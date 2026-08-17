@@ -5,6 +5,7 @@ import '../data/repositories/ads_repository.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/repositories/chat_repository.dart';
 import '../data/repositories/discovery_repository.dart';
+import '../data/repositories/location_sharing_repository.dart';
 import '../data/repositories/match_repository.dart';
 import '../data/repositories/media_repository.dart';
 import '../data/repositories/onboarding_repository.dart';
@@ -37,6 +38,10 @@ final profileRepositoryProvider = Provider<ProfileRepository>(
 
 final onboardingRepositoryProvider = Provider<OnboardingRepository>(
   (ref) => OnboardingRepository(ref.watch(apiClientProvider)),
+);
+
+final locationSharingRepositoryProvider = Provider<LocationSharingRepository>(
+  (ref) => LocationSharingRepository(ref.watch(apiClientProvider)),
 );
 
 final discoveryRepositoryProvider = Provider<DiscoveryRepository>(

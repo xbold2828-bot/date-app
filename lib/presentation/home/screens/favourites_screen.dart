@@ -192,6 +192,8 @@ class _LikedYouTab extends ConsumerWidget {
       name: name,
       age: card.age,
       photoUrl: card.primaryPhotoUrl,
+      distanceMeters: card.distanceMeters,
+      lastActiveAt: card.lastActiveAt,
       isOnline: card.isOnline,
       isVerified: card.isVerified,
       colorIndex: index,

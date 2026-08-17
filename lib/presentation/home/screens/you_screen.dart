@@ -10,6 +10,7 @@ import '../../../providers/core_providers.dart';
 import '../../../providers/profile_provider.dart';
 import '../../auth/screens/login_screen.dart';
 import '../../common/widgets/widgets.dart';
+import '../widgets/location_sharing_card.dart';
 import '../widgets/profile_edit_panel.dart';
 import '../widgets/profile_edit_sheets.dart';
 import '../widgets/you_gallery.dart';
@@ -164,6 +165,21 @@ class _YouScreenState extends ConsumerState<YouScreen> {
           ),
 
           YouHeader(me: me, avatarUrl: _primaryPhotoUrl(me.primaryPhotoId)),
+
+          const SizedBox(height: 18),
+
+          // Directly under the header, and deliberately.
+          //
+          // The header ends with the live location line — where the device
+          // thinks you are, shown only to you. Who else can see that is the
+          // very next question, so it is answered in the very next card
+          // instead of being filed away with the account actions at the
+          // bottom, where a location control would be found only by somebody
+          // already worried enough to go hunting for it.
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: const LocationSharingCard(),
+          ),
 
           const SizedBox(height: 20),
 

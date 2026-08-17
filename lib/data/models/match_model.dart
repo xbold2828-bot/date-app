@@ -7,6 +7,14 @@ class LikeCard {
   final bool isOnline;
   final bool isVerified;
 
+  /// How far away they are, in metres, rounded server-side. Null when either
+  /// side has no stored location — and always null on a locked card, because
+  /// the redaction drops it rather than the UI hiding it.
+  final num? distanceMeters;
+
+  /// When they were last seen. Null when unknown, and on locked cards.
+  final DateTime? lastActiveAt;
+
   /// This person was redacted server-side: the response carries no name, no
   /// photo, no age — and no [id], so there is nothing to tap through to. The
   /// blur in the grid is decoration over an already-empty card, not the thing
@@ -20,6 +28,8 @@ class LikeCard {
     this.primaryPhotoUrl,
     this.isOnline = false,
     this.isVerified = false,
+    this.distanceMeters,
+    this.lastActiveAt,
     this.locked = false,
   });
 
@@ -30,6 +40,8 @@ class LikeCard {
         primaryPhotoUrl: json['primaryPhotoUrl'] as String?,
         isOnline: json['isOnline'] as bool? ?? false,
         isVerified: json['isVerified'] as bool? ?? false,
+        distanceMeters: json['distanceMeters'] as num?,
+        lastActiveAt: DateTime.tryParse(json['lastActiveAt'] as String? ?? ''),
         locked: json['locked'] as bool? ?? false,
       );
 

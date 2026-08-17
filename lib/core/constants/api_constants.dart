@@ -50,6 +50,13 @@ class ApiConstants {
   // ── Location (onboarding step 9) ────────────────────────────────────────
   static const String location = '/location';
 
+  /// GET → who can currently see me on the map; PATCH → change it.
+  ///
+  /// Separate from [usersMe], which carries the same object: that view is
+  /// cached server-side for minutes, and a privacy control is the one thing
+  /// that must never be read stale.
+  static const String locationSharing = '/location/sharing';
+
   // ── Media (onboarding step 8 · two-phase direct-to-storage upload) ───────
   static const String media = '/media';
   static const String mediaUploadUrl = '/media/upload-url';
@@ -97,6 +104,14 @@ class ApiConstants {
   // ── Messaging ───────────────────────────────────────────────────────────
   static const String messagingOpen = '/messaging/open';
   static const String conversations = '/messaging/conversations';
+
+  /// The conversation I already have with one person, or null.
+  ///
+  /// What lets a screen holding only a user id open the existing thread rather
+  /// than an empty one. Read-only: unlike [messagingOpen] it creates nothing
+  /// and spends no allowance.
+  static String conversationWith(String userId) =>
+      '/messaging/conversations/with/$userId';
   static const String unreadCount = '/messaging/unread-count';
 
   /// The Explore map: people I am vibing with, with generalized positions.

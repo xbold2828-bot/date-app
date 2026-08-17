@@ -91,8 +91,19 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
   }
 
   Future<void> _onOpen() async {
-    // Nothing to join yet — this is a match nobody has written to.
-    if (_convId == null) return;
+    // A caller holding only a user id — the Mutual tab, a match celebration —
+    // cannot tell us whether these two have talked before, so ask before
+    // assuming they haven't. Skipped on the second call, after a send has
+    // already adopted an id.
+    if (_convId == null) {
+      final existing = await _findExistingConversation();
+      if (!mounted) return;
+      // Nothing to join yet — this really is a match nobody has written to.
+      if (existing == null) return;
+      // Through setState because `build` watches `messagesProvider(_convId)`:
+      // adopting the id silently would leave the history unread on screen.
+      setState(() => _convId = existing);
+    }
     // This runs from a post-frame callback, so the screen may already be gone
     // (popped within the same frame). Subscribing now would register socket
     // listeners that dispose() has already finished cancelling — orphaned
@@ -141,6 +152,27 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
     try {
       await ref.read(chatActionsProvider).markRead(convId);
     } catch (_) {}
+  }
+
+  /// The thread these two already have, or null.
+  ///
+  /// The bug this exists for: a match opened from the Mutual tab arrived with
+  /// no conversation id, so the screen drew itself as a fresh thread even when
+  /// the two had been talking for days. Sending then called `open`, which
+  /// matched the pair key server-side and handed back the conversation that
+  /// was there all along — so the history appeared only *after* a message,
+  /// which read as the app having lost it.
+  ///
+  /// A failure is treated exactly like "no thread": the screen starts empty
+  /// and the first send adopts whatever `open` returns, which is what it did
+  /// before this lookup existed. Nothing is worse than it was if the request
+  /// fails.
+  Future<String?> _findExistingConversation() async {
+    try {
+      return await ref.read(chatActionsProvider).conversationIdWith(_otherId);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Hand the active-conversation claim back, but only if it's still ours —

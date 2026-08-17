@@ -19,6 +19,17 @@ enum RadiusButtonKind {
 /// The app's button.
 ///
 /// Full-width by default, because nearly every use is a footer action.
+///
+/// ## Give it an unbounded height
+///
+/// It ends in a [Container] with an alignment, and such a Container expands to
+/// fill *bounded* constraints rather than wrapping its child. Inside a [Column]
+/// or a [ListView] — where every call site here lives — the incoming height is
+/// unbounded and it settles at its 54px minimum. Put it somewhere with a
+/// bounded height and it takes all of it: dropped straight into a
+/// `Scaffold.bottomNavigationBar`, which offers the height of the whole
+/// screen, it became a full-screen slab of oxblood over the page behind it.
+/// Wrap it in a `Column(mainAxisSize: MainAxisSize.min)` in those slots.
 class RadiusButton extends StatelessWidget {
   const RadiusButton({
     super.key,

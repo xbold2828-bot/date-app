@@ -155,7 +155,11 @@ class _ExploreComposerState extends ConsumerState<ExploreComposer> {
               child: ExploreAvatar(
                 name: recipient.displayName,
                 photoUrl: recipient.primaryPhotoUrl,
-                size: 38,
+                // Matches the send button and the field beside it rather than
+                // sitting under them. At 38 it read as a decoration on the bar;
+                // it is actually the only thing naming who the message goes to,
+                // and it is a tap target of its own.
+                size: 46,
                 isOnline: recipient.isOnline,
                 showOnlineDot: false,
               ),

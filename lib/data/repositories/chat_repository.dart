@@ -58,6 +58,17 @@ class ChatRepository {
     );
   }
 
+  /// `GET /messaging/conversations/with/:userId` — the thread I already have
+  /// with somebody, or null when there is none.
+  ///
+  /// Read-only, and deliberately not [open]: asking whether a conversation
+  /// exists must not create one or spend the messaging allowance.
+  Future<ConversationSummary?> conversationWith(String userId) async {
+    final data = await _api.get(ApiConstants.conversationWith(userId));
+    if (data is! Map) return null;
+    return ConversationSummary.fromJson(Map<String, dynamic>.from(data));
+  }
+
   /// `GET /messaging/unread-count` — inbox badge.
   Future<int> unreadCount() async {
     final data = await _api.get(ApiConstants.unreadCount);

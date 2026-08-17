@@ -165,9 +165,25 @@ class ChatActions {
   /// Nothing is pushed into [messagesProvider] here: the thread isn't on screen
   /// yet, and it now refetches when opened. The inbox is refreshed so the new
   /// conversation appears under New Energy straight away.
+  /// The id of the thread I already have with somebody, or null.
+  ///
+  /// For screens that were handed a user id and no conversation id. Costs one
+  /// read and creates nothing — deliberately not [open], which is the gated
+  /// action.
+  Future<String?> conversationIdWith(String userId) async {
+    final existing =
+        await ref.read(chatRepositoryProvider).conversationWith(userId);
+    return existing?.id;
+  }
+
   Future<SendResult> open(String toUserId, String body) async {
     final result = await ref.read(chatRepositoryProvider).open(toUserId, body);
     ref.invalidate(conversationsProvider);
+    // The Mutual tab carries a `conversationId` per match, and it is a
+    // snapshot from whenever that page was fetched. This call is the moment it
+    // can go stale, so the card that still says "You both liked each other"
+    // gets to catch up and say "You have a conversation going".
+    ref.invalidate(mutualLikesProvider);
     return result;
   }
 
