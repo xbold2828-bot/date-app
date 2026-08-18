@@ -28,11 +28,11 @@ Future<void> showPremiumFilterPrompt(
                 Container(
                   width: 38,
                   height: 38,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: AppColors.primaryTint,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.lock_outline,
                     size: 19,
                     color: AppColors.primary,
@@ -58,7 +58,7 @@ Future<void> showPremiumFilterPrompt(
             const SizedBox(height: 22),
             RadiusButton(
               label: 'See Premium',
-              kind: RadiusButtonKind.gold,
+              kind: RadiusButtonKind.premium,
               onPressed: () {
                 Navigator.pop(sheetContext);
                 Navigator.push(

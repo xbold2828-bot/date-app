@@ -159,7 +159,7 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
                   ? null
                   : GestureDetector(
                       onTap: _onContinue,
-                      child: const Align(
+                      child: Align(
                         alignment: Alignment.centerRight,
                         child: Text(
                           'Skip',
@@ -184,7 +184,7 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
                       style: AppTextStyles.display,
                     ),
                     const SizedBox(height: 6),
-                    const Text(
+                    Text(
                       'Upload up to 5 photos. You can always add more later.',
                       style: TextStyle(fontSize: 13, color: AppColors.textGrey),
                     ),
@@ -205,7 +205,7 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
                             Border.all(color: AppColors.primary.withOpacity(0.2)),
                       ),
                       child: Row(
-                        children: const [
+                        children: [
                           Icon(Icons.block, size: 16, color: AppColors.primary),
                           SizedBox(width: 10),
                           Expanded(
@@ -225,7 +225,7 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
                     const SizedBox(height: 24),
 
                     Row(
-                      children: const [
+                      children: [
                         Icon(Icons.lightbulb_outline,
                             size: 16, color: AppColors.textGrey),
                         SizedBox(width: 6),
@@ -365,7 +365,7 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
       child: Container(
         // Sized by the grid cell, never by a hardcoded height.
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: AppColors.card,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: photo != null ? AppColors.primary : AppColors.inputBorder,
@@ -377,10 +377,10 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (isPrimary) ...[
-                    const Icon(Icons.add_a_photo_outlined,
+                    Icon(Icons.add_a_photo_outlined,
                         size: 28, color: AppColors.textGrey),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Primary Photo',
                       style: TextStyle(fontSize: 12, color: AppColors.textGrey),
                     ),
@@ -399,7 +399,7 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
                         color: AppColors.primary.withOpacity(0.12),
-                        child: const Icon(Icons.broken_image_outlined,
+                        child: Icon(Icons.broken_image_outlined,
                             color: AppColors.textGrey),
                       ),
                     ),
@@ -417,7 +417,7 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.close,
-                            size: 14, color: AppColors.white),
+                            size: 14, color: AppColors.onImage),
                       ),
                     ),
                   ),
@@ -436,7 +436,7 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
                           'Primary',
                           style: TextStyle(
                             fontSize: 10,
-                            color: AppColors.white,
+                            color: AppColors.onImage,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -456,7 +456,7 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.inputBorder),
       ),
@@ -471,7 +471,7 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textDark,
@@ -480,7 +480,7 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
                 const SizedBox(height: 3),
                 Text(
                   subtitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.primary,
                   ),

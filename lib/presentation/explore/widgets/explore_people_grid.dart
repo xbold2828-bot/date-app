@@ -77,7 +77,7 @@ class _ExplorePeopleGridState extends State<ExplorePeopleGrid> {
       // A sheet people open to browse should be the same object every time,
       // and the same object as the other sheet they open to browse.
       height: MediaQuery.sizeOf(context).height * kSheetHeightFraction,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.background,
         borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
       ),
@@ -148,7 +148,7 @@ class _ExplorePeopleGridState extends State<ExplorePeopleGrid> {
             excludeSemantics: true,
             child: IconButton(
               onPressed: widget.onClose,
-              icon: const Icon(Icons.chevron_left, color: AppColors.textDark),
+              icon: Icon(Icons.chevron_left, color: AppColors.textDark),
             ),
           ),
           Expanded(
@@ -175,7 +175,7 @@ class _ExplorePeopleGridState extends State<ExplorePeopleGrid> {
           hintText: 'Search by name',
           hintStyle: AppTextStyles.body.copyWith(color: AppColors.textGrey),
           prefixIcon:
-              const Icon(Icons.search, size: 20, color: AppColors.iconMuted),
+              Icon(Icons.search, size: 20, color: AppColors.iconMuted),
           suffixIcon: _query.isEmpty
               ? null
               : IconButton(
@@ -183,24 +183,24 @@ class _ExplorePeopleGridState extends State<ExplorePeopleGrid> {
                     _search.clear();
                     setState(() => _query = '');
                   },
-                  icon: const Icon(Icons.close,
+                  icon: Icon(Icons.close,
                       size: 18, color: AppColors.iconMuted),
                 ),
           filled: true,
-          fillColor: AppColors.white,
+          fillColor: AppColors.card,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppColors.inputBorder),
+            borderSide: BorderSide(color: AppColors.inputBorder),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppColors.inputBorder),
+            borderSide: BorderSide(color: AppColors.inputBorder),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+            borderSide: BorderSide(color: AppColors.primary, width: 1.5),
           ),
         ),
       ),
@@ -212,7 +212,7 @@ class _ExplorePeopleGridState extends State<ExplorePeopleGrid> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.search_off, size: 34, color: AppColors.iconMuted),
+            Icon(Icons.search_off, size: 34, color: AppColors.iconMuted),
             const SizedBox(height: 12),
             Text(
               'Nobody here by that name',
@@ -265,7 +265,7 @@ class _AllTile extends StatelessWidget {
                         ],
                       )
                     : null,
-                color: active ? null : AppColors.white,
+                color: active ? null : AppColors.card,
                 border: active
                     ? null
                     : Border.all(color: AppColors.inputBorder, width: 1.4),
@@ -273,7 +273,7 @@ class _AllTile extends StatelessWidget {
               child: Icon(
                 Icons.groups_outlined,
                 size: 24,
-                color: active ? AppColors.white : AppColors.primary,
+                color: active ? AppColors.onImage : AppColors.primary,
               ),
             ),
             const SizedBox(height: 5),

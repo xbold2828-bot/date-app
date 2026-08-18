@@ -314,7 +314,7 @@ class _CountryButton extends StatelessWidget {
       label: 'Country: ${country['name']}, ${country['code']}',
       excludeSemantics: true,
       child: Material(
-        color: AppColors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: onTap,
@@ -332,7 +332,7 @@ class _CountryButton extends StatelessWidget {
                 Text(country['flag']!, style: const TextStyle(fontSize: 18)),
                 const SizedBox(width: 6),
                 Text(country['code']!, style: AppTextStyles.bodyStrong),
-                const Icon(
+                Icon(
                   Icons.keyboard_arrow_down,
                   size: 18,
                   color: AppColors.textGrey,
@@ -353,12 +353,12 @@ class _OrDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Expanded(child: Divider(color: AppColors.inputBorder)),
+        Expanded(child: Divider(color: AppColors.inputBorder)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Text('OR', style: AppTextStyles.label),
         ),
-        const Expanded(child: Divider(color: AppColors.inputBorder)),
+        Expanded(child: Divider(color: AppColors.inputBorder)),
       ],
     );
   }

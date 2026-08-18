@@ -188,7 +188,7 @@ class _LiveLocationLineState extends ConsumerState<LiveLocationLine> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
+              Icon(
                 Icons.location_on_outlined,
                 size: 14,
                 color: AppColors.iconMuted,

@@ -194,7 +194,7 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.inputBorder),
       ),
@@ -288,7 +288,7 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
         ),
 
         if (loadingTags)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 18),
             child: Center(
               child: SizedBox(
@@ -441,19 +441,19 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.inputBorder),
+          borderSide: BorderSide(color: AppColors.inputBorder),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.inputBorder),
+          borderSide: BorderSide(color: AppColors.inputBorder),
         ),
         disabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.inputBorder),
+          borderSide: BorderSide(color: AppColors.inputBorder),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          borderSide: BorderSide(color: AppColors.primary, width: 1.5),
         ),
       );
 }
@@ -499,14 +499,14 @@ class _IdentityField extends StatelessWidget {
             isDense: true,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            suffixIcon: const Icon(
+            suffixIcon: Icon(
               Icons.lock_outline,
               size: 17,
               color: AppColors.iconMuted,
             ),
             disabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.inputBorder),
+              borderSide: BorderSide(color: AppColors.inputBorder),
             ),
           ),
           child: Text(
@@ -660,7 +660,7 @@ class _ShowMoreButton extends StatelessWidget {
               AnimatedRotation(
                 turns: expanded ? 0.5 : 0,
                 duration: const Duration(milliseconds: 240),
-                child: const Icon(
+                child: Icon(
                   Icons.keyboard_arrow_down,
                   size: 18,
                   color: AppColors.primary,

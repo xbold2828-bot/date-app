@@ -305,7 +305,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
                   // composer is more honest than a spinner over no data.
                   ? _EmptyThread(name: widget.userName)
                   : ref.watch(messagesProvider(convId)).when(
-                        loading: () => const Center(
+                        loading: () => Center(
                           child: CircularProgressIndicator(
                             color: AppColors.primary,
                           ),
@@ -314,7 +314,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
                           child: Text(
                             "Couldn't load messages.\n$err",
                             textAlign: TextAlign.center,
-                            style: const TextStyle(color: AppColors.textGrey),
+                            style: TextStyle(color: AppColors.textGrey),
                           ),
                         ),
                         data: (messages) => _buildMessageList(messages),
@@ -402,8 +402,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: const BoxDecoration(
-        color: AppColors.white,
+      decoration: BoxDecoration(
+        color: AppColors.card,
         border: Border(
           bottom: BorderSide(color: AppColors.inputBorder, width: 1),
         ),
@@ -412,7 +412,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
         children: [
           GestureDetector(
             onTap: () => Navigator.pop(context),
-            child: const Icon(Icons.arrow_back, color: AppColors.textDark),
+            child: Icon(Icons.arrow_back, color: AppColors.textDark),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -500,7 +500,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
       child: Container(
         width: 36,
         height: 36,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.background,
           shape: BoxShape.circle,
         ),
@@ -511,7 +511,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
 
   Widget _buildMessageList(List<Message> messages) {
     if (messages.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'Say hello 👋',
           style: TextStyle(color: AppColors.textGrey),
@@ -535,13 +535,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
         margin: const EdgeInsets.symmetric(vertical: 16),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: AppColors.card,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: AppColors.inputBorder),
         ),
         child: Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,
             color: AppColors.textGrey,
@@ -589,7 +589,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
                       decoration: BoxDecoration(
                         color: deleted
                             ? AppColors.background
-                            : (isMine ? AppColors.primary : AppColors.white),
+                            : (isMine ? AppColors.primary : AppColors.card),
                         borderRadius: BorderRadius.only(
                           topLeft: const Radius.circular(18),
                           topRight: const Radius.circular(18),
@@ -604,7 +604,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
                           ? Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.block,
                                   size: 13,
                                   color: AppColors.textGrey,
@@ -613,7 +613,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
                                 Flexible(
                                   child: Text(
                                     msg.body,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 13.5,
                                       color: AppColors.textGrey,
                                       fontStyle: FontStyle.italic,
@@ -628,7 +628,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
                               style: TextStyle(
                                 fontSize: 14,
                                 color: isMine
-                                    ? AppColors.white
+                                    ? AppColors.onAccent
                                     : AppColors.textDark,
                                 height: 1.4,
                               ),
@@ -647,13 +647,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
               children: [
                 Text(
                   _formatTime(msg.sentAt),
-                  style: const TextStyle(fontSize: 10, color: AppColors.textGrey),
+                  style: TextStyle(fontSize: 10, color: AppColors.textGrey),
                 ),
                 // Always shown, to both sides. An edit nobody can see is a way
                 // to make somebody doubt what they read.
                 if (msg.edited) ...[
                   const SizedBox(width: 4),
-                  const Text(
+                  Text(
                     'edited',
                     style: TextStyle(
                       fontSize: 10,
@@ -795,13 +795,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: AppColors.white,
+              color: AppColors.card,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: AppColors.inputBorder),
             ),
             child: Text(
               '${widget.userName} is typing...',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 color: AppColors.textGrey,
                 fontStyle: FontStyle.italic,
@@ -816,8 +816,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
   Widget _buildInputBar() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-      decoration: const BoxDecoration(
-        color: AppColors.white,
+      decoration: BoxDecoration(
+        color: AppColors.card,
         border: Border(top: BorderSide(color: AppColors.inputBorder, width: 1)),
       ),
       child: Row(
@@ -834,8 +834,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
                 controller: _messageController,
                 maxLines: null,
                 onChanged: _onInputChanged,
-                style: const TextStyle(fontSize: 14, color: AppColors.textDark),
-                decoration: const InputDecoration(
+                style: TextStyle(fontSize: 14, color: AppColors.textDark),
+                decoration: InputDecoration(
                   hintText: 'Say something nice...',
                   hintStyle: TextStyle(color: AppColors.textGrey, fontSize: 14),
                   border: InputBorder.none,
@@ -852,17 +852,17 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
             child: Container(
               width: 44,
               height: 44,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.primary,
                 shape: BoxShape.circle,
               ),
               child: _sending
-                  ? const Padding(
+                  ? Padding(
                       padding: EdgeInsets.all(12),
                       child: CircularProgressIndicator(
-                          color: AppColors.white, strokeWidth: 2),
+                          color: AppColors.onAccent, strokeWidth: 2),
                     )
-                  : const Icon(Icons.send, color: AppColors.white, size: 18),
+                  : Icon(Icons.send, color: AppColors.onAccent, size: 18),
             ),
           ),
         ],
@@ -975,7 +975,7 @@ class _MessageActionRow extends StatelessWidget {
                   ),
                 ),
                 if (locked)
-                  const Icon(
+                  Icon(
                     Icons.lock_outline,
                     size: 15,
                     color: AppColors.iconMuted,
@@ -1078,7 +1078,7 @@ class _EmptyThread extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const RadarMark(size: 84, color: AppColors.iconMuted),
+            RadarMark(size: 84, color: AppColors.iconMuted),
             const SizedBox(height: 18),
             Text(
               'You matched with $name',
@@ -1159,7 +1159,7 @@ class _Flag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color =
-        tone == _FlagTone.live ? const Color(0xFF2E9E6B) : AppColors.textGrey;
+        tone == _FlagTone.live ? AppColors.ok : AppColors.textGrey;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

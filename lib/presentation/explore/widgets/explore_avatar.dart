@@ -25,7 +25,7 @@ class ExploreAvatar extends StatelessWidget {
   final double size;
   final String? photoUrl;
 
-  /// Draws the oxblood-to-plum ring that marks the person the map is showing.
+  /// Draws the blue-to-violet ring that marks the person the map is showing.
   final bool selected;
 
   final bool isOnline;
@@ -65,9 +65,9 @@ class ExploreAvatar extends StatelessWidget {
             ),
             padding: EdgeInsets.all(selected ? ringWidth : 1),
             child: Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.white,
+                color: AppColors.card,
               ),
               padding: const EdgeInsets.all(1.6),
               child: ClipOval(child: _photo(inner)),

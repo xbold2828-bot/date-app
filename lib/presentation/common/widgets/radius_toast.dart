@@ -28,7 +28,7 @@ enum ToastTone {
 
 /// Confirms that something just happened, then gets out of the way.
 ///
-/// A dark pill on the cream ground. Use it for the outcome of an action the
+/// An inverted pill - dark in the light theme, light in the dark one. Use it for the outcome of an action the
 /// person took — "Filters applied", "Blocked". Not for errors that need a
 /// decision, and not for anything they must read before continuing.
 ///
@@ -75,7 +75,7 @@ void _show(ScaffoldMessengerState? messenger, String message, ToastTone tone) {
                 message,
                 textAlign: TextAlign.center,
                 style: AppTextStyles.bodyStrong.copyWith(
-                  color: AppColors.white,
+                  color: AppColors.background,
                   fontSize: 13.5,
                 ),
               ),
@@ -105,9 +105,12 @@ IconData? _icon(ToastTone tone) => switch (tone) {
 /// Colour lives on the mark, never the pill: a green or red background at this
 /// size reads as an alert bar, which is not what a toast is for.
 Color _accent(ToastTone tone) => switch (tone) {
-      ToastTone.neutral => AppColors.white,
-      // Lifted off AppColors.ok, which is tuned for the cream ground and goes
-      // muddy on the dark pill.
-      ToastTone.success => const Color(0xFF5FD3A3),
-      ToastTone.error => const Color(0xFFFF9BA5),
+      ToastTone.neutral => AppColors.background,
+      // Not AppColors.ok / AppColors.danger. The pill is AppColors.textDark,
+      // which *inverts* with the theme - near-black in light mode, near-white
+      // in dark - so the mark has to clear 3:1 against both. These two do
+      // (3.75:1 at worst); the palette's own green and red each fail on one
+      // side of the swap.
+      ToastTone.success => const Color(0xFF188A46),
+      ToastTone.error => const Color(0xFFDC2626),
     };

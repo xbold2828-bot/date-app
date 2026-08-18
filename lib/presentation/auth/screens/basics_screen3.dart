@@ -143,7 +143,7 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
                     const SizedBox(height: 20),
 
                     tags.when(
-                      loading: () => const Padding(
+                      loading: () => Padding(
                         padding: EdgeInsets.symmetric(vertical: 32),
                         child: Center(
                           child: CircularProgressIndicator(
@@ -251,7 +251,7 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
                 onChanged: (v) => setState(() => _showHardNosOnProfile = v),
                 activeColor: AppColors.primary,
               ),
-              const Flexible(
+              Flexible(
                 child: Text(
                   'Show on profile',
                   style: TextStyle(fontSize: 12, color: AppColors.textDark),
@@ -285,13 +285,13 @@ class _CatalogueError extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           "Couldn't load the tag options. You can continue and set these later.",
           style: TextStyle(fontSize: 13, color: AppColors.textGrey),
         ),
         TextButton(
           onPressed: onRetry,
-          child: const Text('Retry', style: TextStyle(color: AppColors.primary)),
+          child: Text('Retry', style: TextStyle(color: AppColors.primary)),
         ),
       ],
     );

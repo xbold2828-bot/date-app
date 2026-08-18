@@ -122,7 +122,7 @@ class _BasicsScreen2State extends ConsumerState<BasicsScreen2> {
                     const SizedBox(height: 28),
 
                     // ── Step 3 · intent ─────────────────────────────────
-                    const Text(
+                    Text(
                       'Current Intent',
                       style: TextStyle(
                         fontSize: 18,
@@ -134,7 +134,7 @@ class _BasicsScreen2State extends ConsumerState<BasicsScreen2> {
                     Text(
                       'What are you looking for today? '
                       '${selectionHint(SelectionLimits.intent)}.',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         color: AppColors.textGrey,
                       ),
@@ -160,7 +160,7 @@ class _BasicsScreen2State extends ConsumerState<BasicsScreen2> {
                     // ── Step 5 · personality ────────────────────────────
                     Row(
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             'Your Atmosphere',
                             style: TextStyle(
@@ -180,14 +180,14 @@ class _BasicsScreen2State extends ConsumerState<BasicsScreen2> {
                     Text(
                       'Select the qualities that describe you. '
                       '${selectionHint(SelectionLimits.vibes)}.',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         color: AppColors.textGrey,
                       ),
                     ),
                     const SizedBox(height: 14),
                     personality.when(
-                      loading: () => const Padding(
+                      loading: () => Padding(
                         padding: EdgeInsets.symmetric(vertical: 12),
                         child: SizedBox(
                           height: 22,
@@ -244,7 +244,7 @@ class _TagsUnavailable extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Expanded(
+        Expanded(
           child: Text(
             "Couldn't load the options. You can continue and add these later.",
             style: TextStyle(fontSize: 13, color: AppColors.textGrey),
@@ -252,7 +252,7 @@ class _TagsUnavailable extends StatelessWidget {
         ),
         TextButton(
           onPressed: onRetry,
-          child: const Text('Retry', style: TextStyle(color: AppColors.primary)),
+          child: Text('Retry', style: TextStyle(color: AppColors.primary)),
         ),
       ],
     );

@@ -56,7 +56,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
         ),
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 20),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(color: AppColors.inputBorder, width: 1),
             ),
@@ -91,7 +91,7 @@ class _LikedYouTab extends ConsumerWidget {
 
     return RefreshIndicator(
       color: AppColors.primary,
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.card,
       onRefresh: () async => ref.invalidate(likedYouProvider),
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -114,7 +114,7 @@ class _LikedYouTab extends ConsumerWidget {
             ),
             const SizedBox(height: 22),
             async.when(
-              loading: () => const Padding(
+              loading: () => Padding(
                 padding: EdgeInsets.only(top: 80),
                 child: Center(
                   child: CircularProgressIndicator(color: AppColors.primary),
@@ -225,10 +225,10 @@ class _MutualTab extends ConsumerWidget {
 
     return RefreshIndicator(
       color: AppColors.primary,
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.card,
       onRefresh: () async => ref.invalidate(mutualLikesProvider),
       child: async.when(
-        loading: () => const Center(
+        loading: () => Center(
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
         error: (err, _) => ListView(
@@ -377,11 +377,11 @@ class _MutualRow extends StatelessWidget {
                 child: Container(
                   width: 40,
                   height: 40,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: AppColors.primaryTint,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.chat_bubble_outline,
                     size: 18,
                     color: AppColors.primary,
@@ -446,9 +446,9 @@ class _MatchAvatar extends StatelessWidget {
                 width: 13,
                 height: 13,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3BD07E),
+                  color: AppColors.ok,
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.white, width: 2.5),
+                  border: Border.all(color: AppColors.onImage, width: 2.5),
                 ),
               ),
             ),
@@ -516,7 +516,7 @@ class _UnlockCardState extends ConsumerState<_UnlockCard> {
           const SizedBox(height: 16),
           RadiusButton(
             label: 'Reveal everyone with Premium',
-            kind: RadiusButtonKind.gold,
+            kind: RadiusButtonKind.premium,
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const PremiumScreen()),
@@ -547,7 +547,7 @@ class _Message extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
       child: Column(
         children: [
-          const RadarMark(size: 96, color: AppColors.iconMuted),
+          RadarMark(size: 96, color: AppColors.iconMuted),
           const SizedBox(height: 20),
           Text(
             title,

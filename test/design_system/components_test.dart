@@ -53,7 +53,7 @@ void main() {
       final off = await decorationFor(false);
       final on = await decorationFor(true);
 
-      expect(off.color, AppColors.white);
+      expect(off.color, AppColors.card);
       expect(on.color, AppColors.primaryTint);
       expect(
         (off.border! as Border).top.color,

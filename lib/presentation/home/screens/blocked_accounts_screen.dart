@@ -25,15 +25,15 @@ class BlockedAccountsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.card,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        shape: const Border(
+        shape: Border(
           bottom: BorderSide(color: AppColors.inputBorder, width: 1),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
+          icon: Icon(Icons.arrow_back, color: AppColors.textDark),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -44,10 +44,10 @@ class BlockedAccountsScreen extends ConsumerWidget {
       body: SafeArea(
         child: RefreshIndicator(
           color: AppColors.primary,
-          backgroundColor: AppColors.white,
+          backgroundColor: AppColors.card,
           onRefresh: () async => ref.invalidate(blockedUsersProvider),
           child: async.when(
-            loading: () => const Center(
+            loading: () => Center(
               child: CircularProgressIndicator(color: AppColors.primary),
             ),
             error: (err, _) => ListView(
@@ -234,7 +234,7 @@ class _BlockedRowState extends ConsumerState<_BlockedRow> {
 /// lines as "Unblo / ck". This sizes to its own text instead, so it stays on
 /// one line and leaves the name beside it room to breathe.
 ///
-/// Oxblood tint rather than the neutral ghost fill: it is the only action on
+/// Accent tint rather than the neutral ghost fill: it is the only action on
 /// the row and should look like one. It borrows the same tint/ink pairing as
 /// `TagPill`, so it reads as part of the same family.
 class _UnblockButton extends StatelessWidget {
@@ -270,12 +270,12 @@ class _UnblockButton extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
             child: busy
-                ? const SizedBox(
+                ? SizedBox(
                     width: 15,
                     height: 15,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: AppColors.primaryDeep,
+                      color: AppColors.primaryInk,
                     ),
                   )
                 : Text(
@@ -286,7 +286,7 @@ class _UnblockButton extends StatelessWidget {
                     softWrap: false,
                     style: AppTextStyles.caption.copyWith(
                       fontSize: 13,
-                      color: AppColors.primaryDeep,
+                      color: AppColors.primaryInk,
                       fontWeight: FontWeight.w700,
                       fontVariations: const [FontVariation('wght', 700)],
                     ),
@@ -310,7 +310,7 @@ class _Empty extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(32, 72, 32, 24),
       child: Column(
         children: [
-          const RadarMark(size: 84, color: AppColors.iconMuted),
+          RadarMark(size: 84, color: AppColors.iconMuted),
           const SizedBox(height: 20),
           Text(
             title,

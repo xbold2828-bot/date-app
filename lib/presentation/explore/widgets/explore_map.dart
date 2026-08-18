@@ -402,7 +402,7 @@ class _ExploreMapState extends State<ExploreMap>
       _clusterLayer,
       CircleLayerProperties(
         circleRadius: _clusterRadius(1),
-        // Oxblood through plum as a group grows — the app's own gradient, in
+        // Blue through violet as a group grows — the app's own gradient, in
         // steps rather than a ramp so a cluster's size band is readable.
         circleColor: [
           'step',
@@ -416,7 +416,7 @@ class _ExploreMapState extends State<ExploreMap>
           AppMapColors.you.toHexStringRGB(),
         ],
         circleStrokeWidth: 3,
-        circleStrokeColor: AppColors.white.toHexStringRGB(),
+        circleStrokeColor: AppColors.onImage.toHexStringRGB(),
         circleStrokeOpacity: 0.92,
         circlePitchAlignment: 'map',
       ),
@@ -440,7 +440,7 @@ class _ExploreMapState extends State<ExploreMap>
           201,
           19.0,
         ],
-        textColor: AppColors.white.toHexStringRGB(),
+        textColor: AppColors.onImage.toHexStringRGB(),
         textAllowOverlap: true,
         textIgnorePlacement: true,
         // Upright through every rotation and tilt. Without these the count
@@ -532,7 +532,7 @@ class _ExploreMapState extends State<ExploreMap>
         circleRadius: 8.5,
         circleColor: AppMapColors.you.toHexStringRGB(),
         circleStrokeWidth: 3.5,
-        circleStrokeColor: AppColors.white.toHexStringRGB(),
+        circleStrokeColor: AppColors.onImage.toHexStringRGB(),
         circlePitchAlignment: 'viewport',
       ),
       enableInteraction: false,
@@ -547,7 +547,7 @@ class _ExploreMapState extends State<ExploreMap>
         textLetterSpacing: 0.14,
         textOffset: const [0, 2.1],
         textColor: AppMapColors.you.toHexStringRGB(),
-        textHaloColor: AppColors.white.toHexStringRGB(),
+        textHaloColor: AppColors.onImage.toHexStringRGB(),
         textHaloWidth: 1.6,
         textAllowOverlap: true,
         textIgnorePlacement: true,
@@ -638,7 +638,7 @@ class _ExploreMapState extends State<ExploreMap>
       textColor: AppMapColors.plum.toHexStringRGB(),
       // The map under a marker is pastel road and building fill, not a flat
       // ground colour, so the halo is what keeps the number legible.
-      textHaloColor: AppColors.white.toHexStringRGB(),
+      textHaloColor: AppColors.onImage.toHexStringRGB(),
       textHaloWidth: 1.9,
       textHaloBlur: 0.3,
       textOpacity: Curves.easeOut.transform(progress.clamp(0, 1)),

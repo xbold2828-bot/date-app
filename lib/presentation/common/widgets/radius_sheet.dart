@@ -49,7 +49,7 @@ class RadiusSheet extends StatelessWidget {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.sizeOf(context).height * kSheetHeightFraction,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.panel,
         borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
       ),
@@ -125,7 +125,7 @@ Future<T?> showRadiusSheet<T>({
     isDismissible: isDismissible,
     enableDrag: isDismissible,
     backgroundColor: Colors.transparent,
-    barrierColor: const Color(0x701E0F0C),
+    barrierColor: AppColors.scrim,
     builder: builder,
   );
 }

@@ -70,11 +70,11 @@ class _MessageLimitSheetState extends ConsumerState<_MessageLimitSheet> {
             child: Container(
               width: 56,
               height: 56,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.primaryTint,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.mark_email_read_outlined,
                 color: AppColors.primary,
                 size: 26,
@@ -101,7 +101,7 @@ class _MessageLimitSheetState extends ConsumerState<_MessageLimitSheet> {
           const SizedBox(height: 20),
           RadiusButton(
             label: 'Unlock with Premium',
-            kind: RadiusButtonKind.gold,
+            kind: RadiusButtonKind.premium,
             onPressed: () {
               Navigator.pop(context);
               Navigator.push(

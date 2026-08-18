@@ -63,15 +63,15 @@ class _LocationAudienceScreenState
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.card,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        shape: const Border(
+        shape: Border(
           bottom: BorderSide(color: AppColors.inputBorder, width: 1),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
+          icon: Icon(Icons.arrow_back, color: AppColors.textDark),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -81,7 +81,7 @@ class _LocationAudienceScreenState
       ),
       body: SafeArea(
         child: async.when(
-          loading: () => const Center(
+          loading: () => Center(
             child: CircularProgressIndicator(color: AppColors.primary),
           ),
           error: (_, _) => _Message(
@@ -120,7 +120,7 @@ class _LocationAudienceScreenState
             decoration: InputDecoration(
               hintText: 'Search friends',
               hintStyle: AppTextStyles.bodyMuted,
-              prefixIcon: const Icon(
+              prefixIcon: Icon(
                 Icons.search,
                 size: 20,
                 color: AppColors.iconMuted,
@@ -128,7 +128,7 @@ class _LocationAudienceScreenState
               suffixIcon: _query.isEmpty
                   ? null
                   : IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.close,
                         size: 18,
                         color: AppColors.iconMuted,
@@ -139,20 +139,20 @@ class _LocationAudienceScreenState
                       },
                     ),
               filled: true,
-              fillColor: AppColors.white,
+              fillColor: AppColors.card,
               contentPadding: const EdgeInsets.symmetric(vertical: 14),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: AppColors.inputBorder),
+                borderSide: BorderSide(color: AppColors.inputBorder),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: AppColors.inputBorder),
+                borderSide: BorderSide(color: AppColors.inputBorder),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide:
-                    const BorderSide(color: AppColors.primary, width: 1.5),
+                    BorderSide(color: AppColors.primary, width: 1.5),
               ),
             ),
           ),
@@ -213,7 +213,7 @@ class _FriendRow extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: selected ? AppColors.primaryTint : AppColors.white,
+              color: selected ? AppColors.primaryTint : AppColors.card,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color: selected ? AppColors.primary : AppColors.inputBorder,
@@ -258,7 +258,7 @@ class _FriendRow extends StatelessWidget {
                           style: AppTextStyles.bodyStrong.copyWith(
                             fontSize: 15,
                             color: selected
-                                ? AppColors.primaryDeep
+                                ? AppColors.primaryInk
                                 : AppColors.textDark,
                           ),
                         ),
@@ -300,7 +300,7 @@ class _Check extends StatelessWidget {
         ),
       ),
       child: selected
-          ? const Icon(Icons.check, size: 14, color: AppColors.white)
+          ? Icon(Icons.check, size: 14, color: AppColors.onAccent)
           : null,
     );
   }
@@ -318,7 +318,7 @@ class _DoneBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.panel,
         border: Border(top: BorderSide(color: AppColors.inputBorder)),
       ),
@@ -332,7 +332,7 @@ class _DoneBar extends StatelessWidget {
         // height is unbounded and it quietly shrink-wraps instead. A Scaffold
         // hands its `bottomNavigationBar` a maxHeight of the entire screen, so
         // straight in here the button grew to fill it and covered the friends
-        // list behind a 2000 px slab of oxblood. Column(min) restores the
+        // list behind a 2000 px slab of accent blue. Column(min) restores the
         // unbounded height the button is built for.
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -363,7 +363,7 @@ class _Message extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(32, 64, 32, 24),
       child: Column(
         children: [
-          const RadarMark(size: 76, color: AppColors.iconMuted),
+          RadarMark(size: 76, color: AppColors.iconMuted),
           const SizedBox(height: 18),
           Text(
             title,

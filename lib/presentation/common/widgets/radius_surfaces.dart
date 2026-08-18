@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 
-/// A white panel on the cream ground. The default container for grouped
+/// A card on the page ground. The default container for grouped
 /// content.
 class RadiusCard extends StatelessWidget {
   const RadiusCard({
@@ -18,7 +18,7 @@ class RadiusCard extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final VoidCallback? onTap;
 
-  /// Fills with the oxblood tint, for cards that are themselves a selection.
+  /// Fills with the accent tint, for cards that are themselves a selection.
   final bool tinted;
 
   @override
@@ -26,7 +26,7 @@ class RadiusCard extends StatelessWidget {
     final decorated = Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: tinted ? AppColors.primaryTint : AppColors.white,
+        color: tinted ? AppColors.primaryTint : AppColors.card,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: tinted ? AppColors.primarySoft : AppColors.inputBorder,
@@ -64,7 +64,7 @@ class NoticeBox extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.primarySoft, width: 1.5),
       ),
@@ -94,7 +94,7 @@ class TagPill extends StatelessWidget {
     super.key,
     required this.label,
     this.icon,
-    this.tone = TagTone.oxblood,
+    this.tone = TagTone.accent,
   });
 
   final String label;
@@ -104,9 +104,9 @@ class TagPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (fill, ink) = switch (tone) {
-      TagTone.oxblood => (AppColors.primaryTint, AppColors.primaryDeep),
-      TagTone.gold => (AppColors.goldTint, const Color(0xFF7A5A14)),
-      TagTone.neutral => (AppColors.white, AppColors.textGrey),
+      TagTone.accent => (AppColors.primaryTint, AppColors.primaryInk),
+      TagTone.premium => (AppColors.premiumTint, AppColors.premiumInk),
+      TagTone.neutral => (AppColors.card, AppColors.textGrey),
     };
 
     return Container(
@@ -139,7 +139,7 @@ class TagPill extends StatelessWidget {
   }
 }
 
-enum TagTone { oxblood, gold, neutral }
+enum TagTone { accent, premium, neutral }
 
 /// Small uppercase heading that separates groups within a screen.
 class SectionLabel extends StatelessWidget {
@@ -174,7 +174,7 @@ class TickRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 2),
             child: Icon(Icons.check, size: 17, color: AppColors.ok),
           ),

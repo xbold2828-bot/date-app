@@ -30,6 +30,14 @@ import 'app_colors.dart';
 ///
 /// Prefer [_fraunces] / [_dmSans] over hand-built [TextStyle]s so the optical
 /// size is never forgotten.
+///
+/// ## Why these are getters
+///
+/// Each token bakes a colour in from [AppColors], and [AppColors] now resolves
+/// per theme. A `static final` would capture whichever palette happened to be
+/// active the first time it was touched and keep serving that colour after the
+/// user flips to dark. Getters re-resolve on every read, which costs one small
+/// allocation per build and buys a type scale that is actually theme-aware.
 class AppTextStyles {
   const AppTextStyles._();
 
@@ -107,7 +115,7 @@ class AppTextStyles {
   // --- Display (Fraunces) ---------------------------------------------------
 
   /// Screen titles. "First — your age."
-  static final display = _fraunces(
+  static TextStyle get display => _fraunces(
     size: 30,
     weight: 700,
     height: 1.25,
@@ -115,7 +123,7 @@ class AppTextStyles {
   );
 
   /// Sheet titles and the wordmark.
-  static final title = _fraunces(
+  static TextStyle get title => _fraunces(
     size: 21,
     weight: 700,
     height: 1.25,
@@ -123,12 +131,12 @@ class AppTextStyles {
   );
 
   /// The name over a profile hero image.
-  static final hero = _fraunces(
+  static TextStyle get hero => _fraunces(
     size: 28,
     weight: 700,
     height: 1.28,
     letterSpacing: -0.3,
-    color: AppColors.white,
+    color: AppColors.onImage,
   );
 
   /// A single letter standing in for a photo. Sized by the caller to fit its
@@ -142,22 +150,22 @@ class AppTextStyles {
         size: size,
         weight: 600,
         height: 1,
-        color: AppColors.white,
+        color: AppColors.onImage,
       );
 
   // --- UI (DM Sans) ---------------------------------------------------------
 
-  /// Small uppercase lead-in, in oxblood. "18+ · Verified people only"
-  static final eyebrow = _dmSans(
+  /// Small uppercase lead-in, in accent blue. "18+ · Verified people only"
+  static TextStyle get eyebrow => _dmSans(
     size: 11,
     weight: 700,
     height: 1.3,
     letterSpacing: 0.14 * 11,
-    color: AppColors.primary,
+    color: AppColors.primaryInk,
   );
 
   /// Uppercase section heading between groups. "DISPLAY NAME"
-  static final label = _dmSans(
+  static TextStyle get label => _dmSans(
     size: 11,
     weight: 700,
     height: 1.3,
@@ -166,13 +174,14 @@ class AppTextStyles {
   );
 
   /// Body copy.
-  static final body = _dmSans(size: 14.5, weight: 400, height: 1.45);
+  static TextStyle get body => _dmSans(size: 14.5, weight: 400, height: 1.45);
 
   /// Body copy carrying emphasis.
-  static final bodyStrong = _dmSans(size: 14.5, weight: 500, height: 1.45);
+  static TextStyle get bodyStrong =>
+      _dmSans(size: 14.5, weight: 500, height: 1.45);
 
   /// Secondary body copy. Accessible at this size — see [AppColors.textGrey].
-  static final bodyMuted = _dmSans(
+  static TextStyle get bodyMuted => _dmSans(
     size: 14.5,
     weight: 400,
     height: 1.45,
@@ -180,16 +189,16 @@ class AppTextStyles {
   );
 
   /// All buttons.
-  static final button = _dmSans(
+  static TextStyle get button => _dmSans(
     size: 16,
     weight: 700,
     height: 1.35,
     letterSpacing: 0.16,
-    color: AppColors.white,
+    color: AppColors.onAccent,
   );
 
   /// Metadata, timestamps, distance bands.
-  static final caption = _dmSans(
+  static TextStyle get caption => _dmSans(
     size: 12.5,
     weight: 500,
     height: 1.35,
@@ -197,14 +206,14 @@ class AppTextStyles {
   );
 
   /// The label inside a chip.
-  static final chip = _dmSans(size: 14, weight: 500, height: 1.3);
+  static TextStyle get chip => _dmSans(size: 14, weight: 500, height: 1.3);
 
   /// A chip's label once selected — heavier, so selection survives being read
   /// in greyscale.
-  static final chipSelected = _dmSans(
+  static TextStyle get chipSelected => _dmSans(
     size: 14,
     weight: 700,
     height: 1.3,
-    color: AppColors.primaryDeep,
+    color: AppColors.primaryInk,
   );
 }

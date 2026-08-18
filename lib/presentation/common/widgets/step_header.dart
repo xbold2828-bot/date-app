@@ -8,7 +8,7 @@ import '../../../core/constants/app_text_styles.dart';
 /// screens are added.
 const int kOnboardingStepCount = 10;
 
-/// The Radius wordmark. The period is oxblood — the one flourish the brand
+/// The Radius wordmark. The period is accent blue — the one flourish the brand
 /// gets, and the reason the mark reads as a statement rather than a label.
 class Wordmark extends StatelessWidget {
   const Wordmark({super.key, this.size = 21, this.color});
@@ -112,8 +112,7 @@ class StepHeader extends StatelessWidget {
                   value: value,
                   minHeight: 3,
                   backgroundColor: AppColors.inputBorder,
-                  valueColor:
-                      const AlwaysStoppedAnimation(AppColors.primary),
+                  valueColor: AlwaysStoppedAnimation(AppColors.primary),
                 ),
               ),
             ),
@@ -137,7 +136,7 @@ class _BackButton extends StatelessWidget {
       label: 'Go back',
       excludeSemantics: true,
       child: Material(
-        color: AppColors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
@@ -147,7 +146,7 @@ class _BackButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.inputBorder),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.arrow_back,
               size: 19,
               color: AppColors.textDark,
@@ -193,12 +192,18 @@ class StickyFooter extends StatelessWidget {
         22,
         20 + MediaQuery.paddingOf(context).bottom,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0x00F3EDE3), AppColors.background],
-          stops: [0, 0.4],
+          // The transparent stop has to be the ground colour at zero alpha,
+          // not Colors.transparent: a fade to transparent black greys the
+          // middle of the ramp on a light ground.
+          colors: [
+            AppColors.background.withValues(alpha: 0),
+            AppColors.background,
+          ],
+          stops: const [0, 0.4],
         ),
       ),
       child: child,

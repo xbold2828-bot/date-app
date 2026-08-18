@@ -45,10 +45,10 @@ class YouHeader extends StatelessWidget {
                     errorBuilder: (_, _, _) => const Icon(
                       Icons.person,
                       size: 40,
-                      color: AppColors.white,
+                      color: AppColors.onImage,
                     ),
                   )
-                : const Icon(Icons.person, size: 40, color: AppColors.white),
+                : const Icon(Icons.person, size: 40, color: AppColors.onImage),
           ),
 
           const SizedBox(height: 12),
@@ -83,7 +83,7 @@ class YouHeader extends StatelessWidget {
   }
 }
 
-/// The PREMIUM chip under the name. Gold, because [AppColors.gold] means
+/// The PREMIUM chip under the name. Purple, because [AppColors.premium] means
 /// exactly one thing in this app.
 class _PremiumPill extends StatelessWidget {
   const _PremiumPill();
@@ -93,20 +93,20 @@ class _PremiumPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.goldTint,
+        color: AppColors.premiumTint,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.gold.withValues(alpha: 0.45)),
+        border: Border.all(color: AppColors.premium.withValues(alpha: 0.45)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.workspace_premium, size: 13, color: AppColors.gold),
+          Icon(Icons.workspace_premium, size: 13, color: AppColors.premium),
           const SizedBox(width: 5),
           Text(
             'PREMIUM',
             style: AppTextStyles.caption.copyWith(
               fontSize: 11,
-              color: const Color(0xFF7E5A1C),
+              color: AppColors.premiumInk,
               letterSpacing: 1,
               fontWeight: FontWeight.w700,
               fontVariations: const [FontVariation('wght', 700)],

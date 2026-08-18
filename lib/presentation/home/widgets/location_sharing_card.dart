@@ -45,7 +45,7 @@ class LocationSharingCard extends ConsumerWidget {
               // Tinted while sharing, plain while not. The card is loud when
               // somebody can see you and quiet when nobody can — never the
               // other way round, which would make "off" the state that shouts.
-              color: on ? AppColors.primaryTint : AppColors.white,
+              color: on ? AppColors.primaryTint : AppColors.card,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color: on ? AppColors.primary : AppColors.inputBorder,
@@ -66,7 +66,7 @@ class LocationSharingCard extends ConsumerWidget {
                     child: Icon(
                       on ? Icons.near_me : Icons.near_me_disabled_outlined,
                       size: 19,
-                      color: on ? AppColors.white : AppColors.iconMuted,
+                      color: on ? AppColors.onAccent : AppColors.iconMuted,
                     ),
                   ),
                   const SizedBox(width: 13),
@@ -80,7 +80,7 @@ class LocationSharingCard extends ConsumerWidget {
                           style: AppTextStyles.label.copyWith(
                             fontSize: 10,
                             color: on
-                                ? AppColors.primaryDeep
+                                ? AppColors.primaryInk
                                 : AppColors.textGrey,
                           ),
                         ),
@@ -90,7 +90,7 @@ class LocationSharingCard extends ConsumerWidget {
                           style: AppTextStyles.bodyStrong.copyWith(
                             fontSize: 15,
                             color: on
-                                ? AppColors.primaryDeep
+                                ? AppColors.primaryInk
                                 : AppColors.textDark,
                           ),
                         ),

@@ -11,9 +11,9 @@ enum RadiusButtonKind {
   /// A real alternative sitting next to a [primary].
   ghost,
 
-  /// Buys something. Gold appears here and nowhere else — if it shows up on a
+  /// Buys something. Premium purple appears here and nowhere else — if it shows up on a
   /// button that costs nothing, it stops meaning "this costs money".
-  gold,
+  premium,
 }
 
 /// The app's button.
@@ -28,7 +28,7 @@ enum RadiusButtonKind {
 /// unbounded and it settles at its 54px minimum. Put it somewhere with a
 /// bounded height and it takes all of it: dropped straight into a
 /// `Scaffold.bottomNavigationBar`, which offers the height of the whole
-/// screen, it became a full-screen slab of oxblood over the page behind it.
+/// screen, it became a full-screen slab of accent blue over the page behind it.
 /// Wrap it in a `Column(mainAxisSize: MainAxisSize.min)` in those slots.
 class RadiusButton extends StatelessWidget {
   const RadiusButton({
@@ -59,7 +59,7 @@ class RadiusButton extends StatelessWidget {
     final enabled = onPressed != null && !isLoading;
 
     final Color foreground = switch (kind) {
-      RadiusButtonKind.primary || RadiusButtonKind.gold => AppColors.white,
+      RadiusButtonKind.primary || RadiusButtonKind.premium => AppColors.onAccent,
       RadiusButtonKind.ghost => AppColors.textDark,
     };
 
@@ -102,7 +102,7 @@ class RadiusButton extends StatelessWidget {
       child: Opacity(
         opacity: enabled ? 1 : 0.55,
         child: Material(
-          // The gold variant is a gradient, which no Material colour can
+          // The premium variant is a gradient, which no Material colour can
           // express — so the decoration lives on the Ink below and Material
           // itself stays transparent.
           color: Colors.transparent,
@@ -144,15 +144,15 @@ class RadiusButton extends StatelessWidget {
           borderRadius: radius,
         ),
       RadiusButtonKind.ghost => BoxDecoration(
-          color: AppColors.white,
+          color: AppColors.card,
           borderRadius: radius,
           border: Border.all(color: AppColors.inputBorder, width: 1.5),
         ),
-      RadiusButtonKind.gold => BoxDecoration(
-          gradient: const LinearGradient(
+      RadiusButtonKind.premium => BoxDecoration(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFFC4933B), Color(0xFFA5751F)],
+            colors: [AppColors.premium, AppColors.premiumDeep],
           ),
           borderRadius: radius,
         ),

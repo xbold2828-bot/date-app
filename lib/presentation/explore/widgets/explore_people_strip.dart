@@ -197,7 +197,7 @@ class _IconTile extends StatelessWidget {
                           ],
                         )
                       : null,
-                  color: active ? null : AppColors.white,
+                  color: active ? null : AppColors.card,
                   border: active
                       ? null
                       : Border.all(color: AppColors.inputBorder, width: 1.4),
@@ -205,7 +205,7 @@ class _IconTile extends StatelessWidget {
                 child: Icon(
                   icon,
                   size: 21,
-                  color: active ? AppColors.white : AppColors.primary,
+                  color: active ? AppColors.onImage : AppColors.primary,
                 ),
               ),
               const SizedBox(height: 4),

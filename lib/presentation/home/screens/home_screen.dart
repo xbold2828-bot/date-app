@@ -154,7 +154,7 @@ class _BottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.panel,
         border: Border(
           top: BorderSide(color: AppColors.inputBorder, width: 1),
@@ -261,7 +261,7 @@ class _Badge extends StatelessWidget {
           style: AppTextStyles.caption.copyWith(
             fontSize: 9,
             height: 1,
-            color: AppColors.white,
+            color: AppColors.onAccent,
             fontWeight: FontWeight.w700,
             fontVariations: const [FontVariation('wght', 700)],
           ),
@@ -283,7 +283,7 @@ class _RadarTab extends ConsumerWidget {
 
     return RefreshIndicator(
       color: AppColors.primary,
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.card,
       onRefresh: () => ref.read(nearbyProvider.notifier).refresh(),
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -303,7 +303,7 @@ class _RadarTab extends ConsumerWidget {
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20, 6, 20, 32),
             sliver: nearbyAsync.when(
-              loading: () => const SliverToBoxAdapter(
+              loading: () => SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.only(top: 80),
                   child: Center(
@@ -509,7 +509,7 @@ class _FilterButton extends StatelessWidget {
       label: 'Filters',
       excludeSemantics: true,
       child: Material(
-        color: AppColors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
@@ -521,7 +521,7 @@ class _FilterButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.inputBorder, width: 1.5),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.tune,
               size: 18,
               color: AppColors.textDark,
@@ -688,7 +688,7 @@ class _UnlockCardState extends ConsumerState<_UnlockCard> {
           const SizedBox(height: 16),
           RadiusButton(
             label: 'See everyone with Premium',
-            kind: RadiusButtonKind.gold,
+            kind: RadiusButtonKind.premium,
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const PremiumScreen()),
@@ -726,7 +726,7 @@ class _EmptyState extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(24, 56, 24, 24),
       child: Column(
         children: [
-          const RadarMark(
+          RadarMark(
             size: 104,
             animate: true,
             color: AppColors.iconMuted,

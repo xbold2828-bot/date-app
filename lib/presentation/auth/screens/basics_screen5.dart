@@ -96,7 +96,7 @@ class _BasicsScreen5State extends ConsumerState<BasicsScreen5> {
                       style: AppTextStyles.display,
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Radius uses your location to connect you with people '
                       'physically near you right now. Without it there is '
                       'nobody to show you.',
@@ -133,26 +133,26 @@ class _BasicsScreen5State extends ConsumerState<BasicsScreen5> {
                           elevation: 0,
                         ),
                         child: _isLoading
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 22,
                                 height: 22,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2.4,
-                                  color: AppColors.white,
+                                  color: AppColors.onAccent,
                                 ),
                               )
-                            : const Row(
+                            : Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(Icons.near_me,
-                                      color: AppColors.white, size: 18),
+                                      color: AppColors.onAccent, size: 18),
                                   SizedBox(width: 8),
                                   Text(
                                     'Allow location',
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
-                                      color: AppColors.white,
+                                      color: AppColors.onAccent,
                                     ),
                                   ),
                                 ],
@@ -187,7 +187,7 @@ class _BasicsScreen5State extends ConsumerState<BasicsScreen5> {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 color: AppColors.primary,
                 fontWeight: FontWeight.w500,

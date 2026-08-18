@@ -32,7 +32,7 @@ Set<String>? applySelectionLimit(
 
 /// "2 / 3" — how much of the budget is spent.
 ///
-/// Turns oxblood on the last slot so the cap is visible *before* it is hit,
+/// Turns accent blue on the last slot so the cap is visible *before* it is hit,
 /// which is the difference between a limit and a rejection.
 class SelectionCounter extends StatelessWidget {
   const SelectionCounter({super.key, required this.count, required this.max});
@@ -49,7 +49,7 @@ class SelectionCounter extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: full ? AppColors.primaryTint : AppColors.white,
+          color: full ? AppColors.primaryTint : AppColors.card,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
             color: full ? AppColors.primary : AppColors.inputBorder,
@@ -59,7 +59,7 @@ class SelectionCounter extends StatelessWidget {
           '$count/$max',
           style: AppTextStyles.caption.copyWith(
             fontSize: 11,
-            color: full ? AppColors.primaryDeep : AppColors.textGrey,
+            color: full ? AppColors.primaryInk : AppColors.textGrey,
             fontWeight: FontWeight.w700,
             fontVariations: const [FontVariation('wght', 700)],
           ),

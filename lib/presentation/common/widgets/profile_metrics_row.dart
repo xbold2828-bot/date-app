@@ -73,7 +73,7 @@ class ProfileMetricsRow extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(vertical: compact ? 12 : 16),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.inputBorder),
       ),

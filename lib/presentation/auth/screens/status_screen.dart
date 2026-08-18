@@ -84,7 +84,7 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
                       style: AppTextStyles.display,
                     ),
                     const SizedBox(height: 6),
-                    const Text(
+                    Text(
                       'Honesty up front saves everyone time. Pick the one that fits.',
                       style: TextStyle(fontSize: 13, color: AppColors.textGrey),
                     ),
@@ -121,7 +121,7 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
           decoration: BoxDecoration(
             color: selected
                 ? AppColors.primary.withOpacity(0.06)
-                : AppColors.white,
+                : AppColors.card,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: selected ? AppColors.primary : AppColors.inputBorder,
@@ -135,14 +135,14 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
                 height: 22,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: selected ? AppColors.primary : AppColors.white,
+                  color: selected ? AppColors.primary : AppColors.card,
                   border: Border.all(
                     color: selected ? AppColors.primary : AppColors.inputBorder,
                     width: 2,
                   ),
                 ),
                 child: selected
-                    ? const Icon(Icons.check, size: 13, color: AppColors.white)
+                    ? Icon(Icons.check, size: 13, color: AppColors.onAccent)
                     : null,
               ),
               const SizedBox(width: 14),
@@ -163,7 +163,7 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
                     const SizedBox(height: 2),
                     Text(
                       blurb,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         color: AppColors.textGrey,
                       ),

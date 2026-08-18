@@ -7,17 +7,21 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../core/utils/distance_format.dart';
 import '../../../core/utils/last_seen_format.dart';
 
-/// The palette that stands in for a missing photo. Warm, muted, and distinct
+/// The palette that stands in for a missing photo. Cool, muted, and distinct
 /// enough that two adjacent cards never look like the same person.
+///
+/// Fixed values rather than tokens: these stand in for a photograph, and a
+/// photograph does not change colour with the theme. Every pair is dark enough
+/// to carry [AppColors.onImage] on top in either mode.
 const List<List<Color>> kAvatarGradients = [
-  [Color(0xFFB85C6B), Color(0xFF7E2230)],
-  [Color(0xFFC88A3D), Color(0xFF8F5A17)],
+  [Color(0xFF5C7FB8), Color(0xFF2F4C80)],
   [Color(0xFF7C6BB8), Color(0xFF4A3E80)],
   [Color(0xFF4E8F86), Color(0xFF26564F)],
-  [Color(0xFFB8563D), Color(0xFF7C2E1B)],
-  [Color(0xFF7B8FB8), Color(0xFF3E5580)],
-  [Color(0xFFB84E86), Color(0xFF7C2356)],
-  [Color(0xFF8FB85C), Color(0xFF54761F)],
+  [Color(0xFF8B6BC4), Color(0xFF52338C)],
+  [Color(0xFF5B7CC8), Color(0xFF2B4795)],
+  [Color(0xFF6B77B8), Color(0xFF3B4180)],
+  [Color(0xFF9B6BC4), Color(0xFF63308C)],
+  [Color(0xFF4F86A8), Color(0xFF25516B)],
 ];
 
 /// A gradient derived from an index, so the same person keeps the same colour
@@ -169,7 +173,7 @@ class ProfileGridCard extends StatelessWidget {
                         : Text(
                             name.isNotEmpty ? name[0].toUpperCase() : '?',
                             style: AppTextStyles.avatarInitial(30).copyWith(
-                              color: AppColors.white.withValues(alpha: 0.92),
+                              color: AppColors.onImage.withValues(alpha: 0.92),
                             ),
                           ),
                   ),
@@ -181,7 +185,7 @@ class ProfileGridCard extends StatelessWidget {
                     gradient: const LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Color(0xAE140806)],
+                      colors: [Colors.transparent, Color(0xAE0A0A14)],
                       stops: [0.46, 1],
                     ),
                   ),
@@ -212,7 +216,7 @@ class ProfileGridCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.caption.copyWith(
-                          color: AppColors.white,
+                          color: AppColors.onImage,
                           fontWeight: FontWeight.w700,
                           fontVariations: const [FontVariation('wght', 700)],
                         ),
@@ -230,7 +234,7 @@ class ProfileGridCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: AppTextStyles.caption.copyWith(
                             fontSize: 10.5,
-                            color: AppColors.white.withValues(alpha: 0.85),
+                            color: AppColors.onImage.withValues(alpha: 0.85),
                           ),
                         ),
                     ],
@@ -258,10 +262,10 @@ class _PresenceDot extends StatelessWidget {
         width: 13,
         height: 13,
         decoration: BoxDecoration(
-          color: const Color(0xFF3BD07E),
+          color: AppColors.ok,
           shape: BoxShape.circle,
           border: Border.all(
-            color: AppColors.white.withValues(alpha: 0.85),
+            color: AppColors.onImage.withValues(alpha: 0.85),
             width: 2,
           ),
         ),
@@ -277,13 +281,13 @@ class _LockPip extends StatelessWidget {
         width: 30,
         height: 30,
         decoration: BoxDecoration(
-          color: AppColors.white.withValues(alpha: 0.3),
+          color: AppColors.onImage.withValues(alpha: 0.3),
           shape: BoxShape.circle,
         ),
         child: const Icon(
           Icons.lock_outline,
           size: 15,
-          color: AppColors.white,
+          color: AppColors.onImage,
         ),
       );
 }
@@ -295,9 +299,9 @@ class _VerifiedPip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
         decoration: BoxDecoration(
-          color: AppColors.white.withValues(alpha: 0.94),
+          color: AppColors.onImage.withValues(alpha: 0.94),
           borderRadius: BorderRadius.circular(999),
         ),
-        child: const Icon(Icons.check, size: 10, color: AppColors.primary),
+        child: Icon(Icons.check, size: 10, color: AppColors.primary),
       );
 }

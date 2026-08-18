@@ -138,7 +138,7 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back, color: AppColors.textDark),
+                    child: Icon(Icons.arrow_back, color: AppColors.textDark),
                   ),
                   const Expanded(
                     child: Center(child: Wordmark(size: 20)),
@@ -185,7 +185,7 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
 
                     // Display name — required by the API (min 2 chars), and the
                     // only place to set it when the funnel resumes here.
-                    const Text(
+                    Text(
                       'Display name',
                       style: TextStyle(fontSize: 13, color: AppColors.textGrey),
                     ),
@@ -193,28 +193,28 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
                     TextField(
                       controller: _nameController,
                       textCapitalization: TextCapitalization.words,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 15, color: AppColors.textDark),
                       decoration: InputDecoration(
                         hintText: 'How should we call you?',
-                        hintStyle: const TextStyle(color: AppColors.textGrey),
+                        hintStyle: TextStyle(color: AppColors.textGrey),
                         filled: true,
-                        fillColor: AppColors.white,
+                        fillColor: AppColors.card,
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 14),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide:
-                              const BorderSide(color: AppColors.inputBorder),
+                              BorderSide(color: AppColors.inputBorder),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide:
-                              const BorderSide(color: AppColors.inputBorder),
+                              BorderSide(color: AppColors.inputBorder),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
+                          borderSide: BorderSide(
                               color: AppColors.primary, width: 1.5),
                         ),
                       ),
@@ -223,7 +223,7 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
                     const SizedBox(height: 28),
 
                     // Gender
-                    const Text(
+                    Text(
                       'I am a',
                       style: TextStyle(fontSize: 13, color: AppColors.textGrey),
                     ),
@@ -241,7 +241,7 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
                     const SizedBox(height: 28),
 
                     // Pronouns
-                    const Text(
+                    Text(
                       'Pronouns',
                       style: TextStyle(fontSize: 13, color: AppColors.textGrey),
                     ),
@@ -259,7 +259,7 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
                     const SizedBox(height: 28),
 
                     // Bio
-                    const Text(
+                    Text(
                       'Bio',
                       style: TextStyle(fontSize: 13, color: AppColors.textGrey),
                     ),
@@ -268,24 +268,24 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
                       controller: _bioController,
                       maxLength: 150,
                       maxLines: 4,
-                      style: const TextStyle(fontSize: 14, color: AppColors.textDark),
+                      style: TextStyle(fontSize: 14, color: AppColors.textDark),
                       decoration: InputDecoration(
                         hintText: 'Seeking genuine connections...',
-                        hintStyle: const TextStyle(color: AppColors.textGrey),
+                        hintStyle: TextStyle(color: AppColors.textGrey),
                         filled: true,
-                        fillColor: AppColors.white,
+                        fillColor: AppColors.card,
                         contentPadding: const EdgeInsets.all(16),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.inputBorder),
+                          borderSide: BorderSide(color: AppColors.inputBorder),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.inputBorder),
+                          borderSide: BorderSide(color: AppColors.inputBorder),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                          borderSide: BorderSide(color: AppColors.primary, width: 1.5),
                         ),
                       ),
                     ),
@@ -296,7 +296,7 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
                       child: Text(
                         'Radius is free for women & non-binary/trans-women; men subscribe to message.',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           color: AppColors.textGrey,
                         ),
@@ -319,13 +319,13 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
                           elevation: 0,
                         ),
                         child: _isLoading
-                            ? const CircularProgressIndicator(color: AppColors.white)
-                            : const Text(
+                            ? CircularProgressIndicator(color: AppColors.onAccent)
+                            : Text(
                                 'Continue',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.white,
+                                  color: AppColors.onAccent,
                                 ),
                               ),
                       ),
@@ -351,7 +351,7 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary.withOpacity(0.1) : AppColors.white,
+          color: selected ? AppColors.primary.withOpacity(0.1) : AppColors.card,
           borderRadius: BorderRadius.circular(30),
           border: Border.all(
             color: selected ? AppColors.primary : AppColors.inputBorder,

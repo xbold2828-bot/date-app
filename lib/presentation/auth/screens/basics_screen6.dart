@@ -189,7 +189,7 @@ class _BasicsScreen6State extends ConsumerState<BasicsScreen6>
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back, color: AppColors.textDark),
+                    child: Icon(Icons.arrow_back, color: AppColors.textDark),
                   ),
                   const Expanded(
                     child: Center(
@@ -203,7 +203,7 @@ class _BasicsScreen6State extends ConsumerState<BasicsScreen6>
                   ),
                   GestureDetector(
                     onTap: _onSkip,
-                    child: const Text(
+                    child: Text(
                       'Skip',
                       style: TextStyle(
                         fontSize: 15,
@@ -222,7 +222,7 @@ class _BasicsScreen6State extends ConsumerState<BasicsScreen6>
                 style: AppTextStyles.display,
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'A quick live check to unlock the adult layer and messaging. Your video is never stored.',
                 style: TextStyle(fontSize: 13, color: AppColors.textGrey),
               ),
@@ -287,12 +287,12 @@ class _BasicsScreen6State extends ConsumerState<BasicsScreen6>
                           height: 185,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: const Color(0xFF28A745).withOpacity(0.3),
+                            color: AppColors.ok.withValues(alpha: 0.3),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.check_circle,
                             size: 72,
-                            color: Color(0xFF28A745),
+                            color: AppColors.ok,
                           ),
                         ),
                     ],
@@ -332,18 +332,18 @@ class _BasicsScreen6State extends ConsumerState<BasicsScreen6>
                             ),
                             elevation: 0,
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(Icons.camera_alt_outlined,
-                                  color: AppColors.white, size: 18),
+                                  color: AppColors.onAccent, size: 18),
                               SizedBox(width: 8),
                               Text(
                                 'Start Face Check',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.white,
+                                  color: AppColors.onAccent,
                                 ),
                               ),
                             ],
@@ -363,7 +363,7 @@ class _BasicsScreen6State extends ConsumerState<BasicsScreen6>
                           _verified ? Icons.check_circle : Icons.schedule,
                           size: 18,
                           color: _verified
-                              ? const Color(0xFF28A745)
+                              ? AppColors.ok
                               : AppColors.textGrey,
                         ),
                         const SizedBox(width: 8),
@@ -375,7 +375,7 @@ class _BasicsScreen6State extends ConsumerState<BasicsScreen6>
                             style: TextStyle(
                               fontSize: 15,
                               color: _verified
-                                  ? const Color(0xFF28A745)
+                                  ? AppColors.ok
                                   : AppColors.textGrey,
                               fontWeight: FontWeight.w600,
                             ),
@@ -390,18 +390,18 @@ class _BasicsScreen6State extends ConsumerState<BasicsScreen6>
                       child: ElevatedButton(
                         onPressed: _onContinue,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF28A745),
+                          backgroundColor: AppColors.ok,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),
                           ),
                           elevation: 0,
                         ),
-                        child: const Text(
+                        child: Text(
                           'Continue',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.white,
+                            color: AppColors.onAccent,
                           ),
                         ),
                       ),
@@ -451,7 +451,7 @@ class _BasicsScreen6State extends ConsumerState<BasicsScreen6>
                             const SizedBox(width: 8),
                             Text(
                               _steps[_currentStep.clamp(0, 2)]['text'] as String,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 color: AppColors.textDark,
                                 fontWeight: FontWeight.w500,
@@ -472,8 +472,8 @@ class _BasicsScreen6State extends ConsumerState<BasicsScreen6>
                             value: _stepController.value,
                             minHeight: 4,
                             backgroundColor: AppColors.inputBorder,
-                            valueColor: const AlwaysStoppedAnimation(
-                                AppColors.primary),
+                            valueColor:
+                                AlwaysStoppedAnimation(AppColors.primary),
                           ),
                         ),
                       ),
@@ -486,7 +486,7 @@ class _BasicsScreen6State extends ConsumerState<BasicsScreen6>
               // Privacy note
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Icon(Icons.lock_outline, size: 14, color: AppColors.textGrey),
                   SizedBox(width: 8),
                   Expanded(
@@ -519,7 +519,7 @@ class _BasicsScreen6State extends ConsumerState<BasicsScreen6>
     if (!_cameraReady || _cameraController == null) {
       return Container(
         color: Colors.black,
-        child: const Center(
+        child: Center(
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
       );
@@ -617,7 +617,7 @@ class _DoneRingPainter extends CustomPainter {
     final radius = size.width / 2 - 4;
 
     final paint = Paint()
-      ..color = const Color(0xFF28A745)
+      ..color = AppColors.ok
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4;
 

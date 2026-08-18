@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/theme/theme_controller.dart';
 import '../../../core/utils/onboarding_maps.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../providers/chat_provider.dart';
@@ -50,20 +51,20 @@ class _YouScreenState extends ConsumerState<YouScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppColors.white,
-        title: const Text('Sign Out',
+        backgroundColor: AppColors.panel,
+        title: Text('Sign Out',
             style: TextStyle(color: AppColors.textDark)),
-        content: const Text('Are you sure you want to sign out?',
+        content: Text('Are you sure you want to sign out?',
             style: TextStyle(color: AppColors.textGrey)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel',
+            child: Text('Cancel',
                 style: TextStyle(color: AppColors.textGrey)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Sign Out',
+            child: Text('Sign Out',
                 style: TextStyle(color: AppColors.primary)),
           ),
         ],
@@ -85,17 +86,17 @@ class _YouScreenState extends ConsumerState<YouScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.panel,
         title: const Text('Delete Account',
             style: TextStyle(color: Colors.red)),
-        content: const Text(
+        content: Text(
           'This will permanently delete your account and all data. This cannot be undone.',
           style: TextStyle(color: AppColors.textGrey),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel',
+            child: Text('Cancel',
                 style: TextStyle(color: AppColors.textGrey)),
           ),
           TextButton(
@@ -128,7 +129,7 @@ class _YouScreenState extends ConsumerState<YouScreen> {
   Widget build(BuildContext context) {
     final me = ref.watch(meProvider).valueOrNull;
     if (me == null) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(color: AppColors.primary),
       );
     }
@@ -148,10 +149,10 @@ class _YouScreenState extends ConsumerState<YouScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Row(
               children: [
-                const Icon(Icons.radio_button_checked,
+                Icon(Icons.radio_button_checked,
                     size: 20, color: AppColors.textDark),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'RADIUS',
                   style: TextStyle(
                     fontSize: 18,
@@ -274,6 +275,14 @@ class _YouScreenState extends ConsumerState<YouScreen> {
 
           const SizedBox(height: 12),
 
+          // Appearance.
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: _DarkModeTile(),
+          ),
+
+          const SizedBox(height: 12),
+
           // Blocked accounts.
           //
           // Takes over the "Safety Center" slot, which was a tile that did
@@ -311,11 +320,11 @@ class _YouScreenState extends ConsumerState<YouScreen> {
           Center(
             child: GestureDetector(
               onTap: _onDeleteAccount,
-              child: const Text(
+              child: Text(
                 'Delete Account',
                 style: TextStyle(
                   fontSize: 14,
-                  color: AppColors.primary,
+                  color: AppColors.danger,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -347,7 +356,7 @@ class _YouScreenState extends ConsumerState<YouScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.inputBorder),
       ),
@@ -364,7 +373,7 @@ class _YouScreenState extends ConsumerState<YouScreen> {
                 excludeSemantics: true,
                 child: GestureDetector(
                   onTap: onEdit,
-                  child: const Icon(Icons.edit_outlined,
+                  child: Icon(Icons.edit_outlined,
                       size: 16, color: AppColors.textGrey),
                 ),
               ),
@@ -387,7 +396,7 @@ class _YouScreenState extends ConsumerState<YouScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: AppColors.card,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: AppColors.inputBorder),
         ),
@@ -398,14 +407,14 @@ class _YouScreenState extends ConsumerState<YouScreen> {
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   color: AppColors.textDark,
                   fontWeight: FontWeight.w500,
                 ),
               ),
             ),
-            const Icon(Icons.chevron_right,
+            Icon(Icons.chevron_right,
                 size: 20, color: AppColors.textGrey),
           ],
         ),
@@ -416,6 +425,63 @@ class _YouScreenState extends ConsumerState<YouScreen> {
 
 /// Identity verification status. Says what is true rather than what is hoped:
 /// an unverified account is told it is unverified.
+/// The 🌙 switch.
+///
+/// It shows the brightness actually being drawn, not the stored [ThemeMode] —
+/// so someone whose phone is already dark finds it on rather than off. Flipping
+/// it is an explicit choice, and from that point the app stops following the
+/// phone.
+class _DarkModeTile extends ConsumerWidget {
+  const _DarkModeTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dark = isDarkMode(context, ref.watch(themeModeProvider));
+
+    return Semantics(
+      toggled: dark,
+      label: 'Dark mode',
+      excludeSemantics: true,
+      child: Container(
+        // Shorter than a menu tile: a Switch is 48pt of touch target on its
+        // own, so the usual 16pt of padding would make this row taller than
+        // everything it sits between.
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.inputBorder),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              dark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+              size: 20,
+              color: AppColors.textDark,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Dark mode',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: AppColors.textDark,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Switch(
+              value: dark,
+              onChanged: (on) =>
+                  ref.read(themeModeProvider.notifier).toggle(dark: on),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _VerificationCard extends StatelessWidget {
   const _VerificationCard({required this.isVerified});
 
@@ -426,7 +492,7 @@ class _VerificationCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isVerified
@@ -490,7 +556,7 @@ class _PremiumCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: const Color(0xFF241A4D),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -501,7 +567,7 @@ class _PremiumCard extends StatelessWidget {
               Icon(
                 isPremium ? Icons.workspace_premium : Icons.radio_button_checked,
                 size: 20,
-                color: isPremium ? AppColors.gold : AppColors.primary,
+                color: isPremium ? AppColors.premium : AppColors.primary,
               ),
               const SizedBox(width: 8),
               // Unconstrained text in a Row overflows the card on a narrow
@@ -513,7 +579,7 @@ class _PremiumCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.white,
+                    color: AppColors.onImage,
                   ),
                 ),
               ),
@@ -540,7 +606,7 @@ class _PremiumCard extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const PremiumScreen()),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.white,
+                backgroundColor: AppColors.onImage,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(30),
                 ),
@@ -548,10 +614,13 @@ class _PremiumCard extends StatelessWidget {
               ),
               child: Text(
                 isPremium ? 'Manage Subscription' : 'See what you get',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textDark,
+                  // Not textDark: the pill is a fixed white on a fixed violet
+                  // card, so its label cannot follow the theme's ink or it
+                  // turns white-on-white in dark mode.
+                  color: AppColors.premiumDeep,
                 ),
               ),
             ),

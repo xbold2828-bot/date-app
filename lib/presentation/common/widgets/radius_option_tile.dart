@@ -54,7 +54,7 @@ class RadiusOptionTile extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             decoration: BoxDecoration(
-              color: selected ? AppColors.primaryTint : AppColors.white,
+              color: selected ? AppColors.primaryTint : AppColors.card,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color: selected ? AppColors.primary : AppColors.inputBorder,
@@ -80,7 +80,7 @@ class RadiusOptionTile extends StatelessWidget {
                         style: AppTextStyles.bodyStrong.copyWith(
                           fontSize: 15.5,
                           color: selected
-                              ? AppColors.primaryDeep
+                              ? AppColors.primaryInk
                               : AppColors.textDark,
                         ),
                       ),
@@ -123,7 +123,7 @@ class _RadioMark extends StatelessWidget {
         ),
       ),
       child: selected
-          ? const Icon(Icons.check, size: 13, color: AppColors.white)
+          ? Icon(Icons.check, size: 13, color: AppColors.onAccent)
           : null,
     );
   }

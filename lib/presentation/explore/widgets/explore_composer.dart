@@ -140,7 +140,7 @@ class _ExploreComposerState extends ConsumerState<ExploreComposer> {
         12,
         10 + MediaQuery.paddingOf(context).bottom,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.panel,
         border: Border(top: BorderSide(color: AppColors.inputBorder)),
       ),
@@ -170,7 +170,7 @@ class _ExploreComposerState extends ConsumerState<ExploreComposer> {
             child: Container(
               constraints: const BoxConstraints(minHeight: 44),
               decoration: BoxDecoration(
-                color: enabled ? AppColors.white : AppColors.background,
+                color: enabled ? AppColors.card : AppColors.background,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: AppColors.inputBorder),
               ),
@@ -224,17 +224,17 @@ class _ExploreComposerState extends ConsumerState<ExploreComposer> {
                   color: canSend ? null : AppColors.inputBorder,
                 ),
                 child: _sending
-                    ? const Padding(
+                    ? Padding(
                         padding: EdgeInsets.all(12),
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: AppColors.white,
+                          color: AppColors.onAccent,
                         ),
                       )
                     : Icon(
                         Icons.send_rounded,
                         size: 19,
-                        color: canSend ? AppColors.white : AppColors.iconMuted,
+                        color: canSend ? AppColors.onAccent : AppColors.iconMuted,
                       ),
               ),
             ),

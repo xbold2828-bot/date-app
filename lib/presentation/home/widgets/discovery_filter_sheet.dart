@@ -102,7 +102,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
       maxChildSize: 0.95,
       expand: false,
       builder: (context, scrollController) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.background,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
@@ -110,7 +110,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
           children: [
             _grabber(),
             _titleRow(),
-            const Divider(height: 1, color: AppColors.inputBorder),
+            Divider(height: 1, color: AppColors.inputBorder),
             Expanded(
               child: ListView(
                 controller: scrollController,
@@ -139,7 +139,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
                     _draft.maxAge >= kAgeFilterMax
                         ? '${_draft.minAge} – ${kAgeFilterMax}+'
                         : '${_draft.minAge} – ${_draft.maxAge}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textDark,
@@ -235,7 +235,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
                   // as "any of".
                   ...tags.when(
                     loading: () => [
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.symmetric(vertical: 24),
                         child: Center(
                           child: CircularProgressIndicator(
@@ -250,7 +250,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
                       TextButton(
                         onPressed: () =>
                             ref.invalidate(tagsByCategoryProvider),
-                        child: const Text(
+                        child: Text(
                           'Retry',
                           style: TextStyle(color: AppColors.primary),
                         ),
@@ -314,7 +314,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
             ),
             TextButton(
               onPressed: () => _edit(_draft.clearedToDefaults()),
-              child: const Text(
+              child: Text(
                 'Reset',
                 style: TextStyle(color: AppColors.textGrey),
               ),
@@ -338,8 +338,8 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
     );
 
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.white,
+      decoration: BoxDecoration(
+        color: AppColors.card,
         border: Border(top: BorderSide(color: AppColors.inputBorder)),
       ),
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
@@ -347,7 +347,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (!isPremium && _draft.usesPremiumFilters)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(bottom: 10),
               child: Text(
                 'Premium filters are ignored until you upgrade.',
@@ -368,10 +368,10 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
               ),
               child: Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.white,
+                  color: AppColors.onAccent,
                 ),
               ),
             ),
@@ -399,7 +399,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
                 children: [
                   Text(
                     title.toUpperCase(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
                       color: AppColors.textDark,
@@ -408,7 +408,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
                   ),
                   if (locked) ...[
                     const SizedBox(width: 6),
-                    const Icon(Icons.lock_outline,
+                    Icon(Icons.lock_outline,
                         size: 15, color: AppColors.textGrey),
                   ],
                 ],
@@ -416,7 +416,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
               Text(
                 subtitle,
                 style:
-                    const TextStyle(fontSize: 12, color: AppColors.textGrey),
+                    TextStyle(fontSize: 12, color: AppColors.textGrey),
               ),
             ],
           ),
@@ -424,7 +424,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
         if (onUnlock != null)
           TextButton(
             onPressed: onUnlock,
-            child: const Text(
+            child: Text(
               'Upgrade',
               style: TextStyle(
                 color: AppColors.primary,
@@ -440,7 +440,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
         children: [
           Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
               color: AppColors.textGrey,
@@ -449,7 +449,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
           ),
           if (locked) ...[
             const SizedBox(width: 6),
-            const Icon(Icons.lock_outline, size: 12, color: AppColors.textGrey),
+            Icon(Icons.lock_outline, size: 12, color: AppColors.textGrey),
           ],
         ],
       );
@@ -517,7 +517,7 @@ class _Hint extends StatelessWidget {
         padding: const EdgeInsets.only(top: 6),
         child: Text(
           text,
-          style: const TextStyle(fontSize: 12, color: AppColors.textGrey),
+          style: TextStyle(fontSize: 12, color: AppColors.textGrey),
         ),
       );
 }
@@ -545,7 +545,7 @@ class _Chip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
           decoration: BoxDecoration(
             color:
-                selected ? AppColors.primary.withOpacity(0.1) : AppColors.white,
+                selected ? AppColors.primary.withOpacity(0.1) : AppColors.card,
             borderRadius: BorderRadius.circular(30),
             border: Border.all(
               color: selected ? AppColors.primary : AppColors.inputBorder,
@@ -595,7 +595,7 @@ class _SwitchTile extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textDark,
@@ -603,7 +603,7 @@ class _SwitchTile extends StatelessWidget {
                     ),
                     if (!enabled) ...[
                       const SizedBox(width: 6),
-                      const Icon(Icons.lock_outline,
+                      Icon(Icons.lock_outline,
                           size: 14, color: AppColors.textGrey),
                     ],
                   ],
@@ -611,7 +611,7 @@ class _SwitchTile extends StatelessWidget {
                 Text(
                   subtitle,
                   style:
-                      const TextStyle(fontSize: 12, color: AppColors.textGrey),
+                      TextStyle(fontSize: 12, color: AppColors.textGrey),
                 ),
               ],
             ),

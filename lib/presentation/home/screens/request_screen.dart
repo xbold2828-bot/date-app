@@ -61,7 +61,7 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen>
                     ),
                   ),
                   borderRadius: BorderRadius.circular(12),
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.all(8),
                     child: Icon(
                       Icons.archive_outlined,
@@ -76,7 +76,7 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen>
         ),
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 20),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(color: AppColors.inputBorder, width: 1),
             ),
@@ -165,7 +165,7 @@ class _CountedTab extends ConsumerWidget {
                   style: AppTextStyles.caption.copyWith(
                     fontSize: 11,
                     height: 1.25,
-                    color: AppColors.primaryDeep,
+                    color: AppColors.primaryInk,
                     fontWeight: FontWeight.w700,
                     fontVariations: const [FontVariation('wght', 700)],
                   ),
@@ -196,7 +196,7 @@ class _ConversationList extends ConsumerWidget {
     final presence = ref.watch(presenceProvider);
 
     return async.when(
-      loading: () => const Center(
+      loading: () => Center(
         child: CircularProgressIndicator(color: AppColors.primary),
       ),
       error: (err, _) => _Empty(
@@ -207,7 +207,7 @@ class _ConversationList extends ConsumerWidget {
         if (items.isEmpty) {
           return RefreshIndicator(
             color: AppColors.primary,
-            backgroundColor: AppColors.white,
+            backgroundColor: AppColors.card,
             onRefresh: () =>
                 ref.read(conversationsProvider(state).notifier).refresh(),
             // A ListView so the empty state can still be pulled to refresh.
@@ -220,7 +220,7 @@ class _ConversationList extends ConsumerWidget {
 
         return RefreshIndicator(
           color: AppColors.primary,
-          backgroundColor: AppColors.white,
+          backgroundColor: AppColors.card,
           onRefresh: () =>
               ref.read(conversationsProvider(state).notifier).refresh(),
           child: ListView.separated(
@@ -318,7 +318,7 @@ class ConversationTile extends StatelessWidget {
                       // reads as an inbox that has quietly stopped working.
                       if (muted) ...[
                         const SizedBox(width: 6),
-                        const Icon(
+                        Icon(
                           Icons.notifications_off_outlined,
                           size: 14,
                           color: AppColors.iconMuted,
@@ -367,7 +367,7 @@ class ConversationTile extends StatelessWidget {
                       unread > 9 ? '9+' : '$unread',
                       style: AppTextStyles.caption.copyWith(
                         fontSize: 10.5,
-                        color: AppColors.white,
+                        color: AppColors.onAccent,
                         fontWeight: FontWeight.w700,
                         fontVariations: const [FontVariation('wght', 700)],
                       ),
@@ -436,7 +436,7 @@ class _RowMenu extends StatelessWidget {
           isMuted: isMuted,
         ),
         borderRadius: BorderRadius.circular(999),
-        child: const Padding(
+        child: Padding(
           // Generous, because this sits inside a row that is itself tappable —
           // a small target here means opening the chat by accident.
           padding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
@@ -497,7 +497,7 @@ class _Avatar extends StatelessWidget {
                 width: 13,
                 height: 13,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3BD07E),
+                  color: AppColors.ok,
                   shape: BoxShape.circle,
                   border: Border.all(color: AppColors.background, width: 2.5),
                 ),
@@ -521,7 +521,7 @@ class _Empty extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(32, 64, 32, 24),
       child: Column(
         children: [
-          const RadarMark(size: 88, color: AppColors.iconMuted),
+          RadarMark(size: 88, color: AppColors.iconMuted),
           const SizedBox(height: 20),
           Text(
             title,

@@ -50,7 +50,7 @@ class RadarMark extends StatefulWidget {
     this.size = 34,
     this.activeBand,
     this.animate = false,
-    this.color = AppColors.primary,
+    this.color,
   });
 
   /// Width and height. The ring spacing scales with it.
@@ -64,7 +64,10 @@ class RadarMark extends StatefulWidget {
   /// reduced motion.
   final bool animate;
 
-  final Color color;
+  /// Defaults to [AppColors.primary]. Not a default *value* — the tokens are
+  /// getters now, and a getter cannot sit in a const constructor's parameter
+  /// list — so the fallback is applied where the mark is painted.
+  final Color? color;
 
   @override
   State<RadarMark> createState() => _RadarMarkState();
@@ -113,7 +116,7 @@ class _RadarMarkState extends State<RadarMark>
           builder: (context, _) => CustomPaint(
             painter: _RadarPainter(
               activeIndex: widget.activeBand?.index,
-              color: widget.color,
+              color: widget.color ?? AppColors.primary,
               // A stopped controller sits at 0, which the painter reads as
               // "draw the static state" — the reduced-motion fallback.
               pulse: animating ? _controller.value : null,

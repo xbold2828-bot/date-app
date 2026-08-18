@@ -51,15 +51,15 @@ class _LocationSharingScreenState extends ConsumerState<LocationSharingScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.card,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        shape: const Border(
+        shape: Border(
           bottom: BorderSide(color: AppColors.inputBorder, width: 1),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
+          icon: Icon(Icons.arrow_back, color: AppColors.textDark),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -69,7 +69,7 @@ class _LocationSharingScreenState extends ConsumerState<LocationSharingScreen> {
       ),
       body: SafeArea(
         child: async.when(
-          loading: () => const Center(
+          loading: () => Center(
             child: CircularProgressIndicator(color: AppColors.primary),
           ),
           error: (_, _) => _ErrorState(
@@ -233,7 +233,7 @@ class _MasterToggle extends StatelessWidget {
             child: Icon(
               enabled ? Icons.near_me : Icons.near_me_disabled_outlined,
               size: 20,
-              color: enabled ? AppColors.white : AppColors.iconMuted,
+              color: enabled ? AppColors.onAccent : AppColors.iconMuted,
             ),
           ),
           const SizedBox(width: 14),
@@ -263,9 +263,9 @@ class _MasterToggle extends StatelessWidget {
             child: Switch(
               value: enabled,
               onChanged: onChanged,
-              activeThumbColor: AppColors.white,
+              activeThumbColor: AppColors.onAccent,
               activeTrackColor: AppColors.primary,
-              inactiveThumbColor: AppColors.white,
+              inactiveThumbColor: AppColors.background,
               inactiveTrackColor: AppColors.inputBorder,
               trackOutlineColor: WidgetStateProperty.resolveWith(
                 (states) => states.contains(WidgetState.selected)
@@ -307,7 +307,7 @@ class _SelectedFriends extends ConsumerWidget {
         actionLabel: 'Choose',
         child: Text(
           'No one picked yet — nobody can see you',
-          style: AppTextStyles.caption.copyWith(color: AppColors.primaryDeep),
+          style: AppTextStyles.caption.copyWith(color: AppColors.primaryInk),
         ),
       );
     }
@@ -339,7 +339,7 @@ class _SelectedFriends extends ConsumerWidget {
             child: Text(
               _countLabel,
               style: AppTextStyles.caption.copyWith(
-                color: AppColors.primaryDeep,
+                color: AppColors.primaryInk,
               ),
             ),
           ),
@@ -484,7 +484,7 @@ class _ErrorState extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(32, 72, 32, 24),
       child: Column(
         children: [
-          const RadarMark(size: 84, color: AppColors.iconMuted),
+          RadarMark(size: 84, color: AppColors.iconMuted),
           const SizedBox(height: 20),
           Text(
             "Couldn't load your setting",

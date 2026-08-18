@@ -110,7 +110,7 @@ Future<void> _onVerify() async {
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back, color: AppColors.textDark),
+                    child: Icon(Icons.arrow_back, color: AppColors.textDark),
                   ),
                   const Expanded(
                     child: Center(child: Wordmark(size: 20)),
@@ -152,18 +152,18 @@ Future<void> _onVerify() async {
                       decoration: InputDecoration(
                         counterText: '',
                         filled: true,
-                        fillColor: AppColors.white,
+                        fillColor: AppColors.card,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: AppColors.inputBorder),
+                          borderSide: BorderSide(color: AppColors.inputBorder),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: AppColors.inputBorder),
+                          borderSide: BorderSide(color: AppColors.inputBorder),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                          borderSide: BorderSide(color: AppColors.primary, width: 1.5),
                         ),
                       ),
                       onChanged: (value) => _onOtpChanged(value, index),
@@ -177,13 +177,13 @@ Future<void> _onVerify() async {
               // Resend code
               Row(
                 children: [
-                  const Text(
+                  Text(
                     "Didn't receive a code?  ",
                     style: TextStyle(fontSize: 13, color: AppColors.textGrey),
                   ),
                   GestureDetector(
                     onTap: _onResendCode,
-                    child: const Text(
+                    child: Text(
                       'Resend code',
                       style: TextStyle(
                         fontSize: 13,
@@ -211,13 +211,13 @@ Future<void> _onVerify() async {
                     elevation: 0,
                   ),
                   child: _isLoading
-                      ? const CircularProgressIndicator(color: AppColors.white)
-                      : const Text(
+                      ? CircularProgressIndicator(color: AppColors.onAccent)
+                      : Text(
                           'Verify & Continue',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.white,
+                            color: AppColors.onAccent,
                           ),
                         ),
                 ),
@@ -233,9 +233,9 @@ Future<void> _onVerify() async {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(color: AppColors.inputBorder),
-                    color: AppColors.white,
+                    color: AppColors.card,
                   ),
-                  child: const Icon(Icons.shield_outlined, color: AppColors.textGrey, size: 28),
+                  child: Icon(Icons.shield_outlined, color: AppColors.textGrey, size: 28),
                 ),
               ),
               const SizedBox(height: 40),

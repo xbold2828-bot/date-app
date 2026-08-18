@@ -29,65 +29,158 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('colour contrast', () {
-    // These are the promises the palette makes. The design is deliberately
-    // low-contrast warm neutrals, which is exactly the kind of palette that
-    // drifts below the line one "slightly lighter grey" at a time.
+    // These are the promises the palette makes, and they are made twice — once
+    // per mode. A dark theme is exactly where a token quietly stops being
+    // legible, because the person who added it was looking at the light one.
 
-    test('primary text is AAA on the app background', () {
-      expect(
-        contrast(AppColors.textDark, AppColors.background),
-        greaterThanOrEqualTo(7.0),
-      );
+    final palettes = {
+      'light': RadiusPalette.light,
+      'dark': RadiusPalette.dark,
+    };
+
+    palettes.forEach((name, p) {
+      group(name, () {
+        test('primary text is AAA on the app background', () {
+          expect(contrast(p.textDark, p.background), greaterThanOrEqualTo(7.0));
+        });
+
+        test('secondary text meets AA on background, panel and card', () {
+          for (final ground in [p.background, p.panel, p.card]) {
+            expect(
+              contrast(p.textGrey, ground),
+              greaterThanOrEqualTo(4.5),
+              reason: 'textGrey must stay readable on $ground',
+            );
+          }
+        });
+
+        test('the accent is a control colour, and primaryInk is the text one',
+            () {
+          // The brand blue is #4A7FE8 by specification, which is 3.8:1 on
+          // white: enough for a filled button or an active tab, not enough for
+          // a word. That is why there are two of them, and why swapping one
+          // for the other is a bug rather than a preference.
+          expect(
+            contrast(p.primary, p.background),
+            greaterThanOrEqualTo(3.0),
+            reason: 'primary must clear the UI-component bar',
+          );
+          expect(
+            contrast(p.onAccent, p.primary),
+            greaterThanOrEqualTo(3.0),
+            reason: 'a filled button has to be readable',
+          );
+          expect(
+            contrast(p.primaryInk, p.background),
+            greaterThanOrEqualTo(4.5),
+            reason: 'primaryInk is the one that sets accent-coloured text',
+          );
+        });
+
+        test('premium ink is AA on the background and on its own tint', () {
+          expect(contrast(p.premiumInk, p.background),
+              greaterThanOrEqualTo(4.5));
+          expect(contrast(p.premiumInk, p.premiumTint),
+              greaterThanOrEqualTo(4.5));
+          expect(contrast(p.onAccent, p.premium), greaterThanOrEqualTo(3.0));
+        });
+
+        test('selected chip label is readable on its tinted fill', () {
+          expect(
+            contrast(p.primaryInk, p.primaryTint),
+            greaterThanOrEqualTo(4.5),
+          );
+        });
+
+        test('error text is AA on the background', () {
+          expect(contrast(p.danger, p.background), greaterThanOrEqualTo(4.5));
+        });
+
+        test('iconMuted clears the 3:1 bar for non-text UI', () {
+          // Deliberately NOT held to 4.5 — it is documented as non-text only.
+          final ratio = contrast(p.iconMuted, p.background);
+          expect(ratio, greaterThanOrEqualTo(3.0));
+          expect(
+            ratio,
+            lessThan(4.5),
+            reason:
+                'If this ever passes 4.5, fold it into textGrey and delete it '
+                'rather than keeping two greys that mean the same thing.',
+          );
+        });
+      });
     });
 
-    test('secondary text meets AA on the app background', () {
-      // The reference design's muted grey sits at 3.28:1 here and fails. This
-      // is the darker replacement; if someone "restores" the original value,
-      // this test is what stops it.
-      expect(
-        contrast(AppColors.textGrey, AppColors.background),
-        greaterThanOrEqualTo(4.5),
-      );
+    test('the light ground is pure white, edge to edge', () {
+      // Background, panel and card are one colour by design; separation comes
+      // from the hairline, not from tinted surfaces. A "slightly off-white"
+      // card is the first step back to the old cream.
+      const white = Color(0xFFFFFFFF);
+      expect(RadiusPalette.light.background, white);
+      expect(RadiusPalette.light.panel, white);
+      expect(RadiusPalette.light.card, white);
     });
 
-    test('secondary text meets AA on panels and cards too', () {
-      for (final ground in [AppColors.panel, AppColors.white]) {
-        expect(
-          contrast(AppColors.textGrey, ground),
-          greaterThanOrEqualTo(4.5),
-          reason: 'textGrey must stay readable on $ground',
-        );
+    test('the two palettes never share an ink or a ground', () {
+      // A token that forgot to change is the one bug a per-palette contrast
+      // check cannot see: it passes both groups above and still renders a
+      // white card in dark mode.
+      const light = RadiusPalette.light;
+      const dark = RadiusPalette.dark;
+      for (final (name, a, b) in [
+        ('background', light.background, dark.background),
+        ('panel', light.panel, dark.panel),
+        ('card', light.card, dark.card),
+        ('textDark', light.textDark, dark.textDark),
+        ('textGrey', light.textGrey, dark.textGrey),
+        ('iconMuted', light.iconMuted, dark.iconMuted),
+        ('inputBorder', light.inputBorder, dark.inputBorder),
+        ('primary', light.primary, dark.primary),
+        ('premium', light.premium, dark.premium),
+        ('onAccent', light.onAccent, dark.onAccent),
+      ]) {
+        expect(a, isNot(b), reason: '$name is the same in both modes');
       }
     });
 
-    test('primary is AA as text and as a control', () {
-      expect(
-        contrast(AppColors.primary, AppColors.background),
-        greaterThanOrEqualTo(4.5),
-      );
-      expect(
-        contrast(AppColors.white, AppColors.primary),
-        greaterThanOrEqualTo(4.5),
-      );
+    test('onImage stays white in both modes', () {
+      // It sits on a photograph, and a photograph does not change colour with
+      // the theme.
+      expect(AppColors.onImage, const Color(0xFFFFFFFF));
+    });
+  });
+
+  group('palette swap', () {
+    tearDown(() => AppColors.use(Brightness.light));
+
+    test('the façade follows the active palette', () {
+      AppColors.use(Brightness.light);
+      expect(AppColors.background, RadiusPalette.light.background);
+      expect(AppColors.isDark, isFalse);
+
+      AppColors.use(Brightness.dark);
+      expect(AppColors.background, RadiusPalette.dark.background);
+      expect(AppColors.card, RadiusPalette.dark.card);
+      expect(AppColors.isDark, isTrue);
     });
 
-    test('selected chip label is readable on its tinted fill', () {
-      expect(
-        contrast(AppColors.primaryDeep, AppColors.primaryTint),
-        greaterThanOrEqualTo(4.5),
-      );
+    test('use() reports whether anything actually changed', () {
+      // PaletteScope only sweeps the element tree when this says true, so a
+      // false positive here is a rebuild of the whole app on every frame.
+      AppColors.use(Brightness.light);
+      expect(AppColors.use(Brightness.light), isFalse);
+      expect(AppColors.use(Brightness.dark), isTrue);
+      expect(AppColors.use(Brightness.dark), isFalse);
     });
 
-    test('iconMuted clears the 3:1 bar for non-text UI', () {
-      // Deliberately NOT held to 4.5 — it is documented as non-text only.
-      final ratio = contrast(AppColors.iconMuted, AppColors.background);
-      expect(ratio, greaterThanOrEqualTo(3.0));
-      expect(
-        ratio,
-        lessThan(4.5),
-        reason: 'If this ever passes 4.5, fold it into textGrey and delete it '
-            'rather than keeping two greys that mean the same thing.',
-      );
+    test('the type tokens re-resolve rather than freezing on first read', () {
+      // They were `static final` before the swap existed, which would have
+      // captured whichever palette happened to be active first.
+      AppColors.use(Brightness.light);
+      final lightBody = AppTextStyles.body.color;
+      AppColors.use(Brightness.dark);
+      expect(AppTextStyles.body.color, isNot(lightBody));
+      expect(AppTextStyles.body.color, RadiusPalette.dark.textDark);
     });
   });
 
@@ -178,10 +271,35 @@ void main() {
     });
 
     test('scaffold and colour scheme come from the tokens', () {
-      final theme = AppTheme.light;
-      expect(theme.scaffoldBackgroundColor, AppColors.background);
-      expect(theme.colorScheme.primary, AppColors.primary);
-      expect(theme.colorScheme.onPrimary, AppColors.white);
+      for (final (theme, p) in [
+        (AppTheme.light, RadiusPalette.light),
+        (AppTheme.dark, RadiusPalette.dark),
+      ]) {
+        expect(theme.scaffoldBackgroundColor, p.background);
+        expect(theme.colorScheme.primary, p.primary);
+        expect(theme.colorScheme.onPrimary, p.onAccent);
+        expect(theme.colorScheme.surface, p.card);
+        expect(theme.brightness, p.brightness);
+      }
+    });
+
+    test('the dark theme is built from the dark palette, whichever is active',
+        () {
+      // AppTheme reads the palette it is handed rather than AppColors, because
+      // both themes are constructed before the app has decided which one it is
+      // showing. Building the dark theme while light is active used to bake
+      // white into it.
+      AppColors.use(Brightness.light);
+      final dark = AppTheme.dark;
+      AppColors.use(Brightness.light);
+
+      expect(dark.scaffoldBackgroundColor, RadiusPalette.dark.background);
+      expect(dark.textTheme.bodyMedium?.color, RadiusPalette.dark.textDark);
+      expect(
+        dark.elevatedButtonTheme.style?.textStyle
+            ?.resolve(<WidgetState>{})?.color,
+        RadiusPalette.dark.onAccent,
+      );
     });
   });
 

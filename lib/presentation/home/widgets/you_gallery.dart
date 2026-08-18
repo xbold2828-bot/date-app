@@ -168,7 +168,7 @@ class _YouGalleryState extends ConsumerState<YouGallery> {
               // placeholder instead of the browser's broken-image glyph.
               errorBuilder: (_, _, _) => Container(
                 color: AppColors.inputBorder,
-                child: const Center(
+                child: Center(
                   child: Icon(Icons.broken_image_outlined,
                       size: 22, color: AppColors.textGrey),
                 ),
@@ -177,7 +177,7 @@ class _YouGalleryState extends ConsumerState<YouGallery> {
                   ? child
                   : Container(
                       color: AppColors.inputBorder,
-                      child: const Center(
+                      child: Center(
                         child: SizedBox(
                           width: 18,
                           height: 18,
@@ -204,7 +204,7 @@ class _YouGalleryState extends ConsumerState<YouGallery> {
             const Positioned(
               top: 6,
               right: 6,
-              child: Icon(Icons.more_horiz, size: 18, color: AppColors.white),
+              child: Icon(Icons.more_horiz, size: 18, color: AppColors.onImage),
             ),
           ],
         ),
@@ -223,7 +223,7 @@ class _YouGalleryState extends ConsumerState<YouGallery> {
           style: const TextStyle(
             fontSize: 9,
             fontWeight: FontWeight.w700,
-            color: AppColors.white,
+            color: AppColors.onImage,
             letterSpacing: 0.5,
           ),
         ),
@@ -234,13 +234,13 @@ class _YouGalleryState extends ConsumerState<YouGallery> {
       onTap: addPhoto,
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: AppColors.card,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.inputBorder),
         ),
         child: Center(
           child: _isUploading
-              ? const SizedBox(
+              ? SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
@@ -248,7 +248,7 @@ class _YouGalleryState extends ConsumerState<YouGallery> {
                     color: AppColors.primary,
                   ),
                 )
-              : const Icon(Icons.add, size: 24, color: AppColors.textGrey),
+              : Icon(Icons.add, size: 24, color: AppColors.textGrey),
         ),
       ),
     );
@@ -264,7 +264,7 @@ class _YouGalleryState extends ConsumerState<YouGallery> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.background,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
@@ -283,7 +283,7 @@ class _YouGalleryState extends ConsumerState<YouGallery> {
             const SizedBox(height: 16),
             if (!isPrimary)
               ListTile(
-                leading: const Icon(Icons.account_circle_outlined,
+                leading: Icon(Icons.account_circle_outlined,
                     color: AppColors.textDark),
                 title: const Text('Make this my profile photo'),
                 subtitle: photo.isApproved
@@ -296,7 +296,7 @@ class _YouGalleryState extends ConsumerState<YouGallery> {
                 },
               )
             else
-              const ListTile(
+              ListTile(
                 leading: Icon(Icons.check_circle, color: AppColors.primary),
                 title: Text('This is your profile photo'),
               ),
@@ -331,9 +331,9 @@ class _YouGalleryState extends ConsumerState<YouGallery> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.panel,
         title: const Text('Delete photo?'),
-        content: const Text(
+        content: Text(
           'This removes it from your profile and from storage. '
           'It cannot be undone.',
           style: TextStyle(color: AppColors.textGrey),
@@ -341,7 +341,7 @@ class _YouGalleryState extends ConsumerState<YouGallery> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel',
+            child: Text('Cancel',
                 style: TextStyle(color: AppColors.textGrey)),
           ),
           TextButton(

@@ -6,7 +6,7 @@ import '../../../core/constants/app_colors.dart';
 
 /// An avatar wearing its owner's premium status.
 ///
-/// A rotating gold sweep around the rim, a glow that breathes with it, and a
+/// A rotating violet sweep around the rim, a glow that breathes with it, and a
 /// crown that floats a little above the whole thing.
 ///
 /// ## It is only ever shown to the owner
@@ -14,7 +14,7 @@ import '../../../core/constants/app_colors.dart';
 /// [isCurrentUser] is not a styling flag — it is the privacy rule. Premium is
 /// something you buy for the reach it gives you, not a badge that advertises
 /// your spending to everyone who opens your profile from the radar. So when
-/// this renders somebody else, the gold, the crown and the glow are not dimmed
+/// this renders somebody else, the sweep, crown and glow are not dimmed
 /// or hidden behind an opacity: they are never built, and **the ticker is never
 /// created**, so a grid of other people's avatars costs nothing per frame.
 ///
@@ -41,7 +41,7 @@ class PremiumAvatar extends StatefulWidget {
   /// False anywhere the profile was opened from the radar.
   final bool isCurrentUser;
 
-  /// Diameter of the photo. The gold rim and its halo are drawn outside this,
+  /// Diameter of the photo. The premium rim and its halo are drawn outside this,
   /// so the widget occupies [size] + 16 logical pixels in each direction.
   final double size;
 
@@ -62,7 +62,7 @@ class PremiumAvatar extends StatefulWidget {
 
 class _PremiumAvatarState extends State<PremiumAvatar>
     with SingleTickerProviderStateMixin {
-  /// Null unless there is actually gold to move. Creating a ticker for every
+  /// Null unless there is actually a rim to move. Creating a ticker for every
   /// avatar in a grid and then not painting it is the expensive mistake this
   /// avoids.
   AnimationController? _controller;
@@ -111,7 +111,7 @@ class _PremiumAvatarState extends State<PremiumAvatar>
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: const Color(0xFF6B7A8B),
-          border: Border.all(color: AppColors.white, width: 3),
+          border: Border.all(color: AppColors.card, width: 3),
         ),
         child: ClipOval(child: widget.child),
       ),
@@ -163,7 +163,7 @@ class _PremiumAvatarState extends State<PremiumAvatar>
                   RepaintBoundary(
                     child: AnimatedBuilder(
                       animation: _controller!,
-                      builder: (context, _) => _GoldRim(
+                      builder: (context, _) => _PremiumRim(
                         t: _controller!.value,
                         diameter: widget.size + PremiumAvatar._halo,
                       ),
@@ -203,11 +203,11 @@ class _PremiumAvatarState extends State<PremiumAvatar>
   }
 }
 
-/// The rotating gold disc plus its halo. The photo covers the middle, which is
+/// The rotating violet disc plus its halo. The photo covers the middle, which is
 /// what turns the disc into a ring — cheaper than stroking a gradient arc, and
 /// it keeps the sweep's seam hidden under the rim highlight.
-class _GoldRim extends StatelessWidget {
-  const _GoldRim({required this.t, required this.diameter});
+class _PremiumRim extends StatelessWidget {
+  const _PremiumRim({required this.t, required this.diameter});
 
   /// Controller value, 0..1.
   final double t;
@@ -226,7 +226,7 @@ class _GoldRim extends StatelessWidget {
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: AppColors.gold.withValues(alpha: 0.20 + 0.22 * pulse),
+            color: AppColors.premium.withValues(alpha: 0.20 + 0.22 * pulse),
             blurRadius: 10 + 8 * pulse,
             spreadRadius: 1 + 2 * pulse,
           ),
@@ -235,16 +235,16 @@ class _GoldRim extends StatelessWidget {
       child: Transform.rotate(
         angle: t * 2 * math.pi,
         child: DecoratedBox(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: SweepGradient(
               colors: [
-                AppColors.gold,
-                Color(0xFFF3D9A4),
-                Color(0xFFE6C169),
-                AppColors.gold,
-                Color(0xFF8C6420),
-                AppColors.gold,
+                AppColors.premium,
+                Color(0xFFEDE6FF),
+                Color(0xFFC9B0FF),
+                AppColors.premium,
+                Color(0xFF4A21B8),
+                AppColors.premium,
               ],
               stops: [0.0, 0.18, 0.34, 0.55, 0.78, 1.0],
             ),
@@ -257,7 +257,7 @@ class _GoldRim extends StatelessWidget {
 
 /// A small crown, drawn rather than imported.
 ///
-/// An asset would mean a second file to keep in step with [AppColors.gold] and
+/// An asset would mean a second file to keep in step with [AppColors.premium] and
 /// a raster to re-export whenever the size changes. A path costs neither.
 class _Crown extends StatelessWidget {
   const _Crown({required this.width});
@@ -293,10 +293,10 @@ class _CrownPainter extends CustomPainter {
       ..close();
 
     final body = Paint()
-      ..shader = const LinearGradient(
+      ..shader = LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [Color(0xFFF2D48A), AppColors.gold, Color(0xFF8C6420)],
+        colors: [Color(0xFFDCCBFF), AppColors.premium, Color(0xFF4A21B8)],
         stops: [0.0, 0.55, 1.0],
       ).createShader(Rect.fromLTWH(0, 0, w, h));
 
@@ -310,12 +310,12 @@ class _CrownPainter extends CustomPainter {
         Rect.fromLTWH(w * 0.06, h * 0.70, w * 0.88, h * 0.18),
         Radius.circular(h * 0.09),
       ),
-      Paint()..color = const Color(0xFF7E5A1C),
+      Paint()..color = const Color(0xFF4A21B8),
     );
     canvas.drawCircle(
       Offset(w * 0.50, h * 0.34),
       w * 0.055,
-      Paint()..color = AppColors.primaryTint,
+      Paint()..color = AppColors.onImage,
     );
   }
 

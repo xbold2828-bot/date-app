@@ -21,7 +21,7 @@ class VerificationTick extends StatelessWidget {
   const VerificationTick({
     super.key,
     this.size = 18,
-    this.color = AppColors.ok,
+    this.color,
     this.semanticLabel = 'Verified account',
   });
 
@@ -30,7 +30,7 @@ class VerificationTick extends StatelessWidget {
   /// The seal's fill. Defaults to the palette's verified green — the same
   /// colour the account-verification card and the avatar ring already use, so
   /// the three marks read as one status rather than three.
-  final Color color;
+  final Color? color;
 
   final String? semanticLabel;
 
@@ -38,7 +38,7 @@ class VerificationTick extends StatelessWidget {
   Widget build(BuildContext context) {
     final tick = CustomPaint(
       size: Size.square(size),
-      painter: _SealPainter(color),
+      painter: _SealPainter(color ?? AppColors.ok),
     );
 
     if (semanticLabel == null) return tick;
@@ -106,7 +106,7 @@ class _SealPainter extends CustomPainter {
     canvas.drawPath(
       check,
       Paint()
-        ..color = AppColors.white
+        ..color = AppColors.onImage
         ..style = PaintingStyle.stroke
         ..strokeWidth = size.width * 0.13
         ..strokeCap = StrokeCap.round

@@ -303,7 +303,7 @@ class ExploreMarkerImages {
         ..style = PaintingStyle.stroke
         ..strokeWidth = ringWidth
         ..shader = const SweepGradient(
-          // Starts at the top and comes back round, so the oxblood-to-plum
+          // Starts at the top and comes back round, so the blue-to-violet
           // sweep reads as one continuous ring instead of a seam.
           startAngle: -math.pi / 2,
           endAngle: math.pi * 1.5,
@@ -320,7 +320,7 @@ class ExploreMarkerImages {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.2
-        ..color = AppColors.white,
+        ..color = AppColors.onImage,
     );
   }
 
@@ -358,7 +358,7 @@ class ExploreMarkerImages {
     canvas.restore();
   }
 
-  /// The stand-in when there is no photo: the app's oxblood-to-plum gradient
+  /// The stand-in when there is no photo: the app's blue-to-violet gradient
   /// with the person's initial, matching what the Radar grid already shows.
   void _paintInitial(ui.Canvas canvas, Rect bounds, String name) {
     canvas.drawRect(
@@ -384,7 +384,7 @@ class ExploreMarkerImages {
           fontSize: bounds.width * 0.44,
           height: 1,
           fontWeight: FontWeight.w600,
-          color: AppColors.white,
+          color: AppColors.onImage,
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -421,7 +421,7 @@ class ExploreMarkerImages {
     canvas.drawCircle(
       centre.translate(0, -inner * 0.18),
       head,
-      Paint()..color = AppColors.white.withValues(alpha: 0.9),
+      Paint()..color = AppColors.onImage.withValues(alpha: 0.9),
     );
     canvas.drawArc(
       Rect.fromCenter(
@@ -432,7 +432,7 @@ class ExploreMarkerImages {
       math.pi,
       math.pi,
       false,
-      Paint()..color = AppColors.white.withValues(alpha: 0.9),
+      Paint()..color = AppColors.onImage.withValues(alpha: 0.9),
     );
   }
 
@@ -440,7 +440,7 @@ class ExploreMarkerImages {
     // 45° down-right of centre, just inside the ring.
     final offset = radius * 0.72;
     final at = centre + Offset(offset, offset) / math.sqrt2 * 1.06;
-    canvas.drawCircle(at, 5.4, Paint()..color = AppColors.white);
+    canvas.drawCircle(at, 5.4, Paint()..color = AppColors.onImage);
     canvas.drawCircle(at, 3.7, Paint()..color = AppColors.ok);
   }
 

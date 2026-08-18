@@ -66,7 +66,7 @@ class _BasicsScreen7State extends ConsumerState<BasicsScreen7> {
                 style: AppTextStyles.display,
               ),
               const SizedBox(height: 6),
-              const Text(
+              Text(
                 'One tap each.',
                 style: TextStyle(fontSize: 13, color: AppColors.textGrey),
               ),
@@ -94,7 +94,7 @@ class _BasicsScreen7State extends ConsumerState<BasicsScreen7> {
                         decoration: BoxDecoration(
                           color: checked
                               ? AppColors.primary.withOpacity(0.06)
-                              : AppColors.white,
+                              : AppColors.card,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: checked
@@ -112,7 +112,7 @@ class _BasicsScreen7State extends ConsumerState<BasicsScreen7> {
                                 shape: BoxShape.circle,
                                 color: checked
                                     ? AppColors.primary
-                                    : AppColors.white,
+                                    : AppColors.card,
                                 border: Border.all(
                                   color: checked
                                       ? AppColors.primary
@@ -121,8 +121,8 @@ class _BasicsScreen7State extends ConsumerState<BasicsScreen7> {
                                 ),
                               ),
                               child: checked
-                                  ? const Icon(Icons.check,
-                                      size: 14, color: AppColors.white)
+                                  ? Icon(Icons.check,
+                                      size: 14, color: AppColors.onAccent)
                                   : null,
                             ),
                             const SizedBox(width: 16),
@@ -162,14 +162,14 @@ class _BasicsScreen7State extends ConsumerState<BasicsScreen7> {
                     elevation: 0,
                   ),
                   child: _isLoading
-                      ? const CircularProgressIndicator(color: AppColors.white)
+                      ? CircularProgressIndicator(color: AppColors.onAccent)
                       : Text(
                           'Enter Radius',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                             color: _allChecked
-                                ? AppColors.white
+                                ? AppColors.onAccent
                                 : AppColors.textGrey,
                           ),
                         ),

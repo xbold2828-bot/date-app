@@ -181,13 +181,13 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
 
     return Container(
       height: MediaQuery.sizeOf(context).height * kSheetHeightFraction,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.panel,
         borderRadius: radius,
       ),
       // Clipped so the photo can run all the way to the sheet's top edge and
       // still take its rounded corners. There was a grab handle up here on a
-      // strip of panel; it cost 17px of empty cream above every photo, and the
+      // strip of panel; it cost 17px of empty page above every photo, and the
       // sheet is draggable and has a close button with or without it.
       child: ClipRRect(
         borderRadius: radius,
@@ -367,7 +367,7 @@ class _PhotoCarouselState extends State<_PhotoCarousel> {
                   child: const Icon(
                     Icons.close,
                     size: 19,
-                    color: AppColors.white,
+                    color: AppColors.onImage,
                   ),
                 ),
               ),
@@ -433,7 +433,7 @@ class _Dots extends StatelessWidget {
               width: i == active ? 18 : 6,
               height: 6,
               decoration: BoxDecoration(
-                color: AppColors.white.withValues(alpha: i == active ? 1 : 0.5),
+                color: AppColors.onImage.withValues(alpha: i == active ? 1 : 0.5),
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
@@ -457,7 +457,7 @@ class _Placeholder extends StatelessWidget {
         child: Text(
           initial.isNotEmpty ? initial[0].toUpperCase() : '?',
           style: AppTextStyles.avatarInitial(76).copyWith(
-            color: AppColors.white.withValues(alpha: 0.92),
+            color: AppColors.onImage.withValues(alpha: 0.92),
           ),
         ),
       ),
@@ -541,7 +541,7 @@ class _Details extends StatelessWidget {
                     height: isOnline ? 12 : 9,
                     decoration: BoxDecoration(
                       color: isOnline
-                          ? const Color(0xFF3BD07E)
+                          ? AppColors.ok
                           : AppColors.iconMuted,
                       shape: BoxShape.circle,
                     ),
@@ -591,7 +591,7 @@ class _Details extends StatelessWidget {
           // show. Better than an abrupt stop under the photo.
           if (profile == null && !failedToLoad) ...[
             const SizedBox(height: 28),
-            const Center(
+            Center(
               child: SizedBox(
                 width: 22,
                 height: 22,
@@ -663,7 +663,7 @@ class _Section extends StatelessWidget {
   const _Section({
     required this.label,
     required this.values,
-    this.tone = TagTone.oxblood,
+    this.tone = TagTone.accent,
   });
 
   final String label;
@@ -768,7 +768,7 @@ class _ActionBar extends StatelessWidget {
         16,
         16 + MediaQuery.paddingOf(context).bottom,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.panel,
         border: Border(
           top: BorderSide(color: AppColors.inputBorder, width: 1),
@@ -787,7 +787,7 @@ class _ActionBar extends StatelessWidget {
             child: Container(
               height: 48,
               decoration: BoxDecoration(
-                color: AppColors.white,
+                color: AppColors.card,
                 borderRadius: BorderRadius.circular(30),
                 border: Border.all(color: AppColors.inputBorder),
               ),
@@ -820,21 +820,21 @@ class _ActionBar extends StatelessWidget {
               child: Container(
                 width: 48,
                 height: 48,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.primary,
                   shape: BoxShape.circle,
                 ),
                 child: isSending
-                    ? const Padding(
+                    ? Padding(
                         padding: EdgeInsets.all(13),
                         child: CircularProgressIndicator(
-                          color: AppColors.white,
+                          color: AppColors.onAccent,
                           strokeWidth: 2,
                         ),
                       )
-                    : const Icon(
+                    : Icon(
                         Icons.send,
-                        color: AppColors.white,
+                        color: AppColors.onAccent,
                         size: 20,
                       ),
               ),
@@ -850,7 +850,7 @@ class _ActionBar extends StatelessWidget {
 ///
 /// Liking is the one thing on this screen with no page transition, no sheet and
 /// no obvious result — the old button just sat there while a request went out.
-/// So the button itself is the receipt: it swells, blooms an oxblood glow, and
+/// So the button itself is the receipt: it swells, blooms an accent glow, and
 /// settles filled. The whole thing is over in under half a second, and it runs
 /// on tap rather than on the response, so the feedback lands with the finger.
 class _LikeButton extends StatefulWidget {

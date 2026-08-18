@@ -25,15 +25,15 @@ class ArchivedChatsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.card,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        shape: const Border(
+        shape: Border(
           bottom: BorderSide(color: AppColors.inputBorder, width: 1),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
+          icon: Icon(Icons.arrow_back, color: AppColors.textDark),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -44,10 +44,10 @@ class ArchivedChatsScreen extends ConsumerWidget {
       body: SafeArea(
         child: RefreshIndicator(
           color: AppColors.primary,
-          backgroundColor: AppColors.white,
+          backgroundColor: AppColors.card,
           onRefresh: () async => ref.invalidate(archivedConversationsProvider),
           child: async.when(
-            loading: () => const Center(
+            loading: () => Center(
               child: CircularProgressIndicator(color: AppColors.primary),
             ),
             error: (err, _) => ListView(
@@ -107,7 +107,7 @@ class _Empty extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(32, 72, 32, 24),
       child: Column(
         children: [
-          const RadarMark(size: 84, color: AppColors.iconMuted),
+          RadarMark(size: 84, color: AppColors.iconMuted),
           const SizedBox(height: 20),
           Text(
             title,

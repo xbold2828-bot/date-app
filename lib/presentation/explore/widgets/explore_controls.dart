@@ -43,7 +43,7 @@ class GlassSurface extends StatelessWidget {
             color: AppColors.panel.withValues(alpha: 0.82),
             borderRadius: shape,
             border: Border.all(
-              color: AppColors.white.withValues(alpha: 0.75),
+              color: AppColors.inputBorder.withValues(alpha: 0.75),
               width: 1,
             ),
             boxShadow: [
@@ -106,7 +106,7 @@ class ExploreCountPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.auto_awesome,
               size: 14,
               color: AppColors.primary,
@@ -183,7 +183,7 @@ class ExploreViewToggle extends StatelessWidget {
             label,
             style: AppTextStyles.caption.copyWith(
               fontSize: 12.5,
-              color: selected ? AppColors.white : AppColors.textDark,
+              color: selected ? AppColors.onAccent : AppColors.textDark,
               fontWeight: FontWeight.w700,
               fontVariations: const [FontVariation('wght', 700)],
             ),
@@ -288,7 +288,7 @@ class _ExploreCircleButtonState extends State<ExploreCircleButton> {
               width: 46,
               height: 46,
               child: widget.busy
-                  ? const Padding(
+                  ? Padding(
                       padding: EdgeInsets.all(13),
                       child: CircularProgressIndicator(
                         strokeWidth: 2.2,
@@ -346,7 +346,7 @@ class ExploreFocusPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.person_pin_circle_outlined,
               size: 16,
               color: AppColors.primary,
@@ -389,7 +389,7 @@ class ExploreFocusPill extends StatelessWidget {
                 'Show all',
                 style: AppTextStyles.caption.copyWith(
                   fontSize: 11.5,
-                  color: AppColors.primaryDeep,
+                  color: AppColors.primaryInk,
                   fontWeight: FontWeight.w700,
                   fontVariations: const [FontVariation('wght', 700)],
                 ),

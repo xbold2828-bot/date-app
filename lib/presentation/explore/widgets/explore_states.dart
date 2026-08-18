@@ -35,7 +35,7 @@ class ExploreLoadingPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(
+            SizedBox(
               width: 15,
               height: 15,
               child: CircularProgressIndicator(
@@ -84,7 +84,7 @@ class ExploreNoticeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = switch (tone) {
       ExploreNoticeTone.neutral => AppColors.primary,
-      ExploreNoticeTone.warning => AppColors.gold,
+      ExploreNoticeTone.warning => AppColors.warning,
     };
 
     return Semantics(

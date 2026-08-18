@@ -161,7 +161,7 @@ class _MatchCelebrationOverlayState extends State<MatchCelebrationOverlay>
                                     "It's a match",
                                     textAlign: TextAlign.center,
                                     style: AppTextStyles.display.copyWith(
-                                      color: AppColors.white,
+                                      color: AppColors.onImage,
                                       fontSize: 34,
                                     ),
                                   ),
@@ -170,7 +170,7 @@ class _MatchCelebrationOverlayState extends State<MatchCelebrationOverlay>
                                     'You and $name liked each other.',
                                     textAlign: TextAlign.center,
                                     style: AppTextStyles.bodyMuted.copyWith(
-                                      color: AppColors.white
+                                      color: AppColors.onImage
                                           .withValues(alpha: 0.78),
                                       fontSize: 15,
                                     ),
@@ -200,7 +200,7 @@ class _MatchCelebrationOverlayState extends State<MatchCelebrationOverlay>
                                         'Keep browsing',
                                         style: AppTextStyles.bodyStrong
                                             .copyWith(
-                                          color: AppColors.white
+                                          color: AppColors.onImage
                                               .withValues(alpha: 0.75),
                                         ),
                                       ),
@@ -294,7 +294,7 @@ class _Avatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: photoUrl == null ? avatarGradient(colorIndex) : null,
-        border: Border.all(color: AppColors.white, width: 3),
+        border: Border.all(color: AppColors.onImage, width: 3),
         image: photoUrl != null
             ? DecorationImage(
                 image: NetworkImage(photoUrl!),
@@ -321,7 +321,7 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-/// Concentric oxblood rings breathing outward — the radar mark, at the one
+/// Concentric accent rings breathing outward — the radar mark, at the one
 /// moment it has something to celebrate.
 class _BloomPainter extends CustomPainter {
   _BloomPainter(this.pulse, this.entry);

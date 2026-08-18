@@ -76,7 +76,7 @@ class _Splash extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       backgroundColor: AppColors.background,
       body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
     );
@@ -99,9 +99,9 @@ class _ErrorRetry extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.cloud_off, size: 48, color: AppColors.textGrey),
+              Icon(Icons.cloud_off, size: 48, color: AppColors.textGrey),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 "Couldn't reach Radius",
                 style: TextStyle(
                   fontSize: 18,
@@ -113,7 +113,7 @@ class _ErrorRetry extends StatelessWidget {
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13, color: AppColors.textGrey),
+                style: TextStyle(fontSize: 13, color: AppColors.textGrey),
               ),
               const SizedBox(height: 24),
               SizedBox(
@@ -128,12 +128,12 @@ class _ErrorRetry extends StatelessWidget {
                     ),
                     elevation: 0,
                   ),
-                  child: const Text(
+                  child: Text(
                     'Retry',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.white,
+                      color: AppColors.onAccent,
                     ),
                   ),
                 ),
@@ -150,7 +150,7 @@ class _ErrorRetry extends StatelessWidget {
                     );
                   }
                 },
-                child: const Text(
+                child: Text(
                   'Sign out',
                   style: TextStyle(color: AppColors.textGrey),
                 ),

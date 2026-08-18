@@ -247,7 +247,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                     // riding along here — two currencies on a button is a
                     // button nobody reads.
                     label: 'Start Premium · ${current.price}',
-                    kind: RadiusButtonKind.gold,
+                    kind: RadiusButtonKind.premium,
                     isLoading: _isLoading,
                     onPressed: _onStartPremium,
                   ),
@@ -313,7 +313,7 @@ class _PlanCard extends StatelessWidget {
             plan.price,
             style: AppTextStyles.title.copyWith(
               fontSize: 22,
-              color: selected ? AppColors.primaryDeep : AppColors.textDark,
+              color: selected ? AppColors.primaryInk : AppColors.textDark,
             ),
           ),
           if (plan.priceInr != null)
@@ -339,14 +339,14 @@ class _PlanCard extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
             decoration: BoxDecoration(
-              color: AppColors.gold,
+              color: AppColors.premium,
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
               'BEST VALUE',
               style: AppTextStyles.caption.copyWith(
                 fontSize: 10,
-                color: AppColors.white,
+                color: AppColors.onAccent,
                 letterSpacing: 0.6,
                 fontWeight: FontWeight.w700,
                 fontVariations: const [FontVariation('wght', 700)],

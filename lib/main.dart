@@ -6,6 +6,8 @@ import 'core/constants/app_colors.dart';
 import 'core/constants/app_text_styles.dart';
 import 'core/constants/env.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/palette_scope.dart';
+import 'core/theme/theme_controller.dart';
 import 'presentation/auth/screens/authed_bootstrap.dart';
 import 'presentation/auth/screens/login_screen.dart';
 import 'presentation/common/widgets/radius_toast.dart';
@@ -31,15 +33,21 @@ void main() async {
 
 final supabase = Supabase.instance.client;
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
       title: 'Radius',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      // Follows the phone until the user flips the switch on the You screen.
+      themeMode: ref.watch(themeModeProvider),
+      // PaletteScope has to sit here rather than around the MaterialApp: it
+      // reads the resolved brightness off Theme.of, which only exists below.
+      builder: (context, child) => PaletteScope(child: child!),
       // One messenger for the whole app, so a confirmation can be raised from
       // anywhere — including code holding no BuildContext, and screens whose
       // context is gone by the time their request comes back.
@@ -89,7 +97,7 @@ class MissingConfigApp extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.key_off, size: 48, color: AppColors.iconMuted),
+                  Icon(Icons.key_off, size: 48, color: AppColors.iconMuted),
                   const SizedBox(height: 16),
                   Text('Environment not configured',
                       style: AppTextStyles.title),

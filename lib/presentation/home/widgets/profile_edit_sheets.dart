@@ -54,7 +54,7 @@ class _SheetShell extends StatelessWidget {
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.background,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
@@ -135,25 +135,25 @@ class _EditBioSheetState extends ConsumerState<_EditBioSheet> {
             maxLength: 150,
             maxLines: 5,
             autofocus: true,
-            style: const TextStyle(fontSize: 14, color: AppColors.textDark),
+            style: TextStyle(fontSize: 14, color: AppColors.textDark),
             decoration: InputDecoration(
               hintText: 'Say something worth replying to...',
-              hintStyle: const TextStyle(color: AppColors.textGrey),
+              hintStyle: TextStyle(color: AppColors.textGrey),
               filled: true,
-              fillColor: AppColors.white,
+              fillColor: AppColors.card,
               contentPadding: const EdgeInsets.all(16),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.inputBorder),
+                borderSide: BorderSide(color: AppColors.inputBorder),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.inputBorder),
+                borderSide: BorderSide(color: AppColors.inputBorder),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide:
-                    const BorderSide(color: AppColors.primary, width: 1.5),
+                    BorderSide(color: AppColors.primary, width: 1.5),
               ),
             ),
           ),
@@ -217,7 +217,7 @@ class _EditVibesSheetState extends ConsumerState<_EditVibesSheet> {
                 child: Text(
                   'Pick the qualities that describe you. '
                   '${selectionHint(SelectionLimits.vibes)}.',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     color: AppColors.textGrey,
                   ),
@@ -237,13 +237,13 @@ class _EditVibesSheetState extends ConsumerState<_EditVibesSheet> {
             ),
             child: SingleChildScrollView(
               child: tags.when(
-                loading: () => const Center(
+                loading: () => Center(
                   child: Padding(
                     padding: EdgeInsets.all(24),
                     child: CircularProgressIndicator(color: AppColors.primary),
                   ),
                 ),
-                error: (err, _) => const Text(
+                error: (err, _) => Text(
                   "Couldn't load the options. Please try again.",
                   style: TextStyle(fontSize: 13, color: AppColors.textGrey),
                 ),

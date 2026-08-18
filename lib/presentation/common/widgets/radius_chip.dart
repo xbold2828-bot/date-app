@@ -50,7 +50,7 @@ class RadiusChip extends StatelessWidget {
       fill = AppColors.primaryTint;
       border = AppColors.primary;
     } else {
-      fill = AppColors.white;
+      fill = AppColors.card;
       border = AppColors.inputBorder;
     }
 
@@ -94,7 +94,7 @@ class RadiusChip extends StatelessWidget {
                     size: 14,
                     color: locked
                         ? AppColors.textGrey
-                        : (on ? AppColors.primaryDeep : AppColors.textDark),
+                        : (on ? AppColors.primaryInk : AppColors.textDark),
                   ),
                   const SizedBox(width: 6),
                 ],
