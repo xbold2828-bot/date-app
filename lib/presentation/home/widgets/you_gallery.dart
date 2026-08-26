@@ -87,7 +87,13 @@ class _YouGalleryState extends ConsumerState<YouGallery> {
       if (!mounted) return;
       if (result.succeeded) {
         ref.invalidate(myMediaProvider);
-        _snack('Photo uploaded — moderation pending');
+        _snack('Photo added');
+      } else if (result.wasRejected) {
+        // Moderation refused it. Say what the server said and do NOT invite a
+        // retry — the same file will be refused again, and the photo is
+        // already gone from storage.
+        _snack(result.failureReason ??
+            "This photo doesn't meet our content guidelines.");
       } else {
         _snack("Photo couldn't be uploaded. Please try again.");
       }

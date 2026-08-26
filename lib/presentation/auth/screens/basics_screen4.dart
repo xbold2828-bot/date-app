@@ -91,7 +91,13 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
       final picked = _photos.whereType<_PickedPhoto>().toList();
 
       var uploaded = 0;
+      // Rejections are counted apart from failures. Both mean "the photo isn't
+      // up", but only one of them is worth retrying, and telling somebody to
+      // try again on a photo moderation has already refused sends them round a
+      // loop that cannot end.
+      var rejected = 0;
       String? firstFailure;
+      String? rejectionMessage;
       String? stepError;
       for (final photo in picked) {
         final result = await media.uploadPhoto(
@@ -101,6 +107,9 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
         );
         if (result.succeeded) {
           uploaded++;
+        } else if (result.wasRejected) {
+          rejected++;
+          rejectionMessage ??= result.failureReason;
         } else {
           firstFailure ??= result.failureReason;
         }
@@ -123,6 +132,18 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
       if (!mounted) return;
       if (stepError != null && uploaded == 0) {
         _showSnack("Couldn't save this step: $stepError");
+      } else if (rejected > 0 && uploaded == 0) {
+        // Everything the user picked was refused. Say so in the server's own
+        // words — "try again later" would be actively misleading here.
+        _showSnack(rejectionMessage ??
+            "Those photos don't meet our content guidelines. "
+                'You can add different ones from your profile.');
+      } else if (rejected > 0) {
+        _showSnack(
+          'Added $uploaded of ${picked.length}. '
+          "${rejected == 1 ? 'One photo' : '$rejected photos'} didn't meet "
+          'our content guidelines.',
+        );
       } else if (picked.isNotEmpty && uploaded == 0) {
         _showSnack(
           "Photos couldn't be uploaded right now — you can add them later "

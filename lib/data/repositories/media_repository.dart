@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import '../../core/constants/api_constants.dart';
+import '../../core/errors/app_exceptions.dart';
 import '../models/media_model.dart';
 import '../services/api_service.dart';
 
@@ -11,9 +12,13 @@ import '../services/api_service.dart';
 /// Upload is the backend's two-phase, direct-to-storage flow:
 ///   1. `POST /media/upload-url` mints a pending record + presigned PUT URL,
 ///   2. the client PUTs the bytes straight at storage,
-///   3. `POST /media/:id/complete` confirms it and kicks off moderation.
+///   3. `POST /media/:id/complete` confirms it and moderates it.
 ///
-/// Phase 2 is the fragile link: the presigned URL is signed for whatever host
+/// Step 3 now blocks for a second or two while the image is screened, and can
+/// come back refused — in which case the server has already deleted both the
+/// object and the record, and the photo simply never existed.
+///
+/// Step 2 is the fragile link: the presigned URL is signed for whatever host
 /// the API is configured with, which is not always reachable from the device.
 /// [uploadPhoto] therefore reports failure as a value rather than throwing, so
 /// onboarding can continue and the user can add photos later.
@@ -61,6 +66,12 @@ class MediaRepository {
 
     try {
       await _api.post(ApiConstants.mediaComplete(slot.mediaId));
+    } on ContentRejectedException catch (e) {
+      // The server moderated the image and refused it — it has already deleted
+      // the object and the record, so there is nothing to clean up here and
+      // nothing to retry. Kept distinct from the failure below because the two
+      // need opposite advice: "try again" versus "pick a different photo".
+      return UploadResult.rejected(e.message);
     } catch (e) {
       return UploadResult.failure('Could not confirm the upload: $e');
     }

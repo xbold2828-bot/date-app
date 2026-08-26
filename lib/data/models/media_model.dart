@@ -87,16 +87,33 @@ class MediaAsset {
 /// unreachable from the client (presigned URLs can point at a host the device
 /// can't resolve), and that must never block the funnel. [failureReason] is set
 /// when the binary didn't make it, so the UI can say so without throwing.
+///
+/// A moderation refusal is a third outcome, and it must not be flattened into
+/// the second. "Photo couldn't be uploaded, please try again" is exactly the
+/// wrong thing to say about a photo the server looked at and declined — the
+/// user retries the same image forever. [wasRejected] separates "the network
+/// failed" from "this picture is not going up", and [failureReason] then holds
+/// the server's own sentence, which is already written for the user.
 class UploadResult {
   final bool succeeded;
   final String? mediaId;
   final String? failureReason;
 
+  /// Moderation refused the content. Retrying the same file will fail again.
+  final bool wasRejected;
+
   const UploadResult.success(this.mediaId)
       : succeeded = true,
-        failureReason = null;
+        failureReason = null,
+        wasRejected = false;
 
   const UploadResult.failure(this.failureReason)
       : succeeded = false,
-        mediaId = null;
+        mediaId = null,
+        wasRejected = false;
+
+  const UploadResult.rejected(this.failureReason)
+      : succeeded = false,
+        mediaId = null,
+        wasRejected = true;
 }

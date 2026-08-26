@@ -136,6 +136,34 @@ class ValidationException extends AppException {
   }) : super(message, statusCode: 422, error: 'ValidationError', details: details);
 }
 
+/// 422 `ContentRejected` — automated moderation refused a photo, bio or
+/// message.
+///
+/// Distinct from [ValidationException] because the two need different words:
+/// a validation failure is "you typed it wrong", this is "we won't publish
+/// that". [message] is already the user-facing sentence — the server picks it
+/// per surface and it should be shown as-is.
+///
+/// [details] carries `{ reason: 'CONTENT_REJECTED', surface }` and nothing
+/// more. The categories that tripped are deliberately withheld server-side, so
+/// there is no per-category breakdown to render and no way to probe for one.
+class ContentRejectedException extends AppException {
+  const ContentRejectedException(
+    String message, {
+    Map<String, dynamic>? details,
+  }) : super(
+          message,
+          statusCode: 422,
+          error: 'ContentRejected',
+          details: details,
+        );
+
+  /// `public_photo` | `private_photo` | `verified_selfie` | `bio` | `message`.
+  String? get surface => details?['surface'] as String?;
+
+  bool get isPhoto => surface?.contains('photo') == true || surface == 'verified_selfie';
+}
+
 /// 429 — rate limit, ad daily cap, or New-Energy message cap.
 class RateLimitedException extends AppException {
   const RateLimitedException(

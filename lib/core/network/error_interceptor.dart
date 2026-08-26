@@ -83,6 +83,12 @@ class ErrorInterceptor extends Interceptor {
       case 409:
         return ConflictException(message);
       case 422:
+        // Moderation refusals share 422 with DTO validation but need their own
+        // type — the UI says something different for "we won't publish that"
+        // than for "that field is malformed".
+        if (errorCode == 'ContentRejected') {
+          return ContentRejectedException(message, details: details);
+        }
         return ValidationException(message, details: details);
       case 429:
         return RateLimitedException(message, details: details);
