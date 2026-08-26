@@ -102,7 +102,7 @@ class _ErrorRetry extends StatelessWidget {
               Icon(Icons.cloud_off, size: 48, color: AppColors.textGrey),
               const SizedBox(height: 16),
               Text(
-                "Couldn't reach Radius",
+                "Couldn't reach cozune",
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,

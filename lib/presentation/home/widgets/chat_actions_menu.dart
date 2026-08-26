@@ -146,7 +146,7 @@ class _ChatActionsSheetState extends ConsumerState<_ChatActionsSheet> {
     final ok = await _confirm(
       title: 'Block ${widget.userName}?',
       body: 'They will not be able to message you, and you will not see each '
-          'other anywhere in Radius. Anything they send from now on will not '
+          'other anywhere in cozune. Anything they send from now on will not '
           'reach you.\n\nYou can undo this in You → Blocked accounts.',
       confirmLabel: 'Block',
     );

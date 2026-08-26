@@ -52,7 +52,7 @@ Future<void> showPremiumFilterPrompt(
             // should still know the app works for them.
             Text(
               'Premium narrows the circle down to who is around right now. '
-              'Radius, who you see, age and intent stay free.',
+              'Distance, who you see, age and intent stay free.',
               style: AppTextStyles.bodyMuted,
             ),
             const SizedBox(height: 22),

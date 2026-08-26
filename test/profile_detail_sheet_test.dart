@@ -186,10 +186,30 @@ void main() {
     });
 
     // An unknown value still has to read as words — a section that silently
-    // drops it looks like the person left it blank.
+    // drops it looks like the person left it blank. This is the catalogue-still-
+    // loading case: with nothing to check a slug against, printing it is the
+    // only honest option.
     testWidgets('humanises a slug it has never seen', (tester) async {
       await _pump(tester, profile: _profile(personalityTags: const ['deep_sea_diver']));
       expect(find.text('Deep sea diver'), findsOneWidget);
+    });
+
+    // Once the catalogue HAS arrived, the same fallback becomes a leak: a tag
+    // withdrawn from the vocabulary would be humanised straight back onto the
+    // screen, on every profile that still carries it, until each of those
+    // people happened to re-save. Retired means gone everywhere at once.
+    testWidgets('drops a retired slug once the catalogue has loaded',
+        (tester) async {
+      await _pump(
+        tester,
+        profile: _profile(
+          personalityTags: const ['night_owl', 'kink_friendly'],
+        ),
+        tagLabels: const {'night_owl': 'Night owl'},
+      );
+
+      expect(find.text('Night owl'), findsOneWidget);
+      expect(find.text('Kink friendly'), findsNothing);
     });
 
     testWidgets('hides sections the person left empty', (tester) async {

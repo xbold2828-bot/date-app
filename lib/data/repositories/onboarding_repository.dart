@@ -101,15 +101,30 @@ class OnboardingRepository {
     return _me(await _api.patch(ApiConstants.location, body: body));
   }
 
-  /// Step 10 — `POST /onboarding/agreement` (all four must be true).
-  Future<MeUser> acceptAgreement() async => _me(
+  /// Step 10 — `POST /onboarding/agreement`.
+  ///
+  /// All four must be true; the API rejects anything else, and the screen keeps
+  /// its button disabled until they are. What is sent is what the person
+  /// actually ticked rather than four hard-coded `true`s — the acceptance is
+  /// stored as a consent record, and a record that cannot say no is not
+  /// evidence that anyone said yes.
+  ///
+  /// The server stamps the timestamp and the policy version; neither is sent
+  /// from here.
+  Future<MeUser> acceptAgreement({
+    required bool isAdult,
+    required bool willBeRespectful,
+    required bool noHarassment,
+    required bool consentMatters,
+  }) async =>
+      _me(
         await _api.post(
           ApiConstants.onboardingAgreement,
           body: {
-            'isAdult': true,
-            'willBeRespectful': true,
-            'noHarassment': true,
-            'consentMatters': true,
+            'isAdult': isAdult,
+            'willBeRespectful': willBeRespectful,
+            'noHarassment': noHarassment,
+            'consentMatters': consentMatters,
           },
         ),
       );

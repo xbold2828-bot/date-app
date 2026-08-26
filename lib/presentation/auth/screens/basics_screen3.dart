@@ -14,14 +14,17 @@ import '../../common/widgets/widgets.dart';
 import '../widgets/onboarding_widgets.dart';
 import 'basics_screen4.dart';
 
-/// Steps 6 + 7 — "What I'm into" (`PATCH /onboarding/preferences`) and
+/// Steps 6 + 7 — "Define your vibe" (`PATCH /onboarding/preferences`) and
 /// "My hard no's" (`PATCH /onboarding/hard-nos`).
 ///
 /// Every chip comes from `GET /tags`; the API validates slugs against the
-/// catalogue, so labels are never sent. The verified-members-only rule on the
-/// adult tags is switched off for now (see
-/// `BusinessConfig.requireVerificationForDesires`) — everyone can select
-/// anything, and saving none is still allowed.
+/// catalogue, so labels are never sent. That is also why the step-6 vocabulary
+/// swap needed no change here: the six sections, their captions and their caps
+/// are structural, and the words inside them are catalogue data.
+///
+/// The verified-members-only rule on tags flagged sensitive is switched off for
+/// now (see `BusinessConfig.requireVerificationForDesires`) — everyone can
+/// select anything, and saving none is still allowed.
 ///
 /// Each section carries its own cap ([SelectionLimits.intoByCategory]) rather
 /// than sharing one budget across the step; hard no's are never capped. Both
@@ -120,7 +123,7 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
       body: SafeArea(
         child: Column(
           children: [
-            const OnboardingHeader(step: 6, label: 'DESIRES'),
+            const OnboardingHeader(step: 6, label: 'YOUR VIBE'),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -129,7 +132,7 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
                   children: [
                     const SizedBox(height: 24),
                     Text(
-                      'Define your desires.',
+                      'Define your vibe.',
                       style: AppTextStyles.display,
                     ),
                     const SizedBox(height: 6),
@@ -186,7 +189,7 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
     );
   }
 
-  /// One desires group, with its own cap and its own counter.
+  /// One step-6 group, with its own cap and its own counter.
   ///
   /// `_selectedPreferences` stays a single flat set — it is what gets PATCHed,
   /// and the profile prints it as one list — so the group hands the chips only
@@ -223,9 +226,7 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
                 ...next,
               };
             }),
-            onLimitReached: () => _showSnack(
-              selectionLimitMessage('${title.toLowerCase()} tags', max),
-            ),
+            onLimitReached: () => _showSnack(sectionLimitMessage(title, max)),
           ),
         ],
       ),

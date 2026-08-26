@@ -17,13 +17,13 @@ void main() {
         genders: ['woman', 'non_binary'],
         relationshipStatus: ['single'],
         personalityTags: ['gym', 'foodie'],
-        preferenceTags: ['vanilla'],
+        preferenceTags: ['deep_conversation'],
       );
 
       expect(query['genders'], 'woman,non_binary');
       expect(query['relationshipStatus'], 'single');
       expect(query['personalityTags'], 'gym,foodie');
-      expect(query['preferenceTags'], 'vanilla');
+      expect(query['preferenceTags'], 'deep_conversation');
     });
 
     test('drops empty lists rather than sending blanks', () {
@@ -98,7 +98,7 @@ void main() {
         recentlyActive: true,
         relationshipStatus: ['single'],
         personalityTags: ['gym'],
-        preferenceTags: ['vanilla'],
+        preferenceTags: ['deep_conversation'],
       );
 
       final free = filter.withoutPremium();

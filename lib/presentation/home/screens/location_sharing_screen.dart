@@ -184,7 +184,7 @@ class _Body extends ConsumerWidget {
           text: 'Your pin is never your exact spot — people see a rough area '
               'a few hundred metres across, and never an address. This '
               'controls the map only: Radar still tells people nearby roughly '
-              'how far away you are, which is how Radius finds anyone at all.',
+              'how far away you are, which is how cozune finds anyone at all.',
         ),
       ],
     );

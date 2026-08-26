@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.dating_app"
+    namespace = "com.cozune.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -15,8 +15,9 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.dating_app"
+        // Must match the Play listing and the App Store bundle id: a store
+        // review that sees three different names for one product stalls.
+        applicationId = "com.cozune.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

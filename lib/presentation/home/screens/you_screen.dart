@@ -575,7 +575,7 @@ class _PremiumCard extends StatelessWidget {
               // remaining width instead.
               const Expanded(
                 child: Text(
-                  'Radius Premium',
+                  'cozune Premium',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,

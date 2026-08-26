@@ -1,6 +1,6 @@
 {
-    "name": "dating_app",
-    "short_name": "dating_app",
+    "name": "cozune",
+    "short_name": "cozune",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

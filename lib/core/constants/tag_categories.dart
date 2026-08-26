@@ -5,6 +5,11 @@
 /// selection caps in [SelectionLimits] are keyed by category, and a constant
 /// that both the limits and the screens depend on cannot sit downstream of
 /// either.
+///
+/// The keys are storage identifiers and match the server's enum, so they are
+/// deliberately unchanged even where the heading above them no longer matches:
+/// `role_energy` heads "Your energy", `fantasy_setting` heads "Your kind of
+/// date". Renaming them would mean rewriting every profile already saved.
 class TagCategories {
   TagCategories._();
 
@@ -17,7 +22,8 @@ class TagCategories {
   static const String fantasySetting = 'fantasy_setting';
   static const String hardNo = 'hard_no';
 
-  /// The categories that make up the step-6 "desires" screen, in display order.
+  /// The categories that make up the step-6 "Define your vibe" screen, in
+  /// display order.
   static const List<String> preferences = [
     roleEnergy,
     into,
@@ -32,14 +38,19 @@ class TagCategories {
   /// The funnel, the filter sheet and the "Me" editor all render these same
   /// groups, so the wording lives here rather than in three private maps that
   /// drift apart the first time one of them is renamed.
+  ///
+  /// Every heading describes *how someone connects*, not what they do sexually.
+  /// "Role & energy", "Into", "Scenario", "Intensity" and "Fantasy & setting"
+  /// were the previous names; each one classified the app as sex-dating on its
+  /// own, before a single tag underneath it was read.
   static const Map<String, String> labels = {
     personality: 'Atmosphere',
-    roleEnergy: 'Role & energy',
-    into: 'Into',
-    scenario: 'Scenario',
-    intensity: 'Intensity',
-    experience: 'Experience',
-    fantasySetting: 'Fantasy & setting',
+    roleEnergy: 'Your energy',
+    into: "What you're drawn to",
+    scenario: "What you're looking for",
+    intensity: 'Your pace',
+    experience: 'Dating experience',
+    fantasySetting: 'Your kind of date',
     hardNo: "Hard no's",
   };
 

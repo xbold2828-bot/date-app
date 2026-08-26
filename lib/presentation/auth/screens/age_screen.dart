@@ -146,7 +146,7 @@ Future<void> _onContinue() async {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Radius',
+                        'cozune',
                         style: AppTextStyles.title,
                       ),
                     ],
@@ -164,7 +164,7 @@ Future<void> _onContinue() async {
               ),
               const SizedBox(height: 8),
               Text(
-                'We curate based on maturity. Please share your birth date.',
+                'Cozune is for adults only. Please share your birth date.',
                 style: TextStyle(fontSize: 14, color: AppColors.textGrey),
               ),
 
@@ -274,7 +274,7 @@ Future<void> _onContinue() async {
                           _isAdult
                               ? "I confirm I'm 18 or older"
                               : (_selectedDate != null
-                                  ? "You must be 18 or older to use Radius"
+                                  ? "You must be 18 or older to use cozune"
                                   : "I confirm I'm 18 or older"),
                           style: TextStyle(
                             fontSize: 14,
@@ -297,10 +297,15 @@ Future<void> _onContinue() async {
 
               const SizedBox(height: 20),
 
-              // Info notes
+              // Info notes.
+              //
+              // This one used to advertise "the adult layer", which told anyone
+              // reading the screen — a store reviewer included — that the app
+              // has one. It now says what the date of birth is actually for.
               _infoNote(
                 Icons.info_outline,
-                'No ID needed yet — the face check only appears later if you go for the adult layer.',
+                "We use your date of birth to confirm you're 18+. It stays "
+                'private — only your age is shown.',
               ),
               const SizedBox(height: 12),
               _infoNote(

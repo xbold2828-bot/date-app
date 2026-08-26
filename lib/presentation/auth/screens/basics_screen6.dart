@@ -222,8 +222,12 @@ class _BasicsScreen6State extends ConsumerState<BasicsScreen6>
                 style: AppTextStyles.display,
               ),
               const SizedBox(height: 8),
+              // Same rule as the age screen: never name "the adult layer" in
+              // anything a person — or a store reviewer — can read. It says
+              // what the check unlocks, which is messaging and a badge.
               Text(
-                'A quick live check to unlock the adult layer and messaging. Your video is never stored.',
+                'A quick live check to unlock messaging and show others you '
+                'are real. Your video is never stored.',
                 style: TextStyle(fontSize: 13, color: AppColors.textGrey),
               ),
 

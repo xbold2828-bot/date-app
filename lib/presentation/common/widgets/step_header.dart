@@ -8,7 +8,7 @@ import '../../../core/constants/app_text_styles.dart';
 /// screens are added.
 const int kOnboardingStepCount = 10;
 
-/// The Radius wordmark. The period is accent blue — the one flourish the brand
+/// The cozune wordmark. The period is accent blue — the one flourish the brand
 /// gets, and the reason the mark reads as a statement rather than a label.
 class Wordmark extends StatelessWidget {
   const Wordmark({super.key, this.size = 21, this.color});
@@ -24,12 +24,12 @@ class Wordmark extends StatelessWidget {
     );
     return Semantics(
       header: true,
-      label: 'Radius',
+      label: 'cozune',
       excludeSemantics: true,
       child: Text.rich(
         TextSpan(
           children: [
-            TextSpan(text: 'Radius', style: style),
+            TextSpan(text: 'cozune', style: style),
             TextSpan(
               text: '.',
               style: style.copyWith(color: AppColors.primary),

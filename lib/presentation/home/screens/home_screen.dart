@@ -337,7 +337,7 @@ class _RadarTab extends ConsumerWidget {
       return SliverToBoxAdapter(
         child: _EmptyState(
           title: 'Set your location',
-          body: 'Radius needs to know roughly where you are before it can '
+          body: 'cozune needs to know roughly where you are before it can '
               'show you who is nearby.',
         ),
       );

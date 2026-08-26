@@ -1,4 +1,4 @@
-package com.example.dating_app
+package com.cozune.app
 
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity

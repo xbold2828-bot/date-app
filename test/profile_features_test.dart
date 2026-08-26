@@ -170,11 +170,11 @@ void main() {
     // refusing — so the second tap must never be a dead end.
     test('picking a second experience swaps the first', () {
       final next = applySelectionLimit(
-        {'new_and_curious'},
-        'experienced',
+        {'new_to_dating_apps'},
+        'been_around_a_while',
         SelectionLimits.intoIn(TagCategories.experience),
       );
-      expect(next, {'experienced'});
+      expect(next, {'been_around_a_while'});
     });
   });
 

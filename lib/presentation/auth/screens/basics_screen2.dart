@@ -115,7 +115,7 @@ class _BasicsScreen2State extends ConsumerState<BasicsScreen2> {
                   children: [
                     const SizedBox(height: 24),
                     Text(
-                      'Define your Radius.',
+                      'Define your cozune.',
                       style: AppTextStyles.display,
                     ),
 

@@ -68,7 +68,7 @@ class LocationService {
     if (permission == LocationPermission.deniedForever) {
       throw const LocationUnavailableException(
         LocationFailure.deniedForever,
-        'Location is turned off for Radius. Enable it in your device '
+        'Location is turned off for cozune. Enable it in your device '
         'settings to discover people near you.',
       );
     }

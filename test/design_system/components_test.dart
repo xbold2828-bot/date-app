@@ -361,8 +361,8 @@ void main() {
 
     testWidgets('the wordmark is one semantic unit', (tester) async {
       await tester.pumpWidget(host(const Wordmark()));
-      // "Radius" and its oxblood period must not be read as two things.
-      expect(find.bySemanticsLabel('Radius'), findsOneWidget);
+      // "cozune" and its oxblood period must not be read as two things.
+      expect(find.bySemanticsLabel('cozune'), findsOneWidget);
     });
   });
 

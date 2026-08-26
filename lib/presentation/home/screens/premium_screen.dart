@@ -200,7 +200,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
                 children: [
-                  Text('Radius Premium', style: AppTextStyles.eyebrow),
+                  Text('cozune Premium', style: AppTextStyles.eyebrow),
                   const SizedBox(height: 10),
                   Text(
                     'See everyone.\nFilter everything.',

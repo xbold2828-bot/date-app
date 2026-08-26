@@ -97,7 +97,7 @@ class _BasicsScreen5State extends ConsumerState<BasicsScreen5> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Radius uses your location to connect you with people '
+                      'cozune uses your location to connect you with people '
                       'physically near you right now. Without it there is '
                       'nobody to show you.',
                       style: TextStyle(fontSize: 13, color: AppColors.textGrey),

@@ -490,6 +490,19 @@ class _Details extends StatelessWidget {
 
   String _tag(String slug) => tagLabels[slug] ?? humanizeSlug(slug);
 
+  /// Slugs a loaded catalogue still recognises.
+  ///
+  /// A retired tag stays on a profile until that person next saves — and until
+  /// the server's own sweep reaches them — and [humanizeSlug] would happily
+  /// print the withdrawn word back onto the screen. Dropping them here means a
+  /// vocabulary that was retired is retired everywhere at once.
+  ///
+  /// Only once the catalogue has arrived: while it is empty every slug is
+  /// "unknown", and filtering then would blank out the whole profile.
+  List<String> _tags(List<String> slugs) => tagLabels.isEmpty
+      ? slugs.map(_tag).toList()
+      : [for (final s in slugs) if (tagLabels.containsKey(s)) tagLabels[s]!];
+
   @override
   Widget build(BuildContext context) {
     final name = profile?.displayName ?? seed.name;
@@ -633,26 +646,29 @@ class _Details extends StatelessWidget {
       if (p.personalityTags.isNotEmpty)
         _Section(
           label: 'Interests & vibes',
-          values: p.personalityTags.map(_tag).toList(),
+          values: _tags(p.personalityTags),
         ),
 
-      // Desires are the adult layer. `desiresLocked` is the server telling us
-      // the viewer may not see them; it is off by default now that identity
-      // verification is disabled, but the branch stays for when it returns.
+      // Step 6's answers. `desiresLocked` is the server telling us the viewer
+      // may not see them; it is off by default now that identity verification
+      // is disabled, but the branch stays for when it returns.
       if (p.desiresLocked)
         const _LockedSection(
-          label: 'Into',
-          message: 'Verify your identity to see what they are into.',
+          label: 'Their vibe',
+          message: 'Verify your identity to see more about them.',
         )
-      else if ((p.preferenceTags ?? const []).isNotEmpty)
-        _Section(label: 'Into', values: p.preferenceTags!.map(_tag).toList()),
+      else if (_tags(p.preferenceTags ?? const []).isNotEmpty)
+        _Section(
+          label: 'Their vibe',
+          values: _tags(p.preferenceTags ?? const []),
+        ),
 
       // Deliberately last, and deliberately quiet. These are boundaries, not
       // selling points, and the owner chose to publish them.
       if ((p.hardNos ?? const []).isNotEmpty)
         _Section(
           label: 'Hard no’s',
-          values: p.hardNos!.map(_tag).toList(),
+          values: _tags(p.hardNos!),
           tone: TagTone.neutral,
         ),
     ];

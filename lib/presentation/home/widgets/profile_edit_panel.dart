@@ -18,7 +18,7 @@ import '../../common/widgets/widgets.dart';
 /// ## Why it folds
 ///
 /// Laid out flat, these six questions are longer than the rest of the "Me" tab
-/// put together — four chip groups, one of them the whole desires catalogue —
+/// put together — four chip groups, one of them the whole step-6 catalogue —
 /// and they pushed the things people actually come here for (photos, premium,
 /// sign out) below two screens of tags. So the card opens on a summary of the
 /// current answers and expands into the editor, which is the same information
@@ -114,6 +114,25 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
+  /// The slugs of [chosen] that the catalogue still carries.
+  ///
+  /// A retired tag stays in a saved profile until that profile is next written,
+  /// so `_into` can hold slugs the API no longer accepts — and re-sending one
+  /// would 400 the entire save because the person edited an unrelated chip.
+  /// Filtering here rather than on load keeps the panel's "what changed"
+  /// comparison honest: nothing looks edited until somebody edits it.
+  ///
+  /// A catalogue that has not arrived filters nothing. Treating "we do not know
+  /// yet" as "we know these are invalid" would wipe the answers instead.
+  List<String> _known(Set<String> chosen, Map<String, List<Tag>> grouped) {
+    if (grouped.isEmpty) return chosen.toList();
+    final catalogue = {
+      for (final tags in grouped.values)
+        for (final tag in tags) tag.slug,
+    };
+    return chosen.where(catalogue.contains).toList();
+  }
+
   Future<void> _save() async {
     final name = _name.text.trim();
     if (name.length < 2) {
@@ -129,6 +148,8 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
 
     setState(() => _isSaving = true);
     final repo = ref.read(onboardingRepositoryProvider);
+    final grouped =
+        ref.read(tagsByCategoryProvider).valueOrNull ?? const <String, List<Tag>>{};
     MeUser? latest;
 
     try {
@@ -161,15 +182,15 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
         latest = await repo.updateRelationshipStatus(_situation!);
       }
       if (_setChanged(_vibes, _saved.personalityTags)) {
-        latest = await repo.updatePersonality(_vibes.toList());
+        latest = await repo.updatePersonality(_known(_vibes, grouped));
       }
       if (_setChanged(_into, _saved.preferenceTags)) {
-        latest = await repo.updatePreferences(_into.toList());
+        latest = await repo.updatePreferences(_known(_into, grouped));
       }
       if (_setChanged(_hardNos, _saved.hardNos) ||
           _showHardNos != _saved.showHardNosOnProfile) {
         latest = await repo.updateHardNos(
-          _hardNos.toList(),
+          _known(_hardNos, grouped),
           showOnProfile: _showHardNos,
         );
       }
@@ -319,17 +340,17 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
             ),
           ),
           _Field(
-            label: 'Into',
+            label: 'Your vibe',
             hint: 'Every group, the same as when you signed up.',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // "Into" is one answer to the API — a single flat
+                // "Your vibe" is one answer to the API — a single flat
                 // `preferenceTags` list — but six questions to the person
                 // answering it, each with its own allowance. They live under
                 // one heading rather than as six sibling fields: laid out flat
-                // the word "Into" was just one of six category names, and the
-                // section people came here to edit had no name at all.
+                // the six category names were all the section had, and the
+                // thing people came here to edit had no name at all.
                 for (final category in TagCategories.preferences)
                   if ((grouped[category] ?? const <Tag>[]).isNotEmpty)
                     _intoGroup(category, grouped[category]!),
@@ -381,7 +402,7 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
     );
   }
 
-  /// One desires group inside the "Into" section, capped on its own.
+  /// One group inside the "Your vibe" section, capped on its own.
   ///
   /// `_into` is kept flat because that is the shape `PATCH
   /// /onboarding/preferences` takes and the shape the profile prints. The group
@@ -424,8 +445,7 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
             onChanged: (next) => setState(() {
               _into = {..._into.difference(slugs), ...next};
             }),
-            onLimitReached: () =>
-                _snack(selectionLimitMessage('${title.toLowerCase()} tags', max)),
+            onLimitReached: () => _snack(sectionLimitMessage(title, max)),
           ),
         ],
       ),
@@ -577,6 +597,20 @@ class _Summary extends StatelessWidget {
     return humanizeSlug(slug);
   }
 
+  /// Labels for [slugs], minus the ones a loaded catalogue no longer carries.
+  ///
+  /// [_tagLabel] falls back to [humanizeSlug], which would print a retired tag
+  /// straight back onto the summary. An empty catalogue means "still loading",
+  /// not "all of these are gone", so it filters nothing.
+  List<String> _tagLabels(List<String> slugs) {
+    if (tags.isEmpty) return slugs.map(_tagLabel).toList();
+    final known = {
+      for (final list in tags.values)
+        for (final tag in list) tag.slug: tag.label,
+    };
+    return [for (final s in slugs) if (known.containsKey(s)) known[s]!];
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = me.profile;
@@ -588,8 +622,8 @@ class _Summary extends StatelessWidget {
             ? ''
             : relationshipStatusLabel(p.relationshipStatus!)
       ),
-      ('Into', p.preferenceTags.map(_tagLabel).join(', ')),
-      ("Hard no's", p.hardNos.map(_tagLabel).join(', ')),
+      ('Your vibe', _tagLabels(p.preferenceTags).join(', ')),
+      ("Hard no's", _tagLabels(p.hardNos).join(', ')),
     ];
 
     return Column(

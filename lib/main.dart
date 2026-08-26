@@ -39,7 +39,7 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
-      title: 'Radius',
+      title: 'cozune',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
@@ -85,7 +85,7 @@ class MissingConfigApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Radius',
+      title: 'cozune',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       home: Scaffold(

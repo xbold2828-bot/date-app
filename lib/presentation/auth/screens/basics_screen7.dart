@@ -7,6 +7,14 @@ import '../../../providers/core_providers.dart';
 import '../../../providers/profile_provider.dart';
 import '../../home/screens/home_screen.dart';
 
+/// Step 10 — the vibe agreement.
+///
+/// All four boxes are mandatory. The button stays inert until every one is
+/// ticked, the API refuses anything but `true` on each, and the acceptance is
+/// stored server-side with a timestamp and the version of the wording that was
+/// on screen. That record is the evidence if an account banned for breaking one
+/// of these later disputes it — which is the only reason the screen exists, and
+/// why none of the four can be optional.
 class BasicsScreen7 extends ConsumerStatefulWidget {
   const BasicsScreen7({super.key});
 
@@ -15,23 +23,34 @@ class BasicsScreen7 extends ConsumerStatefulWidget {
 }
 
 class _BasicsScreen7State extends ConsumerState<BasicsScreen7> {
-  final List<Map<String, dynamic>> _agreements = [
-    {'text': "I'm 18 or older", 'checked': false},
-    {'text': "I'll be respectful", 'checked': false},
-    {'text': 'No harassment', 'checked': false},
-    {'text': 'Consent always matters', 'checked': false},
+  /// The four consents, each keyed to the field it is recorded under. The key
+  /// is what makes the record specific: "accepted the agreement" is not a
+  /// defensible answer to "which of these did they agree to?".
+  final List<_Consent> _agreements = [
+    _Consent(field: 'isAdult', text: "I'm 18 or older"),
+    _Consent(field: 'willBeRespectful', text: "I'll be respectful"),
+    _Consent(field: 'noHarassment', text: 'No harassment'),
+    _Consent(field: 'consentMatters', text: 'Consent always matters'),
   ];
 
   bool _isLoading = false;
 
-  bool get _allChecked => _agreements.every((a) => a['checked'] == true);
+  bool get _allChecked => _agreements.every((a) => a.checked);
+
+  bool _checked(String field) =>
+      _agreements.firstWhere((a) => a.field == field).checked;
 
   Future<void> _onEnter() async {
     if (!_allChecked) return;
 
     setState(() => _isLoading = true);
     try {
-      final me = await ref.read(onboardingRepositoryProvider).acceptAgreement();
+      final me = await ref.read(onboardingRepositoryProvider).acceptAgreement(
+            isAdult: _checked('isAdult'),
+            willBeRespectful: _checked('willBeRespectful'),
+            noHarassment: _checked('noHarassment'),
+            consentMatters: _checked('consentMatters'),
+          );
       ref.read(meProvider.notifier).setMe(me);
 
       if (mounted) {
@@ -67,7 +86,7 @@ class _BasicsScreen7State extends ConsumerState<BasicsScreen7> {
               ),
               const SizedBox(height: 6),
               Text(
-                'One tap each.',
+                'One tap each. All four are required.',
                 style: TextStyle(fontSize: 13, color: AppColors.textGrey),
               ),
 
@@ -80,13 +99,11 @@ class _BasicsScreen7State extends ConsumerState<BasicsScreen7> {
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (_, index) {
                     final item = _agreements[index];
-                    final checked = item['checked'] as bool;
+                    final checked = item.checked;
 
                     return GestureDetector(
                       onTap: () {
-                        setState(() {
-                          _agreements[index]['checked'] = !checked;
-                        });
+                        setState(() => item.checked = !checked);
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(
@@ -127,7 +144,7 @@ class _BasicsScreen7State extends ConsumerState<BasicsScreen7> {
                             ),
                             const SizedBox(width: 16),
                             Text(
-                              item['text'] as String,
+                              item.text,
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w500,
@@ -144,9 +161,20 @@ class _BasicsScreen7State extends ConsumerState<BasicsScreen7> {
                 ),
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
 
-              // Enter Radius button
+              // Says out loud what the record below is for. A consent record
+              // kept quietly is still a consent record, but a person is owed
+              // the fact that this one is kept.
+              Text(
+                'We store your acceptance with the date and the version of '
+                'these terms.',
+                style: TextStyle(fontSize: 11.5, color: AppColors.textGrey),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Enter cozune button
               SizedBox(
                 width: double.infinity,
                 height: 52,
@@ -164,7 +192,7 @@ class _BasicsScreen7State extends ConsumerState<BasicsScreen7> {
                   child: _isLoading
                       ? CircularProgressIndicator(color: AppColors.onAccent)
                       : Text(
-                          'Enter Radius',
+                          'Enter cozune',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -183,4 +211,15 @@ class _BasicsScreen7State extends ConsumerState<BasicsScreen7> {
       ),
     );
   }
+}
+
+/// One line of the agreement: what it says, which field it is recorded under,
+/// and whether it has been ticked.
+class _Consent {
+  _Consent({required this.field, required this.text});
+
+  /// Matches the property name on `AcceptAgreementDto`.
+  final String field;
+  final String text;
+  bool checked = false;
 }

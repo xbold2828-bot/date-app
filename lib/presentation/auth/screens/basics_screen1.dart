@@ -294,7 +294,7 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
 
                     Center(
                       child: Text(
-                        'Radius is free for women & non-binary/trans-women; men subscribe to message.',
+                        'cozune is free for women & non-binary/trans-women; men subscribe to message.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 11,
