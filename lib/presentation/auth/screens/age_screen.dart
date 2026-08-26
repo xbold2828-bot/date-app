@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../providers/core_providers.dart';
 import '../../../providers/profile_provider.dart';
@@ -87,13 +88,13 @@ Future<void> _onContinue() async {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
+            colorScheme: ColorScheme.light(
               primary: AppColors.primary,
-              onPrimary: AppColors.white,
-              surface: AppColors.white,
+              onPrimary: AppColors.onAccent,
+              surface: AppColors.card,
               onSurface: AppColors.textDark,
             ),
-            dialogBackgroundColor: AppColors.white,
+            dialogBackgroundColor: AppColors.card,
           ),
           child: child!,
         );
@@ -139,38 +140,30 @@ Future<void> _onContinue() async {
                           shape: BoxShape.circle,
                           border: Border.all(color: AppColors.textDark, width: 2),
                         ),
-                        child: const Center(
+                        child: Center(
                           child: Icon(Icons.circle, size: 10, color: AppColors.primary),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Text(
+                      Text(
                         'Radius',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
-                        ),
+                        style: AppTextStyles.title,
                       ),
                     ],
                   ),
-                  const Icon(Icons.tune, color: AppColors.textDark),
+                  Icon(Icons.tune, color: AppColors.textDark),
                 ],
               ),
 
               const SizedBox(height: 40),
 
               // Heading
-              const Text(
+              Text(
                 'How old are you?',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
+                style: AppTextStyles.display,
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'We curate based on maturity. Please share your birth date.',
                 style: TextStyle(fontSize: 14, color: AppColors.textGrey),
               ),
@@ -178,7 +171,7 @@ Future<void> _onContinue() async {
               const SizedBox(height: 32),
 
               // Display name label
-              const Text(
+              Text(
                 'DISPLAY NAME',
                 style: TextStyle(
                   fontSize: 11,
@@ -190,25 +183,25 @@ Future<void> _onContinue() async {
               const SizedBox(height: 8),
               TextField(
                 controller: _nameController,
-                style: const TextStyle(fontSize: 15, color: AppColors.textDark),
+                style: TextStyle(fontSize: 15, color: AppColors.textDark),
                 decoration: InputDecoration(
                   hintText: 'How should we call you?',
-                  hintStyle: const TextStyle(color: AppColors.textGrey),
+                  hintStyle: TextStyle(color: AppColors.textGrey),
                   filled: true,
-                  fillColor: AppColors.white,
+                  fillColor: AppColors.card,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16, vertical: 14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppColors.inputBorder),
+                    borderSide: BorderSide(color: AppColors.inputBorder),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppColors.inputBorder),
+                    borderSide: BorderSide(color: AppColors.inputBorder),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                    borderSide: BorderSide(color: AppColors.primary, width: 1.5),
                   ),
                 ),
               ),
@@ -239,8 +232,8 @@ Future<void> _onContinue() async {
                     color: _isAdult
                         ? AppColors.primary.withOpacity(0.08)
                         : (_selectedDate != null
-                            ? const Color(0xFFFFEDED) // red tint if date picked but underage
-                            : AppColors.white),
+                            ? AppColors.danger.withValues(alpha: 0.08) // tint if picked but underage
+                            : AppColors.card),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: _isAdult
@@ -268,8 +261,8 @@ Future<void> _onContinue() async {
                           ),
                         ),
                         child: _isAdult
-                            ? const Icon(Icons.check,
-                                size: 14, color: AppColors.white)
+                            ? Icon(Icons.check,
+                                size: 14, color: AppColors.onAccent)
                             : (_selectedDate != null
                                 ? const Icon(Icons.close,
                                     size: 14, color: Colors.red)
@@ -331,8 +324,8 @@ Future<void> _onContinue() async {
                     elevation: 0,
                   ),
                   child: _isLoading
-                      ? const CircularProgressIndicator(color: AppColors.white)
-                      : const Row(
+                      ? CircularProgressIndicator(color: AppColors.onAccent)
+                      : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
@@ -340,11 +333,11 @@ Future<void> _onContinue() async {
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.white,
+                                color: AppColors.onAccent,
                               ),
                             ),
                             SizedBox(width: 8),
-                            Icon(Icons.arrow_forward, color: AppColors.white, size: 18),
+                            Icon(Icons.arrow_forward, color: AppColors.onAccent, size: 18),
                           ],
                         ),
                 ),
@@ -366,7 +359,7 @@ Future<void> _onContinue() async {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
               color: AppColors.textGrey,
@@ -389,9 +382,9 @@ Future<void> _onContinue() async {
                 decoration: InputDecoration(
                   counterText: '',
                   hintText: hint,
-                  hintStyle: const TextStyle(color: AppColors.textGrey),
+                  hintStyle: TextStyle(color: AppColors.textGrey),
                   filled: true,
-                  fillColor: AppColors.white,
+                  fillColor: AppColors.card,
                   contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -409,7 +402,7 @@ Future<void> _onContinue() async {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
+                    borderSide: BorderSide(
                         color: AppColors.primary, width: 1.5),
                   ),
                 ),
@@ -430,7 +423,7 @@ Future<void> _onContinue() async {
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(fontSize: 12, color: AppColors.textGrey),
+            style: TextStyle(fontSize: 12, color: AppColors.textGrey),
           ),
         ),
       ],

@@ -64,6 +64,7 @@ dependencies:
 
   # Device location for discovery ("Near you") + onboarding location step
   geolocator: ^13.0.1
+  maplibre_gl: ^0.26.2
 
 dev_dependencies:
   flutter_test:
@@ -91,10 +92,24 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  # Both families are VARIABLE fonts, registered as a single file each. Weight
+  # is selected at use-site through `FontVariation('wght', n)` — see
+  # AppTextStyles. Declaring per-weight `weight:` entries here would be a lie:
+  # there is only one instance in the file, and Flutter would render it for
+  # every weight requested.
+  fonts:
+    - family: Fraunces
+      fonts:
+        - asset: assets/fonts/Fraunces.ttf
+    - family: DM Sans
+      fonts:
+        - asset: assets/fonts/DMSans.ttf
+
+  assets:
+    # The Explore map's vector style. Kept as a real style document rather
+    # than a Dart string so it stays diffable — see MapStyleService, which
+    # substitutes the tile and glyph URLs into it at run time.
+    - assets/map/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

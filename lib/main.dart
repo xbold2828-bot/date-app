@@ -3,12 +3,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/constants/app_colors.dart';
+import 'core/constants/app_text_styles.dart';
 import 'core/constants/env.dart';
+import 'core/theme/app_theme.dart';
+import 'core/theme/palette_scope.dart';
+import 'core/theme/theme_controller.dart';
 import 'presentation/auth/screens/authed_bootstrap.dart';
 import 'presentation/auth/screens/login_screen.dart';
+import 'presentation/common/widgets/radius_toast.dart';
+import 'providers/core_providers.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Env has no fallbacks, so bail out here with a readable screen instead of
+  // letting Supabase.initialize throw on an empty URL.
+  if (!Env.isConfigured) {
+    runApp(MissingConfigApp(missingKeys: Env.missingKeys));
+    return;
+  }
 
   await Supabase.initialize(
     url: Env.supabaseUrl,
@@ -20,67 +33,89 @@ void main() async {
 
 final supabase = Supabase.instance.client;
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return MaterialApp(
+      title: 'Radius',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      // Follows the phone until the user flips the switch on the You screen.
+      themeMode: ref.watch(themeModeProvider),
+      // PaletteScope has to sit here rather than around the MaterialApp: it
+      // reads the resolved brightness off Theme.of, which only exists below.
+      builder: (context, child) => PaletteScope(child: child!),
+      // One messenger for the whole app, so a confirmation can be raised from
+      // anywhere — including code holding no BuildContext, and screens whose
+      // context is gone by the time their request comes back.
+      scaffoldMessengerKey: radiusMessengerKey,
+      home: const AuthGate(),
+    );
+  }
+}
+
+/// Decides the launch route: an existing session boots into the app (loading
+/// the domain user), otherwise the login screen.
+///
+/// Watching the auth stream — rather than reading `currentSession` once — is
+/// what makes sign-out and token expiry land the user back on login instead of
+/// leaving a dead screen behind.
+class AuthGate extends ConsumerWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Rebuilds on every sign-in / sign-out / token refresh.
+    ref.watch(authStateProvider);
+    final session = Supabase.instance.client.auth.currentSession;
+    return session != null ? const AuthedBootstrap() : const LoginScreen();
+  }
+}
+
+/// Stands in for the whole app when `.env` wasn't supplied, so the failure is
+/// an obvious screen naming the missing keys instead of a cryptic crash.
+class MissingConfigApp extends StatelessWidget {
+  const MissingConfigApp({super.key, required this.missingKeys});
+
+  final List<String> missingKeys;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Radius',
       debugShowCheckedModeBanner: false,
-      home: Env.hasSupabaseAnonKey ? const AuthGate() : const _MissingConfig(),
-    );
-  }
-}
-
-/// Decides the launch route: an existing session boots into the app (loading
-/// the domain user), otherwise the login screen. Post-login navigation is
-/// handled by the auth screens pushing [AuthedBootstrap].
-class AuthGate extends StatelessWidget {
-  const AuthGate({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final session = supabase.auth.currentSession;
-    if (session != null) return const AuthedBootstrap();
-    return const LoginScreen();
-  }
-}
-
-/// Shown when the Supabase anon key hasn't been configured yet, so the failure
-/// is obvious instead of a cryptic auth error.
-class _MissingConfig extends StatelessWidget {
-  const _MissingConfig();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.key_off, size: 48, color: AppColors.textGrey),
-                SizedBox(height: 16),
-                Text(
-                  'Supabase not configured',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
+      theme: AppTheme.light,
+      home: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.key_off, size: 48, color: AppColors.iconMuted),
+                  const SizedBox(height: 16),
+                  Text('Environment not configured',
+                      style: AppTextStyles.title),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Missing: ${missingKeys.join(', ')}',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.bodyStrong,
                   ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Set the Supabase anon key in lib/core/constants/env.dart '
-                  '(or pass --dart-define=SUPABASE_ANON_KEY=...) and restart.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13, color: AppColors.textGrey),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  Text(
+                    'Copy .env.example to .env, fill it in, then relaunch with\n'
+                    'flutter run --dart-define-from-file=.env',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.caption,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

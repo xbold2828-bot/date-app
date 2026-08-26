@@ -31,6 +31,19 @@
 
   <title>dating_app</title>
   <link rel="manifest" href="manifest.json">
+
+  <!--
+    MapLibre GL JS — the web engine behind the Explore tab. On Android and iOS
+    maplibre_gl bundles maplibre-native, but on web it drives this global, so
+    without these two tags Explore renders nothing on web while every other
+    tab keeps working.
+
+    Keep the version in step with the installed maplibre_gl_web (currently
+    0.26.2, which targets maplibre-gl 5.24.x); a mismatch fails at run time,
+    not at build.
+  -->
+  <script src="https://unpkg.com/maplibre-gl@^5.24.0/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@^5.24.0/dist/maplibre-gl.css" rel="stylesheet"/>
 </head>
 <body>
   <!--

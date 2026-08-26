@@ -2,15 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../data/models/user_model.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../providers/profile_provider.dart';
 import '../../home/screens/home_screen.dart';
 import 'age_screen.dart';
+import 'basics_screen1.dart';
+import 'basics_screen2.dart';
+import 'basics_screen3.dart';
+import 'basics_screen4.dart';
+import 'basics_screen5.dart';
+import 'basics_screen7.dart';
 import 'login_screen.dart';
+import 'status_screen.dart';
 
 /// Entry point once a Supabase session exists: loads the domain user
-/// (`GET /users/me`, which also provisions it on first call) and routes to the
-/// onboarding funnel or home based on real progress.
+/// (`GET /users/me`, which also provisions it on first call) and routes to home
+/// or back into the funnel at the exact step the backend says is outstanding.
 class AuthedBootstrap extends ConsumerWidget {
   const AuthedBootstrap({super.key});
 
@@ -23,9 +31,43 @@ class AuthedBootstrap extends ConsumerWidget {
         message: err.toString(),
         onRetry: () => ref.invalidate(meProvider),
       ),
-      data: (user) =>
-          user.onboarding.isComplete ? const HomeScreen() : const AgeScreen(),
+      data: (user) => user.onboarding.isComplete
+          ? const HomeScreen()
+          : _resumeAt(user.onboarding.nextStep),
     );
+  }
+
+  /// Maps the backend's outstanding step to the screen that satisfies it, so a
+  /// refresh mid-funnel picks up where the user left off instead of restarting
+  /// from the age gate.
+  ///
+  /// Two screens each save a pair of steps (intent+personality,
+  /// preferences+hard-no's), so both of those steps route to the same screen.
+  Widget _resumeAt(String? nextStep) {
+    switch (nextStep) {
+      case OnboardingSteps.ageVerification:
+        return const AgeScreen();
+      case OnboardingSteps.basics:
+        return const BasicsScreen();
+      case OnboardingSteps.intent:
+      case OnboardingSteps.personality:
+        return const BasicsScreen2();
+      case OnboardingSteps.status:
+        return const StatusScreen();
+      case OnboardingSteps.preferences:
+      case OnboardingSteps.hardNos:
+        return const BasicsScreen3();
+      case OnboardingSteps.photo:
+        return const BasicsScreen4();
+      case OnboardingSteps.location:
+        return const BasicsScreen5();
+      case OnboardingSteps.agreement:
+        return const BasicsScreen7();
+      default:
+        // No step named (or an unknown one from a newer backend): start over
+        // rather than guess. Completed steps are skipped by the funnel anyway.
+        return const AgeScreen();
+    }
   }
 }
 
@@ -34,7 +76,7 @@ class _Splash extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       backgroundColor: AppColors.background,
       body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
     );
@@ -57,9 +99,9 @@ class _ErrorRetry extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.cloud_off, size: 48, color: AppColors.textGrey),
+              Icon(Icons.cloud_off, size: 48, color: AppColors.textGrey),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 "Couldn't reach Radius",
                 style: TextStyle(
                   fontSize: 18,
@@ -71,7 +113,7 @@ class _ErrorRetry extends StatelessWidget {
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13, color: AppColors.textGrey),
+                style: TextStyle(fontSize: 13, color: AppColors.textGrey),
               ),
               const SizedBox(height: 24),
               SizedBox(
@@ -86,12 +128,12 @@ class _ErrorRetry extends StatelessWidget {
                     ),
                     elevation: 0,
                   ),
-                  child: const Text(
+                  child: Text(
                     'Retry',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.white,
+                      color: AppColors.onAccent,
                     ),
                   ),
                 ),
@@ -108,7 +150,7 @@ class _ErrorRetry extends StatelessWidget {
                     );
                   }
                 },
-                child: const Text(
+                child: Text(
                   'Sign out',
                   style: TextStyle(color: AppColors.textGrey),
                 ),

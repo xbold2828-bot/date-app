@@ -22,7 +22,7 @@ class ApiClient {
       ..connectTimeout = ApiConstants.connectTimeout
       ..receiveTimeout = ApiConstants.receiveTimeout
       ..sendTimeout = ApiConstants.sendTimeout
-      ..headers[Headers.contentTypeHeader] = Headers.jsonContentType
+      ..headers['content-type'] = 'application/json; charset=utf-8'
       ..responseType = ResponseType.json;
 
     _dio.interceptors.addAll([

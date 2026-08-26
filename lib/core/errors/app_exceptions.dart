@@ -164,6 +164,39 @@ class ServerException extends AppException {
   ]) : super(message, statusCode: statusCode, error: 'ServerError');
 }
 
+/// Why the device could not give us a position.
+///
+/// Kept separate from the message so a screen can offer the right way out —
+/// "open settings" reads as nonsense when the user simply hasn't been asked yet.
+enum LocationFailure {
+  /// The OS location toggle is off. Nothing to prompt for.
+  serviceDisabled,
+
+  /// Asked, and declined this time.
+  denied,
+
+  /// Declined permanently — only Settings can undo it.
+  deniedForever,
+
+  /// Permission granted, but the fix failed or timed out.
+  unavailable,
+}
+
+/// The device refused, or failed, to produce a position.
+///
+/// Not an API failure, so it deliberately carries no status code — but it
+/// extends [AppException] so the screens that already `on AppException catch`
+/// keep working without a second catch clause.
+class LocationUnavailableException extends AppException {
+  const LocationUnavailableException(this.reason, String message)
+      : super(message, error: 'LocationUnavailable');
+
+  final LocationFailure reason;
+
+  /// Whether asking again could plausibly succeed.
+  bool get isRetryable => reason != LocationFailure.deniedForever;
+}
+
 /// Fallback for anything not otherwise classified.
 class UnknownApiException extends AppException {
   const UnknownApiException(

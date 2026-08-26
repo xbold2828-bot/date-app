@@ -31,6 +31,20 @@ class MatchRepository {
     return LikedYouPage.fromJson(Map<String, dynamic>.from(data as Map));
   }
 
+  /// `GET /likes/mutual` — matches.
+  ///
+  /// No entitlement, no redaction, no paywall: both people already chose this.
+  Future<PageResult<MutualCard>> mutual({int page = 1, int limit = 20}) async {
+    final data = await _api.get(
+      ApiConstants.mutualLikes,
+      query: {'page': page, 'limit': limit},
+    );
+    return PageResult<MutualCard>.fromJson(
+      Map<String, dynamic>.from(data as Map),
+      MutualCard.fromJson,
+    );
+  }
+
   /// `GET /likes/favorites` — people I favourited.
   Future<PageResult<LikeCard>> favorites({int page = 1, int limit = 20}) async {
     final data = await _api.get(

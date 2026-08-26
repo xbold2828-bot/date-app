@@ -1,354 +1,180 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/selection_limits.dart';
+import '../../../core/constants/tag_categories.dart';
+import '../../../core/errors/app_exceptions.dart';
+import '../../../data/models/tag_model.dart';
+import '../../../data/models/user_model.dart';
+import '../../../providers/core_providers.dart';
+import '../../../providers/profile_provider.dart';
+import '../../common/widgets/widgets.dart';
+import '../widgets/onboarding_widgets.dart';
 import 'basics_screen4.dart';
 
-class BasicsScreen3 extends StatefulWidget {
+/// Steps 6 + 7 — "What I'm into" (`PATCH /onboarding/preferences`) and
+/// "My hard no's" (`PATCH /onboarding/hard-nos`).
+///
+/// Every chip comes from `GET /tags`; the API validates slugs against the
+/// catalogue, so labels are never sent. The verified-members-only rule on the
+/// adult tags is switched off for now (see
+/// `BusinessConfig.requireVerificationForDesires`) — everyone can select
+/// anything, and saving none is still allowed.
+///
+/// Each section carries its own cap ([SelectionLimits.intoByCategory]) rather
+/// than sharing one budget across the step; hard no's are never capped. Both
+/// limits are the same constants the "Me" tab's editor enforces, so an answer
+/// given in the funnel and an answer edited later obey one rule.
+class BasicsScreen3 extends ConsumerStatefulWidget {
   const BasicsScreen3({super.key});
 
   @override
-  State<BasicsScreen3> createState() => _BasicsScreen3State();
+  ConsumerState<BasicsScreen3> createState() => _BasicsScreen3State();
 }
 
-class _BasicsScreen3State extends State<BasicsScreen3> {
-  bool _respectMyNos = true;
+class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
+  Set<String> _selectedPreferences = {};
+  Set<String> _selectedHardNos = {};
+  bool _showHardNosOnProfile = true;
   bool _isLoading = false;
+  bool _restoredHardNos = false;
+  bool _restoredPreferences = false;
 
-  final Set<String> _selectedRoles = {};
-  final Set<String> _selectedInto = {};
-  final Set<String> _selectedScenarios = {};
-  final Set<String> _selectedFantasy = {};
-  final Set<String> _selectedHardNos = {};
+  void _restoreHardNos(MeUser me) {
+    if (_restoredHardNos) return;
+    _restoredHardNos = true;
+    _selectedHardNos.addAll(me.profile.hardNos);
+    _showHardNosOnProfile = me.profile.showHardNosOnProfile;
+  }
 
-  final List<String> _roles = [
-    'Dominant', 'Submissive', 'Switch',
-    'Top', 'Bottom', 'Vers', 'Brat', 'Caregiver',
-  ];
+  /// Waits for the catalogue, because a saved slug says nothing about which
+  /// section it belongs to — and the caps are per section now.
+  ///
+  /// Each category is trimmed to its own cap, so an account that answered
+  /// before these limits existed lands here inside them rather than over
+  /// budget with a counter reading 6/3. Slugs the catalogue no longer carries
+  /// are dropped: the API would reject them on save anyway, and nothing on
+  /// this screen could show them.
+  void _restorePreferences(MeUser me, Map<String, List<Tag>> grouped) {
+    if (_restoredPreferences) return;
+    _restoredPreferences = true;
 
-  final List<String> _into = [
-    'Vanilla', 'Kink-friendly', 'Roleplay',
-    'Power play', 'Sensation play', 'Toys', 'Experimental',
-  ];
-
-  final List<String> _scenarios = [
-    'One-on-one', 'No-strings', 'FWB',
-    'Discreet', 'Couples-friendly', 'Group-curious',
-  ];
-
-  final List<String> _fantasy = [
-    'On the beach', 'Rooftop terrace',
-    'Hotel escape', 'By the pool',
-    'Golden hour', 'Candlelit', 'Travel fling',
-  ];
-
-  final List<String> _hardNos = [
-    'No unsolicited pics',
-    'No pushy energy', 'No ghosting',
-    'No off-app', 'No smoking',
-  ];
+    final saved = me.profile.preferenceTags;
+    for (final category in TagCategories.preferences) {
+      final slugs = {
+        for (final tag in grouped[category] ?? const <Tag>[]) tag.slug,
+      };
+      _selectedPreferences.addAll(
+        saved.where(slugs.contains).take(SelectionLimits.intoIn(category)),
+      );
+    }
+  }
 
   Future<void> _onSave() async {
     setState(() => _isLoading = true);
+    try {
+      final repo = ref.read(onboardingRepositoryProvider);
 
-    // TODO: ProfileService.updateDesires(
-    //   roles: _selectedRoles,
-    //   into: _selectedInto,
-    //   scenarios: _selectedScenarios,
-    //   fantasy: _selectedFantasy,
-    //   hardNos: _selectedHardNos,
-    //   respectMyNos: _respectMyNos,
-    // )
-    await Future.delayed(const Duration(milliseconds: 600));
+      // Everything the user picked is sent as-is. The verified-members-only
+      // rule on these tags is switched off server-side until identity
+      // verification ships (BusinessConfig.requireVerificationForDesires).
+      await repo.updatePreferences(_selectedPreferences.toList());
+      final me = await repo.updateHardNos(
+        _selectedHardNos.toList(),
+        showOnProfile: _showHardNosOnProfile,
+      );
+      ref.read(meProvider.notifier).setMe(me);
 
-    if (mounted) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const BasicsScreen4()),
-  );
-}
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const BasicsScreen4()),
+        );
+      }
+    } on AppException catch (e) {
+      _showSnack(e.message);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
-    setState(() => _isLoading = false);
-
-    // TODO: GoRouter.of(context).go('/home')
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
   Widget build(BuildContext context) {
+    final me = ref.watch(meProvider).valueOrNull;
+    if (me != null) _restoreHardNos(me);
+
+    final tags = ref.watch(tagsByCategoryProvider);
+    final catalogue = tags.valueOrNull;
+    if (me != null && catalogue != null) _restorePreferences(me, catalogue);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
-            // Top bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back, color: AppColors.textDark),
-                  ),
-                  const Expanded(
-                    child: Center(
-                      child: Text(
-                        'Radius',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 24),
-                ],
-              ),
-            ),
-
-            // Progress bar — full
-             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: const [
-                      Text(
-                        'STEP 3 OF 6',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
-                          letterSpacing: 1.1,
-                        ),
-                      ),
-                      Text(
-                        'IDENTITY',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textGrey,
-                          letterSpacing: 1.1,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(2),
-                    child: LinearProgressIndicator(
-                      value: 3 / 6,
-                      minHeight: 3,
-                      backgroundColor: AppColors.inputBorder,
-                      valueColor:
-                          const AlwaysStoppedAnimation(AppColors.primary),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            
-
+            const OnboardingHeader(step: 6, label: 'DESIRES'),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 20),
-
-                    // FINAL STEP label
-                    const Text(
-                      'STEP 3 OF 6',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                        letterSpacing: 1.3,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    const Text(
+                    const SizedBox(height: 24),
+                    Text(
                       'Define your desires.',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                      ),
+                      style: AppTextStyles.display,
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      'Verified members only. These tags are hidden until you reveal them.',
-                      style: TextStyle(fontSize: 13, color: AppColors.textGrey),
+                    Text(
+                      'Answer as many of these as you like — each one has its '
+                      'own allowance, and they all stay private until you '
+                      'match with someone.',
+                      style: AppTextStyles.caption,
                     ),
 
                     const SizedBox(height: 20),
 
-                    // Privacy preview card
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: AppColors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.inputBorder),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Privacy Preview',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.textGrey,
-                                ),
-                              ),
-                              const Icon(Icons.lock_outline,
-                                  size: 16, color: AppColors.textGrey),
-                            ],
+                    tags.when(
+                      loading: () => Padding(
+                        padding: EdgeInsets.symmetric(vertical: 32),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.primary,
                           ),
-                          const SizedBox(height: 8),
-                          const Center(
-                            child: Text(
-                              'ENCRYPTED',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textGrey,
-                                letterSpacing: 2,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: const [
-                              Text('Dominant',
-                                  style: TextStyle(
-                                      fontSize: 12, color: AppColors.textGrey)),
-                              Text('Sensation play',
-                                  style: TextStyle(
-                                      fontSize: 12, color: AppColors.textGrey)),
-                              Text('Experimental',
-                                  style: TextStyle(
-                                      fontSize: 12, color: AppColors.textGrey)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Role & Energy
-                    _sectionLabel('ROLE & ENERGY'),
-                    const SizedBox(height: 12),
-                    _chipGroup(_roles, _selectedRoles),
-
-                    const SizedBox(height: 28),
-
-                    // Into
-                    _sectionLabel('INTO'),
-                    const SizedBox(height: 12),
-                    _chipGroup(_into, _selectedInto),
-
-                    const SizedBox(height: 28),
-
-                    // Scenario
-                    _sectionLabel('SCENARIO'),
-                    const SizedBox(height: 12),
-                    _chipGroup(_scenarios, _selectedScenarios),
-
-                    const SizedBox(height: 28),
-
-                    // Fantasy & Setting
-                    _sectionLabel('FANTASY & SETTING'),
-                    const SizedBox(height: 12),
-                    _chipGroup(_fantasy, _selectedFantasy),
-
-                    const SizedBox(height: 28),
-
-                    // Hard No's
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.07),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                            color: AppColors.primary.withOpacity(0.2)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                "HARD NO'S",
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textDark,
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                              Row(
-                                children: [
-                                  Switch(
-                                    value: _respectMyNos,
-                                    onChanged: (v) =>
-                                        setState(() => _respectMyNos = v),
-                                    activeColor: AppColors.primary,
-                                  ),
-                                  const Text(
-                                    "Respect my no's",
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.textDark),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          _chipGroup(_hardNos, _selectedHardNos),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Save & Enter button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _onSave,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          elevation: 0,
                         ),
-                        child: _isLoading
-                            ? const CircularProgressIndicator(
-                                color: AppColors.white)
-                            : const Text(
-                                'Save & Enter',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.white,
-                                ),
-                              ),
+                      ),
+                      error: (err, _) => _CatalogueError(
+                        onRetry: () => ref.invalidate(tagsByCategoryProvider),
+                      ),
+                      data: (grouped) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ── Step 6 · preference sections ──────────────
+                          for (final category in TagCategories.preferences)
+                            if ((grouped[category] ?? const <Tag>[]).isNotEmpty)
+                              _preferenceSection(category, grouped[category]!),
+
+                          // ── Step 7 · hard no's ────────────────────────
+                          _hardNosCard(grouped[TagCategories.hardNo] ?? const []),
+                        ],
                       ),
                     ),
 
+                    const SizedBox(height: 32),
+
+                    OnboardingButton(
+                      label: 'Continue',
+                      isLoading: _isLoading,
+                      onPressed: _onSave,
+                    ),
                     const SizedBox(height: 40),
                   ],
                 ),
@@ -360,53 +186,114 @@ class _BasicsScreen3State extends State<BasicsScreen3> {
     );
   }
 
-  Widget _sectionLabel(String label) {
-    return Text(
-      label,
-      style: const TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        color: AppColors.textGrey,
-        letterSpacing: 1.2,
+  /// One desires group, with its own cap and its own counter.
+  ///
+  /// `_selectedPreferences` stays a single flat set — it is what gets PATCHed,
+  /// and the profile prints it as one list — so the group hands the chips only
+  /// the slice of it that belongs to this category, and folds the answer back
+  /// in on change. Counting the whole set here would let one section's picks
+  /// fill up another's.
+  Widget _preferenceSection(String category, List<Tag> tags) {
+    final title = TagCategories.label(category);
+    final max = SelectionLimits.intoIn(category);
+    final slugs = {for (final tag in tags) tag.slug};
+    final chosen = _selectedPreferences.intersection(slugs);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: OnboardingSectionLabel(title)),
+              SelectionCounter(count: chosen.length, max: max),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(selectionHint(max), style: AppTextStyles.caption),
+          const SizedBox(height: 12),
+          LimitedTagChipGroup(
+            tags: tags,
+            selected: chosen,
+            max: max,
+            onChanged: (next) => setState(() {
+              _selectedPreferences = {
+                ..._selectedPreferences.difference(slugs),
+                ...next,
+              };
+            }),
+            onLimitReached: () => _showSnack(
+              selectionLimitMessage('${title.toLowerCase()} tags', max),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _chipGroup(List<String> options, Set<String> selected) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: options.map((o) {
-        final isSelected = selected.contains(o);
-        return GestureDetector(
-          onTap: () => setState(() {
-            isSelected ? selected.remove(o) : selected.add(o);
-          }),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? AppColors.primary.withOpacity(0.1)
-                  : AppColors.white,
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(
-                color:
-                    isSelected ? AppColors.primary : AppColors.inputBorder,
-                width: isSelected ? 1.5 : 1,
+  Widget _hardNosCard(List<Tag> hardNoTags) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(child: OnboardingSectionLabel("Hard no's")),
+              Switch(
+                value: _showHardNosOnProfile,
+                onChanged: (v) => setState(() => _showHardNosOnProfile = v),
+                activeColor: AppColors.primary,
               ),
-            ),
-            child: Text(
-              o,
-              style: TextStyle(
-                fontSize: 13,
-                color: isSelected ? AppColors.primary : AppColors.textDark,
-                fontWeight:
-                    isSelected ? FontWeight.w600 : FontWeight.normal,
+              Flexible(
+                child: Text(
+                  'Show on profile',
+                  style: TextStyle(fontSize: 12, color: AppColors.textDark),
+                ),
               ),
-            ),
+            ],
           ),
-        );
-      }).toList(),
+          const SizedBox(height: 14),
+          // Hard no's are never sensitive, and never rationed: a boundary you
+          // were not allowed to state is not a limit worth having.
+          LimitedTagChipGroup(
+            tags: hardNoTags,
+            selected: _selectedHardNos,
+            max: SelectionLimits.hardNos,
+            onChanged: (next) => setState(() => _selectedHardNos = next),
+            onLimitReached: () {},
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CatalogueError extends StatelessWidget {
+  const _CatalogueError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Couldn't load the tag options. You can continue and set these later.",
+          style: TextStyle(fontSize: 13, color: AppColors.textGrey),
+        ),
+        TextButton(
+          onPressed: onRetry,
+          child: Text('Retry', style: TextStyle(color: AppColors.primary)),
+        ),
+      ],
     );
   }
 }

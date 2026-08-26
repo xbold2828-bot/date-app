@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../../core/constants/env.dart';
+
 class AuthService {
   final _supabase = Supabase.instance.client;
 
@@ -33,10 +35,23 @@ class AuthService {
     );
     return null;
   } else {
-    // Mobile: use google_sign_in package
+    // Mobile: use google_sign_in package.
+    //
+    // serverClientId must be the WEB client ID. The Android client is matched
+    // by package name + signing SHA-1 and never named here — passing it as
+    // serverClientId fails with ApiException: 10 (DEVELOPER_ERROR), which looks
+    // identical to an unregistered SHA-1 and is easy to misread as one.
+    if (Env.googleWebClientId.isEmpty) {
+      throw StateError(
+        'GOOGLE_WEB_CLIENT_ID is not set. Pass it at build time with '
+        '--dart-define-from-file=.env — it must be the Web OAuth client ID, '
+        'not the Android one.',
+      );
+    }
+
     final GoogleSignIn googleSignIn = GoogleSignIn(
       scopes: ['email', 'profile'],
-      serverClientId: '697500189049-ubbn1551pc11miebe0052gkndlbdho1s.apps.googleusercontent.com',
+      serverClientId: Env.googleWebClientId,
     );
 
     final GoogleSignInAccount? googleUser = await googleSignIn.signIn();

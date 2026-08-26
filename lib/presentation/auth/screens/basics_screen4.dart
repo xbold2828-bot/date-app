@@ -1,92 +1,148 @@
-import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
-import 'basics_screen5.dart';
-import 'dart:io';
-import 'package:image_picker/image_picker.dart';
-import 'package:flutter/foundation.dart'; // for kIsWeb
 import 'dart:typed_data';
 
-class BasicsScreen4 extends StatefulWidget {
-  const BasicsScreen4({super.key});
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
-  @override
-  State<BasicsScreen4> createState() => _BasicsScreen4State();
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
+import '../../../core/errors/app_exceptions.dart';
+import '../../../data/models/media_model.dart';
+import '../../../providers/core_providers.dart';
+import '../../../providers/profile_provider.dart';
+import '../widgets/onboarding_widgets.dart';
+import 'basics_screen5.dart';
+
+/// One picked-but-not-yet-uploaded image. Bytes are read up front so the same
+/// code path works on web and mobile.
+class _PickedPhoto {
+  _PickedPhoto({required this.bytes, required this.contentType});
+
+  final Uint8List bytes;
+  final String contentType;
 }
 
-class _BasicsScreen4State extends State<BasicsScreen4> {
-  // 5 slots: index 0 = primary, rest are additional
- final List<String?> _photoPaths = List.filled(5, null);    // for mobile
-  final List<Uint8List?> _photoBytes = List.filled(5, null); // for web
+/// Step 8 · "Show yourself" — photo upload.
+///
+/// Uploads go direct to object storage via a presigned URL, which can be
+/// unreachable from the device depending on how storage is deployed. That must
+/// never trap the user in onboarding, so a failed upload is reported and the
+/// step is still completed via `PATCH /onboarding/photo` — photos can be added
+/// later from the profile screen.
+class BasicsScreen4 extends ConsumerStatefulWidget {
+  const BasicsScreen4({super.key});
+
+  /// Stable key per upload slot, so the grid's alignment can be asserted in
+  /// tests rather than eyeballed.
+  static Key photoSlotKey(int index) => ValueKey('photo-slot-$index');
+
+  @override
+  ConsumerState<BasicsScreen4> createState() => _BasicsScreen4State();
+}
+
+class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
+  static const int _slots = 5;
+
+  final List<_PickedPhoto?> _photos = List.filled(_slots, null);
   final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
 
-   bool get _canContinue =>
-      _photoPaths[0] != null || _photoBytes[0] != null;
+  bool get _hasAnyPhoto => _photos.any((p) => p != null);
 
- // With:
+  /// Only the MIME types the API accepts; anything else is sent as JPEG, which
+  /// is what image_picker produces once `imageQuality` re-encodes.
+  String _contentTypeFor(String name) {
+    final lower = name.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
+  }
+
   Future<void> _pickPhoto(int index) async {
     try {
-      final XFile? file = await _picker.pickImage(
+      final file = await _picker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 85,
         maxWidth: 1080,
       );
+      if (file == null) return;
 
-      if (file != null) {
-        if (kIsWeb) {
-          // Web: read as bytes
-          final bytes = await file.readAsBytes();
-          setState(() {
-            _photoBytes[index] = bytes;
-            _photoPaths[index] = file.name;
-          });
-        } else {
-          // Mobile/Desktop: use file path
-          setState(() {
-            _photoPaths[index] = file.path;
-          });
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open gallery. Please try again.')),
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _photos[index] = _PickedPhoto(
+          bytes: bytes,
+          contentType: _contentTypeFor(file.name),
         );
+      });
+    } catch (_) {
+      if (mounted) {
+        _showSnack('Could not open the gallery. Please try again.');
       }
     }
   }
 
-  void _removePhoto(int index) {
-    setState(() {
-      _photoPaths[index] = null;
-      _photoBytes[index] = null;
-    });
-  }
+  void _removePhoto(int index) => setState(() => _photos[index] = null);
 
   Future<void> _onContinue() async {
-    if (!_canContinue) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please upload at least one primary photo')),
-      );
-      return;
-    }
-
     setState(() => _isLoading = true);
+    try {
+      final media = ref.read(mediaRepositoryProvider);
+      final picked = _photos.whereType<_PickedPhoto>().toList();
 
-    // TODO: ProfileService.uploadPhotos(_photos)
-    await Future.delayed(const Duration(milliseconds: 600));
+      var uploaded = 0;
+      String? firstFailure;
+      String? stepError;
+      for (final photo in picked) {
+        final result = await media.uploadPhoto(
+          bytes: photo.bytes,
+          contentType: photo.contentType,
+          type: MediaKind.publicPhoto,
+        );
+        if (result.succeeded) {
+          uploaded++;
+        } else {
+          firstFailure ??= result.failureReason;
+        }
+      }
 
-    if (mounted) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const BasicsScreen5()),
-  );
-}
+      // A successful upload already completes step 8 server-side; this call is
+      // idempotent and is the only thing that finishes the step when every
+      // upload failed or nothing was added. Never block on it — an older
+      // backend without this route must not strand the user on this screen.
+      try {
+        final me = await ref
+            .read(onboardingRepositoryProvider)
+            .completePhotoStep(skipped: uploaded == 0);
+        ref.read(meProvider.notifier).setMe(me);
+      } on AppException catch (e) {
+        stepError = e.message;
+      }
+      ref.invalidate(myMediaProvider);
 
+      if (!mounted) return;
+      if (stepError != null && uploaded == 0) {
+        _showSnack("Couldn't save this step: $stepError");
+      } else if (picked.isNotEmpty && uploaded == 0) {
+        _showSnack(
+          "Photos couldn't be uploaded right now — you can add them later "
+          'from your profile.',
+        );
+      } else if (firstFailure != null) {
+        _showSnack('Uploaded $uploaded of ${picked.length} photos.');
+      }
 
-    setState(() => _isLoading = false);
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const BasicsScreen5()),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
-    // TODO: GoRouter.of(context).go('/home')
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
@@ -96,161 +152,60 @@ class _BasicsScreen4State extends State<BasicsScreen4> {
       body: SafeArea(
         child: Column(
           children: [
-            // Top bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back, color: AppColors.textDark),
-                  ),
-                  const Expanded(
-                    child: Center(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.circle, size: 10, color: AppColors.primary),
-                          SizedBox(width: 6),
-                          Text(
-                            'Radius',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textDark,
-                            ),
+            OnboardingHeader(
+              step: 8,
+              label: 'IDENTITY',
+              trailing: _isLoading
+                  ? null
+                  : GestureDetector(
+                      onTap: _onContinue,
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          'Skip',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: AppColors.textGrey,
+                            fontWeight: FontWeight.w600,
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 24),
-                ],
-              ),
-            ),
-
-            // Progress bar — step 4 of 6
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: const [
-                      Text(
-                        'STEP 4 OF 6',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
-                          letterSpacing: 1.1,
                         ),
                       ),
-                      Text(
-                        'IDENTITY',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textGrey,
-                          letterSpacing: 1.1,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(2),
-                    child: LinearProgressIndicator(
-                      value: 4 / 6,
-                      minHeight: 3,
-                      backgroundColor: AppColors.inputBorder,
-                      valueColor:
-                          const AlwaysStoppedAnimation(AppColors.primary),
                     ),
-                  ),
-                ],
-              ),
             ),
-
             const SizedBox(height: 20),
-
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Heading
-                    const Text(
+                    Text(
                       'Show yourself',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                      ),
+                      style: AppTextStyles.display,
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      'Upload up to 5 photos. One selfie minimum.',
+                    Text(
+                      'Upload up to 5 photos. You can always add more later.',
                       style: TextStyle(fontSize: 13, color: AppColors.textGrey),
                     ),
 
                     const SizedBox(height: 24),
 
-                    // Photo grid
-                    // Row 1: primary (tall) + 2 small stacked
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Primary photo — tall
-                        Expanded(
-                          flex: 5,
-                          child: _photoTile(
-                            index: 0,
-                            height: 220,
-                            isPrimary: true,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        // Two small slots stacked
-                        Expanded(
-                          flex: 4,
-                          child: Column(
-                            children: [
-                              _photoTile(index: 1, height: 105),
-                              const SizedBox(height: 10),
-                              _photoTile(index: 2, height: 105),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // Row 2: two equal small slots
-                    Row(
-                      children: [
-                        Expanded(child: _photoTile(index: 3, height: 100)),
-                        const SizedBox(width: 10),
-                        Expanded(child: _photoTile(index: 4, height: 100)),
-                      ],
-                    ),
+                    _photoGrid(),
 
                     const SizedBox(height: 20),
 
-                    // No nudity warning
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                            color: AppColors.primary.withOpacity(0.2)),
+                        border:
+                            Border.all(color: AppColors.primary.withOpacity(0.2)),
                       ),
                       child: Row(
-                        children: const [
+                        children: [
                           Icon(Icons.block, size: 16, color: AppColors.primary),
                           SizedBox(width: 10),
                           Expanded(
@@ -269,18 +224,22 @@ class _BasicsScreen4State extends State<BasicsScreen4> {
 
                     const SizedBox(height: 24),
 
-                    // Tips section
                     Row(
-                      children: const [
+                      children: [
                         Icon(Icons.lightbulb_outline,
                             size: 16, color: AppColors.textGrey),
                         SizedBox(width: 6),
-                        Text(
-                          'Tips for a better match',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textDark,
+                        // Unconstrained text in a Row overflows once the system
+                        // font scale goes up; let it take the remaining width
+                        // instead.
+                        Expanded(
+                          child: Text(
+                            'Tips for a better match',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textDark,
+                            ),
                           ),
                         ),
                       ],
@@ -294,9 +253,7 @@ class _BasicsScreen4State extends State<BasicsScreen4> {
                       subtitle:
                           'Daylight softens features and creates a more authentic presence.',
                     ),
-
                     const SizedBox(height: 10),
-
                     _tipCard(
                       icon: Icons.remove_red_eye_outlined,
                       title: 'Eyes Visible',
@@ -306,35 +263,11 @@ class _BasicsScreen4State extends State<BasicsScreen4> {
 
                     const SizedBox(height: 32),
 
-                    // Continue button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _onContinue,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _canContinue
-                              ? AppColors.primary
-                              : AppColors.textGrey.withOpacity(0.4),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: _isLoading
-                            ? const CircularProgressIndicator(
-                                color: AppColors.white)
-                            : const Text(
-                                'Continue',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.white,
-                                ),
-                              ),
-                      ),
+                    OnboardingButton(
+                      label: _hasAnyPhoto ? 'Continue' : 'Continue without photos',
+                      isLoading: _isLoading,
+                      onPressed: _onContinue,
                     ),
-
                     const SizedBox(height: 40),
                   ],
                 ),
@@ -346,53 +279,131 @@ class _BasicsScreen4State extends State<BasicsScreen4> {
     );
   }
 
-  Widget _photoTile({
-    required int index,
-    required double height,
-    bool isPrimary = false,
-  }) {
-    final hasPhoto = _photoPaths[index] != null || _photoBytes[index] != null;
+  /// The five upload slots on one 3-column grid: the primary spans 2×2, the
+  /// next two stack beside it, and the last two sit underneath.
+  ///
+  /// Every size is derived from the measured width, so the column edges line up
+  /// down the whole grid and the tiles keep their shape on any screen. The
+  /// previous version mixed flex ratios (5:4 on top, 1:1 below) with hardcoded
+  /// heights (220 / 105 / 100), so nothing aligned and the tiles distorted when
+  /// the screen got narrower.
+  Widget _photoGrid() {
+    const gap = 10.0;
+    // Portrait cells, a touch taller than they are wide.
+    const cellAspect = 1.25;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cellWidth = (constraints.maxWidth - gap * 2) / 3;
+        final cellHeight = cellWidth * cellAspect;
+        // The primary covers two cells plus the gap between them, on both axes.
+        final primarySide = cellWidth * 2 + gap;
+        final primaryHeight = cellHeight * 2 + gap;
+
+        return Column(
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: primarySide,
+                  height: primaryHeight,
+                  child: _photoTile(index: 0, isPrimary: true),
+                ),
+                const SizedBox(width: gap),
+                SizedBox(
+                  width: cellWidth,
+                  height: primaryHeight,
+                  child: Column(
+                    // Stretch, or the tiles collapse to their icon's intrinsic
+                    // width — a Column centres children by default and passes
+                    // loose horizontal constraints.
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        height: cellHeight,
+                        child: _photoTile(index: 1),
+                      ),
+                      const SizedBox(height: gap),
+                      SizedBox(
+                        height: cellHeight,
+                        child: _photoTile(index: 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: gap),
+            Row(
+              children: [
+                SizedBox(
+                  width: cellWidth,
+                  height: cellHeight,
+                  child: _photoTile(index: 3),
+                ),
+                const SizedBox(width: gap),
+                SizedBox(
+                  width: cellWidth,
+                  height: cellHeight,
+                  child: _photoTile(index: 4),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _photoTile({required int index, bool isPrimary = false}) {
+    final photo = _photos[index];
 
     return GestureDetector(
-      onTap: () => hasPhoto ? _removePhoto(index) : _pickPhoto(index),
+      key: BasicsScreen4.photoSlotKey(index),
+      onTap: () => photo != null ? _removePhoto(index) : _pickPhoto(index),
       child: Container(
-        height: height,
+        // Sized by the grid cell, never by a hardcoded height.
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: AppColors.card,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: hasPhoto ? AppColors.primary : AppColors.inputBorder,
-            width: hasPhoto ? 1.5 : 1,
+            color: photo != null ? AppColors.primary : AppColors.inputBorder,
+            width: photo != null ? 1.5 : 1,
           ),
         ),
-        child: hasPhoto
-            ? Stack(
+        child: photo == null
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (isPrimary) ...[
+                    Icon(Icons.add_a_photo_outlined,
+                        size: 28, color: AppColors.textGrey),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Primary Photo',
+                      style: TextStyle(fontSize: 12, color: AppColors.textGrey),
+                    ),
+                  ] else
+                    Icon(Icons.add,
+                        size: 22, color: AppColors.primary.withOpacity(0.6)),
+                ],
+              )
+            : Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Show image — web uses bytes, mobile uses file path
                   ClipRRect(
                     borderRadius: BorderRadius.circular(11),
-                    child: kIsWeb
-                        ? Image.memory(
-                            _photoBytes[index]!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              color: AppColors.primary.withOpacity(0.12),
-                              child: const Icon(Icons.broken_image_outlined,
-                                  color: AppColors.textGrey),
-                            ),
-                          )
-                        : Image.file(
-                            File(_photoPaths[index]!),
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              color: AppColors.primary.withOpacity(0.12),
-                              child: const Icon(Icons.broken_image_outlined,
-                                  color: AppColors.textGrey),
-                            ),
-                          ),
+                    child: Image.memory(
+                      photo.bytes,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: AppColors.primary.withOpacity(0.12),
+                        child: Icon(Icons.broken_image_outlined,
+                            color: AppColors.textGrey),
+                      ),
+                    ),
                   ),
-                  // Remove button
                   Positioned(
                     top: 6,
                     right: 6,
@@ -406,11 +417,10 @@ class _BasicsScreen4State extends State<BasicsScreen4> {
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.close,
-                            size: 14, color: AppColors.white),
+                            size: 14, color: AppColors.onImage),
                       ),
                     ),
                   ),
-                  // Primary badge
                   if (index == 0)
                     Positioned(
                       bottom: 6,
@@ -426,29 +436,12 @@ class _BasicsScreen4State extends State<BasicsScreen4> {
                           'Primary',
                           style: TextStyle(
                             fontSize: 10,
-                            color: AppColors.white,
+                            color: AppColors.onImage,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                     ),
-                ],
-              )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (isPrimary) ...[
-                    const Icon(Icons.add_a_photo_outlined,
-                        size: 28, color: AppColors.textGrey),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Primary Photo',
-                      style: TextStyle(fontSize: 12, color: AppColors.textGrey),
-                    ),
-                  ] else
-                    Icon(Icons.add,
-                        size: 22,
-                        color: AppColors.primary.withOpacity(0.6)),
                 ],
               ),
       ),
@@ -463,7 +456,7 @@ class _BasicsScreen4State extends State<BasicsScreen4> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.inputBorder),
       ),
@@ -478,7 +471,7 @@ class _BasicsScreen4State extends State<BasicsScreen4> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textDark,
@@ -487,7 +480,7 @@ class _BasicsScreen4State extends State<BasicsScreen4> {
                 const SizedBox(height: 3),
                 Text(
                   subtitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.primary,
                   ),

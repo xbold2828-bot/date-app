@@ -1,277 +1,277 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class PremiumScreen extends StatefulWidget {
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
+import '../../../core/errors/app_exceptions.dart';
+import '../../../providers/subscription_provider.dart';
+import '../../common/widgets/widgets.dart';
+
+/// One purchasable plan, as this screen needs to draw it.
+///
+/// The words are here; the prices come from `GET /subscription/plans` so a
+/// price change does not need an app release. The values below are the
+/// fallback for a catalogue that has not loaded (or cannot), because a paywall
+/// that renders without prices is worse than one showing last-known ones.
+class _Plan {
+  const _Plan({
+    required this.id,
+    required this.label,
+    required this.sublabel,
+    required this.price,
+    this.priceInr,
+    this.isBestValue = false,
+  });
+
+  final String id;
+  final String label;
+
+  /// What choosing this actually means, in plain terms.
+  final String sublabel;
+  final String price;
+
+  /// The rupee price, when the server sent one.
+  final String? priceInr;
+
+  final bool isBestValue;
+
+  _Plan withPrices(String usd, String? inr) => _Plan(
+        id: id,
+        label: label,
+        sublabel: sublabel,
+        price: usd,
+        priceInr: inr,
+        isBestValue: isBestValue,
+      );
+}
+
+/// One thing Premium gets you. Written as a claim plus its consequence, so
+/// each row says what changes rather than selling.
+class _Benefit {
+  const _Benefit(this.claim, this.detail);
+
+  final String claim;
+  final String detail;
+}
+
+class PremiumScreen extends ConsumerStatefulWidget {
   const PremiumScreen({super.key});
 
   @override
-  State<PremiumScreen> createState() => _PremiumScreenState();
+  ConsumerState<PremiumScreen> createState() => _PremiumScreenState();
 }
 
-class _PremiumScreenState extends State<PremiumScreen> {
+class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   String _selectedPlan = 'monthly';
   bool _isLoading = false;
+  bool _isRestoring = false;
 
-  final List<Map<String, dynamic>> _plans = [
-    {
-      'id': 'weekly',
-      'label': 'Weekly',
-      'sublabel': 'Short-term access',
-      'price': '\$4.99',
-      'isBestValue': false,
-    },
-    {
-      'id': 'monthly',
-      'label': 'Monthly',
-      'sublabel': 'Our most popular plan',
-      'price': '\$14.99',
-      'isBestValue': true,
-    },
-    {
-      'id': 'yearly',
-      'label': 'Yearly',
-      'sublabel': 'Annual commitment',
-      'price': '\$99.99',
-      'isBestValue': false,
-    },
+  static const List<_Plan> _fallbackPlans = [
+    _Plan(
+      id: 'monthly',
+      label: '1 month',
+      sublabel: 'Our most popular plan',
+      price: r'$14.99',
+      isBestValue: true,
+    ),
+    _Plan(
+      id: 'weekly',
+      label: '1 week',
+      sublabel: 'Try it out, cancel anytime',
+      price: r'$4.99',
+    ),
+    _Plan(
+      id: 'yearly',
+      label: '1 year',
+      sublabel: 'Best price per month',
+      price: r'$99.99',
+    ),
   ];
 
-  final List<Map<String, dynamic>> _features = [
-    {
-      'icon': Icons.remove_circle_outline,
-      'title': 'No ads',
-      'subtitle': 'Pure browsing without interruptions or visual noise.',
-    },
-    {
-      'icon': Icons.all_inclusive,
-      'title': 'Unlimited discovery',
-      'subtitle': 'No daily limits on viewing potential connections.',
-    },
-    {
-      'icon': Icons.remove_red_eye_outlined,
-      'title': 'See who liked you',
-      'subtitle': 'Remove the veil and see your admirers instantly.',
-    },
-    {
-      'icon': Icons.tune,
-      'title': 'Advanced filters',
-      'subtitle': 'Refine your search with precision verification metrics.',
-    },
+  static const List<_Benefit> _benefits = [
+    _Benefit('See everyone nearby', 'No daily limit on your radar.'),
+    _Benefit('See who liked you', 'Every name, before you reply.'),
+    // Free accounts earn their unlocks by watching rewarded ads. Premium is
+    // the version of the app where that never comes up.
+    _Benefit('No ads, ever', 'Nothing to watch, nothing to sit through.'),
+    _Benefit(
+      'Every filter',
+      'Online now, verified, situation, vibe and desires.',
+    ),
+    _Benefit('Start any conversation', 'No cap on openers.'),
   ];
 
+  /// The plans, priced by the server where it answered.
+  ///
+  /// The order and the words are this screen's; only the numbers come from the
+  /// catalogue. A plan the server does not offer keeps its fallback price
+  /// rather than disappearing mid-scroll.
+  List<_Plan> get _plans {
+    final catalogue = ref.watch(planCatalogueProvider).valueOrNull;
+    if (catalogue == null || catalogue.plans.isEmpty) return _fallbackPlans;
+
+    return [
+      for (final plan in _fallbackPlans)
+        () {
+          final priced = catalogue.plans.where((p) => p.plan == plan.id);
+          if (priced.isEmpty) return plan;
+          final option = priced.first;
+          return plan.withPrices(
+            option.priceLabel,
+            option.hasInrPrice ? option.priceInrLabel : null,
+          );
+        }(),
+    ];
+  }
+
+
+  /// Buy the selected plan.
+  ///
+  /// The backend's sandbox payment provider confirms inline and returns no
+  /// checkout URL, so premium is live the moment this returns — no store
+  /// credentials needed. If a real provider is configured later it returns a
+  /// URL instead, which is the only case that needs a payment sheet.
   Future<void> _onStartPremium() async {
+    if (_isLoading) return;
     setState(() => _isLoading = true);
+    try {
+      final result =
+          await ref.read(subscriptionActionsProvider).checkout(_selectedPlan);
 
-    // TODO: SubscriptionService.purchase(_selectedPlan)
-    // TODO: Handle payment flow (in_app_purchase package)
-    await Future.delayed(const Duration(milliseconds: 800));
+      if (!mounted) return;
+      if (result.isConfirmed) {
+        // The button said "Start Premium"; this says it started. Same words,
+        // so the outcome is recognisably the thing that was pressed.
+        showRadiusToast(context, 'Premium started. Your full radius is open.');
+        Navigator.pop(context);
+      } else {
+        // A live provider wants the payment completed elsewhere.
+        showRadiusToast(context, 'Finish the payment to start Premium.');
+      }
+    } on AppException catch (e) {
+      if (mounted) showRadiusToast(context, e.message);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
-    setState(() => _isLoading = false);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Premium activated! 🎉'),
-          backgroundColor: Colors.green,
-        ),
+  Future<void> _onRestore() async {
+    if (_isRestoring) return;
+    setState(() => _isRestoring = true);
+    try {
+      final result = await ref.read(subscriptionActionsProvider).restore();
+      if (!mounted) return;
+      showRadiusToast(
+        context,
+        result.isPremium
+            ? 'Premium restored.'
+            : 'No previous purchase found on this account.',
       );
-      Navigator.pop(context);
+    } on AppException catch (e) {
+      if (mounted) showRadiusToast(context, e.message);
+    } finally {
+      if (mounted) setState(() => _isRestoring = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Read once per build: `_plans` watches the catalogue, and the button needs
+    // to agree with the cards about what the selected plan costs.
+    final plans = _plans;
+    final current = plans.firstWhere(
+      (p) => p.id == _selectedPlan,
+      orElse: () => plans.first,
+    );
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
-            // Top bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back,
-                        color: AppColors.textDark),
-                  ),
-                  const Text(
-                    'RADIUS',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  // User avatar
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Color(0xFF6B7A8B),
-                    ),
-                    child: const Icon(Icons.person,
-                        size: 20, color: AppColors.white),
-                  ),
-                ],
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: RadiusBackButton(),
               ),
             ),
-
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 16),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
+                children: [
+                  Text('Radius Premium', style: AppTextStyles.eyebrow),
+                  const SizedBox(height: 10),
+                  Text(
+                    'See everyone.\nFilter everything.',
+                    style: AppTextStyles.display,
+                  ),
+                  const SizedBox(height: 22),
 
-                    // Icon
-                    Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Icon(
-                        Icons.radio_outlined,
-                        size: 36,
-                        color: AppColors.primary,
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Heading
-                    const Text(
-                      'Unlock Radius Premium',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Elevate your discovery experience with our most exclusive features and tools.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textGrey,
-                        height: 1.4,
-                      ),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Feature cards
-                    ...(_features.map((f) => _featureCard(f))),
-
-                    const SizedBox(height: 28),
-
-                    // Plan selector
-                    ...(_plans.map((plan) => _planTile(plan))),
-
-                    const SizedBox(height: 24),
-
-                    // Start Premium button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _onStartPremium,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: _isLoading
-                            ? const CircularProgressIndicator(
-                                color: AppColors.white)
-                            : const Text(
-                                'Start Premium',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.white,
-                                ),
-                              ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // Recurring billing note
-                    const Text(
-                      'Recurring billing. Cancel anytime.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textGrey,
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Restore + Terms
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        GestureDetector(
-                          onTap: () {
-                            // TODO: SubscriptionService.restorePurchases()
-                          },
-                          child: const Text(
-                            'Restore Purchases',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w500,
+                  ..._benefits.map(
+                    (b) => TickRow(
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: b.claim,
+                              style: AppTextStyles.bodyStrong,
                             ),
-                          ),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text('•',
-                              style: TextStyle(color: AppColors.textGrey)),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            // TODO: Launch terms of service URL
-                          },
-                          child: const Text(
-                            'Terms of Service',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w500,
+                            TextSpan(
+                              text: ' — ${b.detail}',
+                              style: AppTextStyles.bodyMuted,
                             ),
-                          ),
+                          ],
                         ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Legal text
-                    const Text(
-                      'Payment will be charged to your Account at confirmation of purchase. Subscription automatically renews unless auto-renew is turned off at least 24-hours before the end of the current period.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textGrey,
-                        height: 1.5,
                       ),
                     ),
+                  ),
 
-                    const SizedBox(height: 32),
-                  ],
-                ),
+                  const SizedBox(height: 20),
+
+                  ...plans.map(
+                    (plan) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _PlanCard(
+                        plan: plan,
+                        selected: plan.id == _selectedPlan,
+                        onTap: () => setState(() => _selectedPlan = plan.id),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+                  RadiusButton(
+                    // Carries the price, so nobody taps to find out what it
+                    // costs. The rupee figure stays on the card rather than
+                    // riding along here — two currencies on a button is a
+                    // button nobody reads.
+                    label: 'Start Premium · ${current.price}',
+                    kind: RadiusButtonKind.premium,
+                    isLoading: _isLoading,
+                    onPressed: _onStartPremium,
+                  ),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: TextButton(
+                      onPressed: _isRestoring ? null : _onRestore,
+                      child: Text(
+                        _isRestoring ? 'Restoring…' : 'Restore purchase',
+                        style: AppTextStyles.bodyStrong.copyWith(
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Billed through the App Store or Play Store. Cancel any '
+                    'time from your store account.',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.caption.copyWith(fontSize: 11.5),
+                  ),
+                  const SizedBox(height: 16),
+                ],
               ),
             ),
           ],
@@ -279,137 +279,82 @@ class _PremiumScreenState extends State<PremiumScreen> {
       ),
     );
   }
+}
 
-  Widget _featureCard(Map<String, dynamic> feature) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.inputBorder),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+/// A plan, priced. Selection changes fill, border and the radio mark together
+/// — never the border alone.
+class _PlanCard extends StatelessWidget {
+  const _PlanCard({
+    required this.plan,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _Plan plan;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final card = RadiusOptionTile(
+      title: plan.label,
+      subtitle: plan.sublabel,
+      selected: selected,
+      onTap: onTap,
+      // Both currencies, one under the other. The dollar figure keeps the
+      // display face it has always had; the rupee price sits beneath it in
+      // caption type, because it is the same price said again rather than a
+      // second thing to decide between.
+      trailing: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            feature['icon'] as IconData,
-            size: 22,
-            color: AppColors.primary,
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  feature['title'] as String,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  feature['subtitle'] as String,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textGrey,
-                    height: 1.4,
-                  ),
-                ),
-              ],
+          Text(
+            plan.price,
+            style: AppTextStyles.title.copyWith(
+              fontSize: 22,
+              color: selected ? AppColors.primaryInk : AppColors.textDark,
             ),
           ),
+          if (plan.priceInr != null)
+            Text(
+              plan.priceInr!,
+              style: AppTextStyles.caption.copyWith(fontSize: 12),
+            ),
         ],
       ),
     );
-  }
 
-  Widget _planTile(Map<String, dynamic> plan) {
-    final isSelected = _selectedPlan == plan['id'];
-    final isBestValue = plan['isBestValue'] as bool;
+    if (!plan.isBestValue) return card;
 
-    return GestureDetector(
-      onTap: () => setState(() => _selectedPlan = plan['id'] as String),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary.withOpacity(0.05)
-              : AppColors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.inputBorder,
-            width: isSelected ? 1.5 : 1,
+    // The flag sits proud of the card's top edge, so it reads as applied to
+    // the plan rather than as another line inside it.
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Padding(padding: const EdgeInsets.only(top: 6), child: card),
+        Positioned(
+          top: -4,
+          right: 16,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.premium,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              'BEST VALUE',
+              style: AppTextStyles.caption.copyWith(
+                fontSize: 10,
+                color: AppColors.onAccent,
+                letterSpacing: 0.6,
+                fontWeight: FontWeight.w700,
+                fontVariations: const [FontVariation('wght', 700)],
+              ),
+            ),
           ),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        plan['label'] as String,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: isSelected
-                              ? AppColors.primary
-                              : AppColors.textDark,
-                        ),
-                      ),
-                      if (isBestValue) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Text(
-                            'BEST VALUE',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.white,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    plan['sublabel'] as String,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isSelected
-                          ? AppColors.primary.withOpacity(0.7)
-                          : AppColors.textGrey,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              plan['price'] as String,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isSelected ? AppColors.primary : AppColors.textDark,
-              ),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 }

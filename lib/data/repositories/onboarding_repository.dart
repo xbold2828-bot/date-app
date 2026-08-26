@@ -74,17 +74,28 @@ class OnboardingRepository {
     return _me(await _api.patch(ApiConstants.onboardingHardNos, body: body));
   }
 
+  /// Step 8 — `PATCH /onboarding/photo`.
+  ///
+  /// A successful media upload already completes this step server-side; call
+  /// this when the user skipped or the upload failed, so the funnel can finish
+  /// and photos can be added later from the profile screen.
+  Future<MeUser> completePhotoStep({bool skipped = false}) async =>
+      _me(await _api.patch(ApiConstants.onboardingPhoto,
+          body: {'skipped': skipped}));
+
   /// Step 9 — `PATCH /location`.
+  ///
+  /// The endpoint also takes a `preferredBand`, which this app no longer
+  /// sends: the search radius is not something anyone is asked to choose, so
+  /// there is no value to put there. See [BasicsScreen5].
   Future<MeUser> updateLocation({
     required double latitude,
     required double longitude,
-    String? preferredBand,
     String? city,
   }) async {
     final body = <String, dynamic>{
       'latitude': latitude,
       'longitude': longitude,
-      if (preferredBand != null) 'preferredBand': preferredBand,
       if (city != null) 'city': city,
     };
     return _me(await _api.patch(ApiConstants.location, body: body));

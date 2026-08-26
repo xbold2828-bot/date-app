@@ -1,12 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
+import '../../../core/theme/theme_controller.dart';
+import '../../../core/utils/onboarding_maps.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../providers/chat_provider.dart';
 import '../../../providers/core_providers.dart';
 import '../../../providers/profile_provider.dart';
 import '../../auth/screens/login_screen.dart';
+import '../../common/widgets/widgets.dart';
+import '../widgets/location_sharing_card.dart';
+import '../widgets/profile_edit_panel.dart';
+import '../widgets/profile_edit_sheets.dart';
+import '../widgets/you_gallery.dart';
+import '../widgets/you_header.dart';
+import './blocked_accounts_screen.dart';
 import './premium_screen.dart';
 
+/// The "Me" tab.
+///
+/// Composition only. Everything with state of its own lives beside it in
+/// `../widgets/`: the header and its animated premium ring, the photo gallery,
+/// the device-local location line, and the editor for the onboarding answers.
+/// This file's job is the order those appear in and the two account actions at
+/// the bottom.
 class YouScreen extends ConsumerStatefulWidget {
   const YouScreen({super.key});
 
@@ -15,36 +34,37 @@ class YouScreen extends ConsumerStatefulWidget {
 }
 
 class _YouScreenState extends ConsumerState<YouScreen> {
-  // Populated from meProvider at the top of build().
-  Map<String, dynamic> _profile = {
-    'name': '',
-    'age': null,
-    'location': '',
-    'isPremium': false,
-    'isVerified': false,
-    'bio': '',
-    'vibes': <String>[],
-    'photos': [null, null, null, null],
-  };
+  Future<void> _onEditBio(String bio) async {
+    final saved = await showEditBioSheet(context, bio);
+    if (saved && mounted) _snack('Bio updated');
+  }
+
+  Future<void> _onEditVibes(List<String> vibes) async {
+    final saved = await showEditVibesSheet(context, vibes);
+    if (saved && mounted) _snack('Vibe updated');
+  }
+
+  void _snack(String msg) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
   Future<void> _onSignOut() async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppColors.white,
-        title: const Text('Sign Out',
+        backgroundColor: AppColors.panel,
+        title: Text('Sign Out',
             style: TextStyle(color: AppColors.textDark)),
-        content: const Text('Are you sure you want to sign out?',
+        content: Text('Are you sure you want to sign out?',
             style: TextStyle(color: AppColors.textGrey)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel',
+            child: Text('Cancel',
                 style: TextStyle(color: AppColors.textGrey)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Sign Out',
+            child: Text('Sign Out',
                 style: TextStyle(color: AppColors.primary)),
           ),
         ],
@@ -53,6 +73,7 @@ class _YouScreenState extends ConsumerState<YouScreen> {
 
     if (confirm == true && mounted) {
       await AuthService().signOut();
+      if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -65,17 +86,17 @@ class _YouScreenState extends ConsumerState<YouScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.panel,
         title: const Text('Delete Account',
             style: TextStyle(color: Colors.red)),
-        content: const Text(
+        content: Text(
           'This will permanently delete your account and all data. This cannot be undone.',
           style: TextStyle(color: AppColors.textGrey),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel',
+            child: Text('Cancel',
                 style: TextStyle(color: AppColors.textGrey)),
           ),
           TextButton(
@@ -108,20 +129,17 @@ class _YouScreenState extends ConsumerState<YouScreen> {
   Widget build(BuildContext context) {
     final me = ref.watch(meProvider).valueOrNull;
     if (me == null) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(color: AppColors.primary),
       );
     }
-    _profile = {
-      'name': me.displayName ?? 'You',
-      'age': me.age,
-      'location': me.location?.city ?? '',
-      'isPremium': me.premium.isActive,
-      'isVerified': me.verified,
-      'bio': me.profile.bio ?? '',
-      'vibes': me.profile.personalityTags,
-      'photos': const [null, null, null, null],
-    };
+
+    final stats = ref.watch(myProfileStatsProvider).valueOrNull;
+    // Friends is counted here, from the inbox, rather than fetched — see
+    // `activeConversationCountProvider`.
+    final friends = ref.watch(activeConversationCountProvider);
+    final tagLabels = ref.watch(tagLabelsProvider).valueOrNull ?? const {};
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -130,350 +148,113 @@ class _YouScreenState extends ConsumerState<YouScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.radio_button_checked,
-                        size: 20, color: AppColors.textDark),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'RADIUS',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-                
-              ],
-            ),
-          ),
-
-          // Profile header
-          Center(
-            child: Column(
-              children: [
-                // Avatar with verified ring
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Verified ring
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: _profile['isVerified'] == true
-                              ? Colors.green
-                              : AppColors.inputBorder,
-                          width: 2.5,
-                        ),
-                      ),
-                    ),
-
-                    // Photo
-                    Container(
-                      width: 92,
-                      height: 92,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0xFF6B7A8B),
-                        border: Border.all(
-                            color: AppColors.white, width: 3),
-                      ),
-                      child: ClipOval(
-                        child: _profile['photos'][0] != null
-                            ? Image.network(
-                                _profile['photos'][0] as String,
-                                fit: BoxFit.cover,
-                              )
-                            : const Icon(Icons.person,
-                                size: 40, color: AppColors.white),
-                      ),
-                    ),
-
-                    // Verified badge
-                    if (_profile['isVerified'] == true)
-                      Positioned(
-                        bottom: 4,
-                        right: 4,
-                        child: Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            color: Colors.green,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                                color: AppColors.white, width: 2),
-                          ),
-                          child: const Icon(Icons.check,
-                              size: 12, color: AppColors.white),
-                        ),
-                      ),
-                  ],
-                ),
-
-                const SizedBox(height: 12),
-
-                // Name + age
+                Icon(Icons.radio_button_checked,
+                    size: 20, color: AppColors.textDark),
+                const SizedBox(width: 8),
                 Text(
-                  '${_profile['name']}, ${_profile['age']}',
-                  style: const TextStyle(
-                    fontSize: 22,
+                  'RADIUS',
+                  style: TextStyle(
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: AppColors.textDark,
-                  ),
-                ),
-
-                const SizedBox(height: 6),
-
-                // Premium badge
-                if (_profile['isPremium'] == true)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                          color: AppColors.primary.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.circle,
-                            size: 8, color: AppColors.primary),
-                        SizedBox(width: 6),
-                        Text(
-                          'PREMIUM',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                const SizedBox(height: 6),
-
-                // Location
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.location_on_outlined,
-                        size: 14, color: AppColors.textGrey),
-                    const SizedBox(width: 4),
-                    Text(
-                      _profile['location'] as String,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textGrey,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 28),
-
-          // Gallery
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'GALLERY',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textGrey,
                     letterSpacing: 1.2,
                   ),
                 ),
-                GestureDetector(
-                  onTap: () {
-                    // TODO: Navigate to edit photos screen
-                  },
-                  child: const Text(
-                    'Edit All',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
 
-          const SizedBox(height: 12),
+          YouHeader(me: me, avatarUrl: _primaryPhotoUrl(me.primaryPhotoId)),
 
-          // Photo grid
+          const SizedBox(height: 18),
+
+          // Directly under the header, and deliberately.
+          //
+          // The header ends with the live location line — where the device
+          // thinks you are, shown only to you. Who else can see that is the
+          // very next question, so it is answered in the very next card
+          // instead of being filed away with the account actions at the
+          // bottom, where a location control would be found only by somebody
+          // already worried enough to go hunting for it.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Primary large photo
-                Expanded(
-                  flex: 5,
-                  child: _photoSlot(0, height: 200, isPrimary: true),
-                ),
-                const SizedBox(width: 8),
-                // Two small + two add slots
-                Expanded(
-                  flex: 4,
-                  child: Column(
-                    children: [
-                      _photoSlot(1, height: 96),
-                      const SizedBox(height: 8),
-                      _photoSlot(2, height: 96),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            child: const LocationSharingCard(),
           ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 20),
 
-          // Two add slots row
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Expanded(child: _addSlot()),
-                const SizedBox(width: 8),
-                Expanded(child: _addSlot()),
-              ],
+            child: ProfileMetricsRow(
+              visits: stats?.profileViews,
+              likes: stats?.likesReceived,
+              friends: friends,
             ),
           ),
 
           const SizedBox(height: 24),
 
-          // My Vibe section
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.inputBorder),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'MY VIBE',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textGrey,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          // TODO: Navigate to edit vibes screen
-                        },
-                        child: const Icon(Icons.edit_outlined,
-                            size: 16, color: AppColors.textGrey),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: (_profile['vibes'] as List<String>)
-                        .map((vibe) => Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 7),
-                              decoration: BoxDecoration(
-                                color: AppColors.background,
-                                borderRadius: BorderRadius.circular(30),
-                                border: Border.all(
-                                    color: AppColors.inputBorder),
-                              ),
-                              child: Text(
-                                vibe,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.textDark,
-                                ),
-                              ),
-                            ))
-                        .toList(),
-                  ),
-                ],
+            child: YouGallery(primaryPhotoId: me.primaryPhotoId),
+          ),
+
+          const SizedBox(height: 24),
+
+          // My Vibe
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: _card(
+              label: 'MY VIBE',
+              onEdit: () => _onEditVibes(me.profile.personalityTags),
+              child: me.profile.personalityTags.isEmpty
+                  ? Text('Nothing picked yet.', style: AppTextStyles.caption)
+                  : Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final vibe in me.profile.personalityTags)
+                          TagPill(
+                            // Slugs come back from the API; the catalogue turns
+                            // them into words, and `humanizeSlug` covers the
+                            // moment before it has loaded.
+                            label: tagLabels[vibe] ?? humanizeSlug(vibe),
+                            tone: TagTone.neutral,
+                          ),
+                      ],
+                    ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // Bio
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: _card(
+              label: 'BIO',
+              onEdit: () => _onEditBio(me.profile.bio ?? ''),
+              child: Text(
+                (me.profile.bio ?? '').trim().isEmpty
+                    ? 'Say something worth replying to.'
+                    : me.profile.bio!,
+                style: AppTextStyles.body.copyWith(
+                  height: 1.5,
+                  color: (me.profile.bio ?? '').trim().isEmpty
+                      ? AppColors.textGrey
+                      : AppColors.textDark,
+                ),
               ),
             ),
           ),
 
           const SizedBox(height: 12),
 
-          // Bio section
+          // Everything answered during onboarding, folded away until wanted.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.inputBorder),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'BIO',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textGrey,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          // TODO: Navigate to edit bio screen
-                        },
-                        child: const Icon(Icons.edit_outlined,
-                            size: 16, color: AppColors.textGrey),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    _profile['bio'] as String,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textDark,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            child: ProfileEditPanel(me: me),
           ),
 
           const SizedBox(height: 12),
@@ -481,67 +262,7 @@ class _YouScreenState extends ConsumerState<YouScreen> {
           // Account verification
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: _profile['isVerified'] == true
-                      ? Colors.green.withOpacity(0.3)
-                      : AppColors.inputBorder,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.verified_outlined,
-                        size: 18, color: Colors.green),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'ACCOUNT VERIFICATION',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textGrey,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Identity Verified',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textDark,
-                          ),
-                        ),
-                        Text(
-                          'Your profile is trusted and visible to others.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textGrey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.check_circle,
-                      size: 20, color: Colors.green),
-                ],
-              ),
-            ),
+            child: _VerificationCard(isVerified: me.verified),
           ),
 
           const SizedBox(height: 12),
@@ -549,89 +270,42 @@ class _YouScreenState extends ConsumerState<YouScreen> {
           // Radius Premium card
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1A),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: const [
-                      Icon(Icons.radio_button_checked,
-                          size: 20, color: AppColors.primary),
-                      SizedBox(width: 8),
-                      Text(
-                        'Radius Premium',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Unlimited radius expansion and priority verification are active.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.white60,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 46,
-                    child: ElevatedButton(
-                     onPressed: () {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const PremiumScreen()),
-  );
-},
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Manage Subscription',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            child: _PremiumCard(isPremium: me.premium.isActive),
           ),
 
           const SizedBox(height: 12),
 
-          // Safety Center
+          // Appearance.
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: _DarkModeTile(),
+          ),
+
+          const SizedBox(height: 12),
+
+          // Blocked accounts.
+          //
+          // Takes over the "Safety Center" slot, which was a tile that did
+          // nothing. This is the only route back from a block: once one lands,
+          // that person is gone from the radar, from likes, from their profile
+          // and from the inbox, so no other screen has a row left to unblock
+          // them from.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: _menuTile(
-              icon: Icons.security_outlined,
-              label: 'Safety Center',
-              onTap: () {
-                // TODO: Navigate to safety center
-              },
+              icon: Icons.block_outlined,
+              label: 'Blocked accounts',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const BlockedAccountsScreen(),
+                ),
+              ),
             ),
           ),
 
           const SizedBox(height: 8),
 
-          // Sign Out
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: _menuTile(
@@ -643,15 +317,14 @@ class _YouScreenState extends ConsumerState<YouScreen> {
 
           const SizedBox(height: 16),
 
-          // Delete account
           Center(
             child: GestureDetector(
               onTap: _onDeleteAccount,
-              child: const Text(
+              child: Text(
                 'Delete Account',
                 style: TextStyle(
                   fontSize: 14,
-                  color: AppColors.primary,
+                  color: AppColors.danger,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -664,51 +337,51 @@ class _YouScreenState extends ConsumerState<YouScreen> {
     );
   }
 
-  Widget _photoSlot(int index, {required double height, bool isPrimary = false}) {
-    final photos = _profile['photos'] as List;
-    final hasPhoto = index < photos.length && photos[index] != null;
-
-    return Container(
-      height: height,
-      decoration: BoxDecoration(
-        color: hasPhoto ? null : const Color(0xFF6B7A8B),
-        borderRadius: BorderRadius.circular(12),
-        border: hasPhoto ? null : Border.all(color: AppColors.inputBorder),
-      ),
-      child: hasPhoto
-          ? ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                photos[index] as String,
-                fit: BoxFit.cover,
-                width: double.infinity,
-              ),
-            )
-          : Center(
-              child: Icon(
-                isPrimary ? Icons.person : Icons.add_a_photo_outlined,
-                size: isPrimary ? 36 : 24,
-                color: AppColors.white.withOpacity(0.7),
-              ),
-            ),
-    );
+  /// URL of the photo marked as the profile picture, if it's loaded and still
+  /// present (it may have just been deleted).
+  String? _primaryPhotoUrl(String? primaryId) {
+    if (primaryId == null) return null;
+    for (final asset in ref.watch(myMediaProvider).valueOrNull ?? const []) {
+      if (asset.id == primaryId) return asset.url;
+    }
+    return null;
   }
 
-  Widget _addSlot() {
-    return GestureDetector(
-      onTap: () {
-        // TODO: Open image picker to add photo
-      },
-      child: Container(
-        height: 52,
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.inputBorder),
-        ),
-        child: const Center(
-          child: Icon(Icons.add, size: 22, color: AppColors.textGrey),
-        ),
+  /// A titled white card with a pencil in its corner.
+  Widget _card({
+    required String label,
+    required VoidCallback onEdit,
+    required Widget child,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.inputBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(label, style: AppTextStyles.label),
+              Semantics(
+                button: true,
+                label: 'Edit ${label.toLowerCase()}',
+                excludeSemantics: true,
+                child: GestureDetector(
+                  onTap: onEdit,
+                  child: Icon(Icons.edit_outlined,
+                      size: 16, color: AppColors.textGrey),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
       ),
     );
   }
@@ -723,7 +396,7 @@ class _YouScreenState extends ConsumerState<YouScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: AppColors.card,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: AppColors.inputBorder),
         ),
@@ -734,17 +407,225 @@ class _YouScreenState extends ConsumerState<YouScreen> {
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   color: AppColors.textDark,
                   fontWeight: FontWeight.w500,
                 ),
               ),
             ),
-            const Icon(Icons.chevron_right,
+            Icon(Icons.chevron_right,
                 size: 20, color: AppColors.textGrey),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Identity verification status. Says what is true rather than what is hoped:
+/// an unverified account is told it is unverified.
+/// The 🌙 switch.
+///
+/// It shows the brightness actually being drawn, not the stored [ThemeMode] —
+/// so someone whose phone is already dark finds it on rather than off. Flipping
+/// it is an explicit choice, and from that point the app stops following the
+/// phone.
+class _DarkModeTile extends ConsumerWidget {
+  const _DarkModeTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dark = isDarkMode(context, ref.watch(themeModeProvider));
+
+    return Semantics(
+      toggled: dark,
+      label: 'Dark mode',
+      excludeSemantics: true,
+      child: Container(
+        // Shorter than a menu tile: a Switch is 48pt of touch target on its
+        // own, so the usual 16pt of padding would make this row taller than
+        // everything it sits between.
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.inputBorder),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              dark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+              size: 20,
+              color: AppColors.textDark,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Dark mode',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: AppColors.textDark,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Switch(
+              value: dark,
+              onChanged: (on) =>
+                  ref.read(themeModeProvider.notifier).toggle(dark: on),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VerificationCard extends StatelessWidget {
+  const _VerificationCard({required this.isVerified});
+
+  final bool isVerified;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isVerified
+              ? AppColors.ok.withValues(alpha: 0.3)
+              : AppColors.inputBorder,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: isVerified
+                  ? AppColors.ok.withValues(alpha: 0.1)
+                  : AppColors.background,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.verified_outlined,
+              size: 18,
+              color: isVerified ? AppColors.ok : AppColors.iconMuted,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('ACCOUNT VERIFICATION',
+                    style: AppTextStyles.label.copyWith(fontSize: 10)),
+                const SizedBox(height: 2),
+                Text(
+                  isVerified ? 'Identity Verified' : 'Not verified yet',
+                  style: AppTextStyles.bodyStrong.copyWith(fontSize: 14),
+                ),
+                Text(
+                  isVerified
+                      ? 'Your profile is trusted and visible to others.'
+                      : 'Verify to unlock the full experience.',
+                  style: AppTextStyles.caption.copyWith(fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          if (isVerified) const VerificationTick(size: 20),
+        ],
+      ),
+    );
+  }
+}
+
+/// The premium card — a receipt when it is active, an offer when it is not.
+class _PremiumCard extends StatelessWidget {
+  const _PremiumCard({required this.isPremium});
+
+  final bool isPremium;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF241A4D),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isPremium ? Icons.workspace_premium : Icons.radio_button_checked,
+                size: 20,
+                color: isPremium ? AppColors.premium : AppColors.primary,
+              ),
+              const SizedBox(width: 8),
+              // Unconstrained text in a Row overflows the card on a narrow
+              // screen (and at larger system font scales); let it take the
+              // remaining width instead.
+              const Expanded(
+                child: Text(
+                  'Radius Premium',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.onImage,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isPremium
+                ? 'Unlimited radius, every filter, and no ads.'
+                : 'See everyone nearby, filter everything, and drop the ads.',
+            style: const TextStyle(
+              fontSize: 13,
+              color: Colors.white60,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: ElevatedButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PremiumScreen()),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.onImage,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                elevation: 0,
+              ),
+              child: Text(
+                isPremium ? 'Manage Subscription' : 'See what you get',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  // Not textDark: the pill is a fixed white on a fixed violet
+                  // card, so its label cannot follow the theme's ink or it
+                  // turns white-on-white in dark mode.
+                  color: AppColors.premiumDeep,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

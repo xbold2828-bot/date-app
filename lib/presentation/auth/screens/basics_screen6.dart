@@ -1,17 +1,32 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:math';
 import 'package:camera/camera.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_text_styles.dart';
+import '../../common/widgets/widgets.dart';
+import '../../../core/errors/app_exceptions.dart';
+import '../../../providers/core_providers.dart';
+import '../../../providers/profile_provider.dart';
 import 'basics_screen7.dart';
 
-class BasicsScreen6 extends StatefulWidget {
+/// Identity verification (the live face check).
+///
+/// This is not one of the ten funnel steps — it unlocks the adult layer and
+/// messaging, and is always skippable. The on-device animation drives a real
+/// `POST /verification/session`; with the mock provider the session is then
+/// approved via `POST /verification/session/:id/complete`, while a real
+/// provider decides asynchronously by webhook (which returns 403 here, so that
+/// case is treated as "pending", not an error).
+class BasicsScreen6 extends ConsumerStatefulWidget {
   const BasicsScreen6({super.key});
 
   @override
-  State<BasicsScreen6> createState() => _BasicsScreen6State();
+  ConsumerState<BasicsScreen6> createState() => _BasicsScreen6State();
 }
 
-class _BasicsScreen6State extends State<BasicsScreen6>
+class _BasicsScreen6State extends ConsumerState<BasicsScreen6>
     with TickerProviderStateMixin {
   late AnimationController _arcController;
   late AnimationController _stepController;
@@ -23,6 +38,11 @@ class _BasicsScreen6State extends State<BasicsScreen6>
   int _currentStep = 0;
   bool _isDone = false;
   bool _isStarted = false;
+
+  /// Set when the backend confirmed the user as verified. When the check ran
+  /// but the provider hasn't decided yet, this stays false and the UI says so.
+  bool _verified = false;
+  String? _verificationNote;
 
   final List<Map<String, dynamic>> _steps = [
     {'icon': Icons.arrow_back, 'text': 'Turn your head slowly to the left'},
@@ -100,15 +120,47 @@ class _BasicsScreen6State extends State<BasicsScreen6>
       if (_currentStep == 3) {
         _arcController.stop();
         setState(() => _isDone = true);
-        // TODO: Send captured frames to backend for real face verification
-        // BackendService.verifyFace(frames);
+        unawaited(_submitVerification());
       } else {
         _runNextStep();
       }
     });
   }
 
-  void _onSkip() {
+  /// Records the completed live check against the backend. Never blocks the
+  /// funnel: verification is optional, so failures downgrade to a note.
+  Future<void> _submitVerification() async {
+    final repo = ref.read(verificationRepositoryProvider);
+    try {
+      var status = await repo.startSession();
+
+      final session = status.session;
+      if (!status.verified && session != null && session.isMock) {
+        try {
+          status = await repo.completeSession(session.sessionId);
+        } on AppException {
+          // Real provider wired up — the webhook decides. Leave it pending.
+        }
+      }
+
+      // Refresh the self-view so `verified` (which gates the adult layer) is
+      // current on the screens after this one.
+      await ref.read(meProvider.notifier).refresh();
+
+      if (!mounted) return;
+      setState(() {
+        _verified = status.verified;
+        _verificationNote = status.verified
+            ? null
+            : "We've got your check — verification finishes shortly.";
+      });
+    } on AppException catch (e) {
+      if (!mounted) return;
+      setState(() => _verificationNote = e.message);
+    }
+  }
+
+  void _goToAgreement() {
     _cameraController?.dispose();
     Navigator.push(
       context,
@@ -116,13 +168,9 @@ class _BasicsScreen6State extends State<BasicsScreen6>
     );
   }
 
-  void _onContinue() {
-    _cameraController?.dispose();
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const BasicsScreen7()),
-    );
-  }
+  void _onSkip() => _goToAgreement();
+
+  void _onContinue() => _goToAgreement();
 
   @override
   Widget build(BuildContext context) {
@@ -141,30 +189,21 @@ class _BasicsScreen6State extends State<BasicsScreen6>
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back, color: AppColors.textDark),
+                    child: Icon(Icons.arrow_back, color: AppColors.textDark),
                   ),
                   const Expanded(
                     child: Center(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.circle, size: 10, color: AppColors.primary),
-                          SizedBox(width: 6),
-                          Text(
-                            'Radius',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textDark,
-                            ),
-                          ),
+                          Wordmark(size: 20),
                         ],
                       ),
                     ),
                   ),
                   GestureDetector(
                     onTap: _onSkip,
-                    child: const Text(
+                    child: Text(
                       'Skip',
                       style: TextStyle(
                         fontSize: 15,
@@ -178,16 +217,12 @@ class _BasicsScreen6State extends State<BasicsScreen6>
 
               const SizedBox(height: 32),
 
-              const Text(
+              Text(
                 'Verify your identity',
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
+                style: AppTextStyles.display,
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'A quick live check to unlock the adult layer and messaging. Your video is never stored.',
                 style: TextStyle(fontSize: 13, color: AppColors.textGrey),
               ),
@@ -252,12 +287,12 @@ class _BasicsScreen6State extends State<BasicsScreen6>
                           height: 185,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: const Color(0xFF28A745).withOpacity(0.3),
+                            color: AppColors.ok.withValues(alpha: 0.3),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.check_circle,
                             size: 72,
-                            color: Color(0xFF28A745),
+                            color: AppColors.ok,
                           ),
                         ),
                     ],
@@ -278,10 +313,7 @@ class _BasicsScreen6State extends State<BasicsScreen6>
                             : _cameraReady
                                 ? 'Camera ready. Tap to begin.'
                                 : 'Starting camera...',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textGrey,
-                        ),
+                        style: AppTextStyles.caption,
                       ),
                       const SizedBox(height: 16),
                       SizedBox(
@@ -300,18 +332,18 @@ class _BasicsScreen6State extends State<BasicsScreen6>
                             ),
                             elevation: 0,
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(Icons.camera_alt_outlined,
-                                  color: AppColors.white, size: 18),
+                                  color: AppColors.onAccent, size: 18),
                               SizedBox(width: 8),
                               Text(
                                 'Start Face Check',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.white,
+                                  color: AppColors.onAccent,
                                 ),
                               ),
                             ],
@@ -326,16 +358,27 @@ class _BasicsScreen6State extends State<BasicsScreen6>
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.check_circle,
-                            size: 18, color: Color(0xFF28A745)),
-                        SizedBox(width: 8),
-                        Text(
-                          'Identity verified successfully!',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Color(0xFF28A745),
-                            fontWeight: FontWeight.w600,
+                      children: [
+                        Icon(
+                          _verified ? Icons.check_circle : Icons.schedule,
+                          size: 18,
+                          color: _verified
+                              ? AppColors.ok
+                              : AppColors.textGrey,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            _verified
+                                ? 'Identity verified successfully!'
+                                : (_verificationNote ?? 'Finishing up...'),
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: _verified
+                                  ? AppColors.ok
+                                  : AppColors.textGrey,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ],
@@ -347,18 +390,18 @@ class _BasicsScreen6State extends State<BasicsScreen6>
                       child: ElevatedButton(
                         onPressed: _onContinue,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF28A745),
+                          backgroundColor: AppColors.ok,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),
                           ),
                           elevation: 0,
                         ),
-                        child: const Text(
+                        child: Text(
                           'Continue',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.white,
+                            color: AppColors.onAccent,
                           ),
                         ),
                       ),
@@ -408,7 +451,7 @@ class _BasicsScreen6State extends State<BasicsScreen6>
                             const SizedBox(width: 8),
                             Text(
                               _steps[_currentStep.clamp(0, 2)]['text'] as String,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 color: AppColors.textDark,
                                 fontWeight: FontWeight.w500,
@@ -429,8 +472,8 @@ class _BasicsScreen6State extends State<BasicsScreen6>
                             value: _stepController.value,
                             minHeight: 4,
                             backgroundColor: AppColors.inputBorder,
-                            valueColor: const AlwaysStoppedAnimation(
-                                AppColors.primary),
+                            valueColor:
+                                AlwaysStoppedAnimation(AppColors.primary),
                           ),
                         ),
                       ),
@@ -443,7 +486,7 @@ class _BasicsScreen6State extends State<BasicsScreen6>
               // Privacy note
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Icon(Icons.lock_outline, size: 14, color: AppColors.textGrey),
                   SizedBox(width: 8),
                   Expanded(
@@ -476,7 +519,7 @@ class _BasicsScreen6State extends State<BasicsScreen6>
     if (!_cameraReady || _cameraController == null) {
       return Container(
         color: Colors.black,
-        child: const Center(
+        child: Center(
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
       );
@@ -574,7 +617,7 @@ class _DoneRingPainter extends CustomPainter {
     final radius = size.width / 2 - 4;
 
     final paint = Paint()
-      ..color = const Color(0xFF28A745)
+      ..color = AppColors.ok
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4;
 
