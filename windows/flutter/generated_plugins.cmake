@@ -9,6 +9,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_core
   firebase_remote_config
   flutter_secure_storage_windows
+  flutter_timezone
   geolocator_windows
   syncfusion_pdfviewer_windows
   url_launcher_windows

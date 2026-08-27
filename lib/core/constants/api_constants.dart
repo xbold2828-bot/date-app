@@ -91,6 +91,23 @@ class ApiConstants {
   /// Matches. Deliberately ungated — see the endpoint's own docs.
   static const String mutualLikes = '/likes/mutual';
 
+  // ── Push notifications ──────────────────────────────────────────────────
+
+  /// POST → register or refresh this device's FCM token; DELETE → forget it.
+  ///
+  /// The POST is idempotent and doubles as the liveness signal that keeps the
+  /// device out of the server's staleness sweep, so calling it on every launch
+  /// and on every token rotation is the intended usage, not a wasted request.
+  static const String notificationDevices = '/notifications/devices';
+
+  /// GET → my notification settings; PATCH → change them. A true PATCH:
+  /// omitted fields are left alone.
+  static const String notificationPreferences = '/notifications/preferences';
+
+  /// Sends a push to my own devices. Exercises the real queue and provider, so
+  /// it proves the whole chain rather than a shortcut around it.
+  static const String notificationTest = '/notifications/test';
+
   // ── Safety (block / report) ─────────────────────────────────────────────
   static const String safetyBlock = '/safety/block';
   static const String safetyBlocks = '/safety/blocks';
@@ -166,4 +183,58 @@ class SocketConstants {
   /// in the app and would otherwise not learn about it until they opened the
   /// Mutual tab. Rides the chat namespace, which already keeps a per-user room.
   static const String matchNew = 'match:new';
+}
+
+/// Keys inside an FCM push's `data` map.
+///
+/// A wire contract with the backend (`notifications.constants.ts`), and one
+/// that cannot be changed in lockstep: a build already on somebody's phone
+/// keeps reading the old keys for as long as they decline to update. Treat
+/// these as append-only.
+class PushDataKeys {
+  PushDataKeys._();
+
+  /// `normal` | `dataOnly`. The first thing the helper branches on.
+  static const String fcmType = 'fcm_type';
+
+  /// A [PushNotificationType] value.
+  static const String type = 'type';
+
+  /// A [PushAction] value — where the tap should land.
+  static const String action = 'action';
+
+  /// Android channel, echoed so a foreground push lands in the same channel as
+  /// the background one.
+  static const String channelId = 'channel_id';
+
+  /// De-duplicates a socket event and a push describing the same thing.
+  static const String notificationId = 'notification_id';
+
+  static const String sentAt = 'sent_at';
+  static const String conversationId = 'conversationId';
+  static const String userId = 'userId';
+  static const String messageId = 'messageId';
+  static const String url = 'url';
+}
+
+/// `data.type` values.
+class PushNotificationType {
+  PushNotificationType._();
+
+  static const String chatMessage = 'chat.message';
+  static const String matchNew = 'match.new';
+  static const String likeReceived = 'like.received';
+  static const String systemAnnouncement = 'system.announcement';
+}
+
+/// `data.action` values — what the tap handler should do.
+class PushAction {
+  PushAction._();
+
+  static const String openConversation = 'open_conversation';
+  static const String openMatches = 'open_matches';
+  static const String openLikes = 'open_likes';
+  static const String openProfile = 'open_profile';
+  static const String openUrl = 'open_url';
+  static const String none = 'none';
 }

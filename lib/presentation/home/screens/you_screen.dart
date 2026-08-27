@@ -8,6 +8,7 @@ import '../../../core/utils/onboarding_maps.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../providers/chat_provider.dart';
 import '../../../providers/core_providers.dart';
+import '../../../providers/notification_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../auth/screens/login_screen.dart';
 import '../../common/widgets/widgets.dart';
@@ -72,6 +73,11 @@ class _YouScreenState extends ConsumerState<YouScreen> {
     );
 
     if (confirm == true && mounted) {
+      // Detach the device BEFORE the session goes, while the call can still be
+      // authorised. Otherwise the server keeps a token it can never be told
+      // about, and the next person to sign in on this phone starts receiving
+      // this account's messages.
+      await ref.read(pushRegistrarProvider).stop();
       await AuthService().signOut();
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
@@ -109,6 +115,10 @@ class _YouScreenState extends ConsumerState<YouScreen> {
     );
 
     if (confirm == true && mounted) {
+      // Unregister first: the server drops the tokens itself on delete, but
+      // only if the delete reaches it. This also covers the catch below, where
+      // it did not.
+      await ref.read(pushRegistrarProvider).stop();
       try {
         await ref.read(profileRepositoryProvider).deleteAccount();
       } catch (_) {

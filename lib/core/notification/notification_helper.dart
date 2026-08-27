@@ -1,11 +1,14 @@
 import 'dart:convert';
 import 'dart:io' show Platform;
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart' show FirebaseException;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+import '../constants/env.dart';
+import 'notification_channels.dart';
 
 // =============================================================================
 // BACKGROUND HANDLER (Android/iOS only — ignored on web)
@@ -31,7 +34,8 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void _handleDataOnlyBackground(Map<String, dynamic> data) {
   final String action = data['action'] ?? '';
   if (kDebugMode) debugPrint('[FCM][BG][dataOnly] action=$action');
-  // TODO: write to local DB here if needed
+  // Nothing to persist yet. A data-only push is currently only used for silent
+  // state sync, which the app re-reads from the API on resume anyway.
 }
 
 // =============================================================================
@@ -62,20 +66,6 @@ enum NotificationPermissionState {
 
 abstract final class NotificationHelper {
   // --------------------------------------------------------------------------
-  // Constants
-  // --------------------------------------------------------------------------
-
-  static const String _channelId = 'trueheal_high_importance';
-  static const String _channelName = 'TrueHeal Notifications';
-  static const String _channelDesc = 'Important notifications from TrueHeal.';
-
-  /// REQUIRED for FirebaseMessaging.getToken() to work on web.
-  /// Firebase Console → Project settings → Cloud Messaging → Web Push
-  /// certificates → "Key pair".
-  static const String _vapidKey =
-      'BCSDn6R866ZmevxEcZNYwt5PrzEy4eSn6H8_pJxLQKp02QneSx67I7nMgUGt0rT9f7-ckrIV6taKzNWrYHB1u0s';
-
-  // --------------------------------------------------------------------------
   // Private state
   // --------------------------------------------------------------------------
 
@@ -85,7 +75,14 @@ abstract final class NotificationHelper {
   static void Function(Map<String, dynamic>)? _tapCallback;
   static void Function(Map<String, dynamic>)? _dataMessageCallback;
 
+  /// Called whenever FCM hands us a new token — on first fetch and on every
+  /// rotation. This is the hook that keeps the backend's `device_tokens` row
+  /// current; without it a rotated token is a device that silently stops
+  /// receiving anything, with nothing anywhere reporting a problem.
+  static void Function(String token)? _tokenRefreshCallback;
+
   static bool _coldStartHandled = false;
+  static bool _refreshSubscribed = false;
 
   static String? _cachedToken;
   static Future<String?>? _tokenFuture;
@@ -96,6 +93,10 @@ abstract final class NotificationHelper {
   /// Public getter so UI code can check e.g.
   /// `if (NotificationHelper.permissionState == NotificationPermissionState.blocked) { showBanner(); }`
   static NotificationPermissionState get permissionState => _permissionState;
+
+  /// The token currently held, without triggering a fetch. Null before the
+  /// first successful `requestPermissionAndToken()`.
+  static String? get cachedToken => _cachedToken;
 
   // ==========================================================================
   // PUBLIC API — STEP 1  (call in main(), before runApp)
@@ -125,7 +126,7 @@ abstract final class NotificationHelper {
   }
 
   // ==========================================================================
-  // PUBLIC API — STEP 2  (call in SplashController BEFORE any early return)
+  // PUBLIC API — STEP 2  (call once the user is signed in)
   // ==========================================================================
 
   /// Requests notification permission and fetches the FCM token.
@@ -133,7 +134,15 @@ abstract final class NotificationHelper {
   /// Resolves to a token string, or `null` if permission was denied/blocked
   /// or the token could not be fetched. NEVER throws — callers can safely
   /// `await` this without a try/catch.
-  static Future<String?> requestPermissionAndToken() async {
+  ///
+  /// [onToken] is invoked with the first token AND with every rotation
+  /// afterwards, so a caller that registers with the backend inside it stays
+  /// correct for the life of the install rather than only at launch.
+  static Future<String?> requestPermissionAndToken({
+    void Function(String token)? onToken,
+  }) async {
+    if (onToken != null) _tokenRefreshCallback = onToken;
+
     final NotificationSettings settings = await _requestPermissions();
 
     // Fast-fail: if the browser/OS has already blocked/denied permission,
@@ -161,6 +170,25 @@ abstract final class NotificationHelper {
     return token;
   }
 
+  /// Forgets this device's token, locally and at FCM.
+  ///
+  /// Call on sign-out, AFTER telling the backend to drop it — deleting it here
+  /// first would leave the server holding a token it can no longer be told
+  /// about, which is how one person ends up receiving another's notifications
+  /// on a shared phone.
+  ///
+  /// Never throws: sign-out must complete whether or not FCM cooperates.
+  static Future<void> deleteToken() async {
+    _cachedToken = null;
+    _tokenFuture = null;
+    _permissionState = NotificationPermissionState.unknown;
+    try {
+      await FirebaseMessaging.instance.deleteToken();
+    } catch (e) {
+      if (kDebugMode) debugPrint('[FCM] deleteToken failed (ignored): $e');
+    }
+  }
+
   // ==========================================================================
   // PRIVATE — permissions
   // ==========================================================================
@@ -177,11 +205,13 @@ abstract final class NotificationHelper {
           provisional: false,
         );
 
+    // iOS only. Left on, the OS draws its own banner for a foreground push AND
+    // `onMessage` fires, so `_showLocalNotification` would draw a second one.
     await FirebaseMessaging.instance
         .setForegroundNotificationPresentationOptions(
-          alert: true,
+          alert: false,
           badge: true,
-          sound: true,
+          sound: false,
         );
 
     if (kDebugMode) {
@@ -204,16 +234,29 @@ abstract final class NotificationHelper {
 
       if (token != null) {
         _permissionState = NotificationPermissionState.granted;
-        FirebaseMessaging.instance.onTokenRefresh.listen((String newToken) {
-          _cachedToken = newToken;
-          if (kDebugMode) debugPrint('[FCM] Token refreshed: $newToken');
-          // TODO: POST newToken to your backend
-        });
+        _tokenRefreshCallback?.call(token);
+        _subscribeToTokenRefresh();
       }
       return token;
     });
 
     return _tokenFuture!;
+  }
+
+  /// Subscribes once, not once per fetch.
+  ///
+  /// `onTokenRefresh` is a broadcast stream, so re-subscribing on every call
+  /// would leave a stack of live listeners all re-registering the same token
+  /// with the backend on every rotation.
+  static void _subscribeToTokenRefresh() {
+    if (_refreshSubscribed) return;
+    _refreshSubscribed = true;
+
+    FirebaseMessaging.instance.onTokenRefresh.listen((String newToken) {
+      _cachedToken = newToken;
+      if (kDebugMode) debugPrint('[FCM] Token refreshed: $newToken');
+      _tokenRefreshCallback?.call(newToken);
+    });
   }
 
   /// Retries getToken() for transient failures (e.g. iOS APNs not ready
@@ -239,7 +282,11 @@ abstract final class NotificationHelper {
         }
 
         final String? token = kIsWeb
-            ? await FirebaseMessaging.instance.getToken(vapidKey: _vapidKey)
+            ? await FirebaseMessaging.instance.getToken(
+                vapidKey: Env.firebaseVapidKey.isEmpty
+                    ? null
+                    : Env.firebaseVapidKey,
+              )
             : await FirebaseMessaging.instance.getToken();
 
         if (kDebugMode) {
@@ -321,18 +368,30 @@ abstract final class NotificationHelper {
       onDidReceiveNotificationResponse: _onLocalNotifTap,
     );
 
-    await _plugin
+    // Every channel the backend can send to, registered up front.
+    //
+    // Android silently routes a push whose `channel_id` it has never seen into
+    // an unnamed low-importance channel: it arrives with no sound, no heads-up,
+    // and nothing anywhere says why. Registering the whole set here is what
+    // makes that class of bug impossible — and separate channels are also the
+    // user's own control surface, so someone can keep messages loud while
+    // silencing likes from the OS settings screen.
+    final android = _plugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(
-          const AndroidNotificationChannel(
-            _channelId,
-            _channelName,
-            description: _channelDesc,
-            importance: Importance.max,
+        >();
+    if (android != null) {
+      for (final channel in NotificationChannels.all) {
+        await android.createNotificationChannel(
+          AndroidNotificationChannel(
+            channel.id,
+            channel.name,
+            description: channel.description,
+            importance: channel.importance,
           ),
         );
+      }
+    }
   }
 
   @pragma('vm:entry-point')
@@ -365,19 +424,33 @@ abstract final class NotificationHelper {
     final RemoteNotification? n = message.notification;
     if (n == null) return;
 
+    // The server echoes the channel it addressed into `data.channel_id`, so
+    // the foreground copy lands in the same channel as the background one —
+    // same sound, same importance, same OS-level switch. Falling back to the
+    // general channel keeps an older server (or a console test push) audible
+    // rather than silently mis-routed.
+    final channel = NotificationChannels.byId(message.data['channel_id']);
+
+    // Reusing the collapse key as the notification id is what makes twenty
+    // messages from one conversation replace each other instead of stacking
+    // twenty rows — matching what `collapse_key` already does for the
+    // background case.
+    final String? tag = message.data['collapse_key'] as String?;
+
     await _plugin.show(
-      id: n.hashCode,
+      id: (tag ?? n.hashCode.toString()).hashCode,
       title: n.title,
       body: _stripHtml(n.body ?? ''),
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
-          _channelId,
-          _channelName,
-          channelDescription: _channelDesc,
+          channel.id,
+          channel.name,
+          channelDescription: channel.description,
           icon: n.android?.smallIcon ?? '@mipmap/ic_launcher',
-          importance: Importance.max,
+          importance: channel.importance,
           priority: Priority.high,
           playSound: true,
+          tag: tag,
         ),
         iOS: const DarwinNotificationDetails(
           presentAlert: true,

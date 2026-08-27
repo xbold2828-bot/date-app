@@ -67,6 +67,15 @@
 			</array>
 		</dict>
 	</dict>
+	<!-- Required for a data-only (silent) push to wake the app. Without
+	     `remote-notification` iOS delivers alert pushes but drops every
+	     content-available one, and `FirebaseAppDelegateProxyEnabled` left
+	     unset is fine as long as the plugin's swizzling is not disabled. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+		<string>fetch</string>
+	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

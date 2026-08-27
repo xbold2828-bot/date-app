@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Accent behind the status-bar notification icon.
+
+        cozune's brand blue (AppColors.primary, 0xFF4A7FE8). Android tints the
+        small icon with this on API 21+, so it is the only colour a notification
+        carries before it is expanded.
+    -->
+    <color name="notification_color">#4A7FE8</color>
+</resources>

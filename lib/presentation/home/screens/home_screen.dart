@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/notification/push_deep_link.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
+import '../../../data/models/message_model.dart';
 import '../../../providers/chat_provider.dart';
+import '../../../providers/core_providers.dart';
 import '../../../providers/match_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../../providers/realtime_provider.dart';
@@ -13,6 +18,7 @@ import '../../explore/screens/explore_screen.dart';
 import '../widgets/discovery_filter_sheet.dart';
 import '../widgets/match_celebration.dart';
 import '../widgets/premium_filter_prompt.dart';
+import './chat_detail_screen.dart';
 import './profile_detail_sheet.dart';
 import './request_screen.dart';
 import './favourites_screen.dart';
@@ -70,12 +76,101 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // Two paths reach here, and both matter:
+    //
+    //  - a tap on a cold start, parked in main() long before this screen
+    //    existed, which is why the pending value is drained once on mount;
+    //  - a tap while the app is already running, which arrives later and is
+    //    why the listener stays attached.
+    PushDeepLinks.pending.addListener(_onDeepLink);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onDeepLink());
   }
 
   @override
   void dispose() {
+    PushDeepLinks.pending.removeListener(_onDeepLink);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  /// Act on a tapped notification.
+  ///
+  /// [PushDeepLinks.consume] clears the link as it reads it, so a rebuild for
+  /// any other reason cannot navigate a second time.
+  void _onDeepLink() {
+    final link = PushDeepLinks.consume();
+    if (link == null || !mounted) return;
+
+    switch (link.destination) {
+      case PushDestination.conversation:
+        unawaited(_openConversation(link));
+      case PushDestination.matches:
+        setState(() => _current = _Tab.chats);
+      case PushDestination.likes:
+        setState(() => _current = _Tab.likes);
+      case PushDestination.profile:
+        setState(() => _current = _Tab.radar);
+        final userId = link.userId;
+        if (userId != null) {
+          showRadiusSheet<void>(
+            context: context,
+            // A bare seed: the sheet fetches the real profile itself, and a
+            // notification payload has no business carrying a name and a photo
+            // URL just to pre-paint one frame.
+            builder: (_) => ProfileDetailSheet(
+              userId: userId,
+              seed: const ProfileSeed(name: 'Someone', colorIndex: 0),
+            ),
+          );
+        }
+      case PushDestination.url:
+        // Announcements only. Nothing in-app to open, and launching a browser
+        // from a notification tap is the app's decision to make elsewhere.
+        break;
+    }
+  }
+
+  /// Open one chat thread from a notification.
+  ///
+  /// The push carries ids, not a rendered inbox row — a notification payload
+  /// has a hard 4KB ceiling and names and photo URLs do not belong in it. So
+  /// the summary is fetched here, by the person rather than the conversation:
+  /// `conversationWith` works even when no thread exists yet, which is the case
+  /// a match notification lands in.
+  ///
+  /// If the lookup fails (offline, most likely) the inbox is the honest
+  /// fallback — the thread is right at the top of it.
+  Future<void> _openConversation(PushDeepLink link) async {
+    final userId = link.userId;
+    if (userId == null) return;
+
+    ConversationSummary? summary;
+    try {
+      summary = await ref.read(chatRepositoryProvider).conversationWith(userId);
+    } catch (_) {
+      summary = null;
+    }
+    if (!mounted) return;
+
+    if (summary == null) {
+      setState(() => _current = _Tab.chats);
+      return;
+    }
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatDetailScreen(
+          conversationId: summary!.id,
+          userId: summary.otherUser.id,
+          userName: summary.otherUser.displayName ?? 'Someone',
+          userAge: summary.otherUser.age,
+          photoUrl: summary.otherUser.primaryPhotoUrl,
+          otherUser: summary.otherUser,
+        ),
+      ),
+    );
   }
 
   /// Re-read what may have changed while the app was in the background.

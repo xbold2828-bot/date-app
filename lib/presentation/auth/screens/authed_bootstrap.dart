@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/user_model.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../providers/notification_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../home/screens/home_screen.dart';
 import 'age_screen.dart';
@@ -18,12 +19,37 @@ import 'status_screen.dart';
 /// Entry point once a Supabase session exists: loads the domain user
 /// (`GET /users/me`, which also provisions it on first call) and routes to home
 /// or back into the funnel at the exact step the backend says is outstanding.
-class AuthedBootstrap extends ConsumerWidget {
+class AuthedBootstrap extends ConsumerStatefulWidget {
   const AuthedBootstrap({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AuthedBootstrap> createState() => _AuthedBootstrapState();
+}
+
+class _AuthedBootstrapState extends ConsumerState<AuthedBootstrap> {
+  bool _pushStarted = false;
+
+  @override
+  Widget build(BuildContext context) {
     final me = ref.watch(meProvider);
+
+    // Register this device for push the moment the domain user exists, and not
+    // a moment earlier: registration is keyed to that user, so doing it at
+    // launch — before `GET /users/me` has provisioned them — would either 401
+    // or attach the token to nothing.
+    //
+    // Guarded by a flag rather than by the build, because `build` runs on every
+    // rebuild and the permission prompt must appear exactly once. `start()` is
+    // idempotent besides, so the flag is belt and braces.
+    if (me.hasValue && !_pushStarted) {
+      _pushStarted = true;
+      // Off the build frame: `start()` shows a system permission dialog, and
+      // raising one mid-build is how you get a frame scheduled during a frame.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(pushRegistrarProvider).start();
+      });
+    }
+
     return me.when(
       loading: () => const _Splash(),
       error: (err, _) => _ErrorRetry(

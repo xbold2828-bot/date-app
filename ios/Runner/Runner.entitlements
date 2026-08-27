@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+		Push Notifications capability.
+
+		`development` here is what a debug build needs; Xcode rewrites it to
+		`production` for a Release archive automatically, so this value is
+		correct for both and should not be hand-edited per build.
+
+		This file is only half the job: it must also be attached to the Runner
+		target in Xcode (Signing & Capabilities → + Capability → Push
+		Notifications), which writes CODE_SIGN_ENTITLEMENTS into the pbxproj.
+		Without that link the file is inert and APNs registration fails at
+		runtime with "no valid aps-environment entitlement" — an error that only
+		appears on a real device, never in the simulator.
+	-->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>

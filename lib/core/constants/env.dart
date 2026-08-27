@@ -84,6 +84,22 @@ class Env {
   static String withMapKey(String url) =>
       mapTilesApiKey.isEmpty ? url : url.replaceAll('{key}', mapTilesApiKey);
 
+  // ── Push notifications (optional) ─────────────────────────────────────────
+
+  /// Web Push "Key pair" — Firebase Console → Project settings → Cloud
+  /// Messaging → Web Push certificates.
+  ///
+  /// Required only on web, where `FirebaseMessaging.getToken()` will not
+  /// return a token without it. Native builds ignore it entirely, which is why
+  /// it is not in [_required]: a mobile-only build must not be blocked by a
+  /// key it never uses.
+  ///
+  /// It is a *public* key — safe to ship — but it belongs to one Firebase
+  /// project, so it lives here rather than in code, where the wrong project's
+  /// key would silently produce tokens no cozune notification could ever reach.
+  static const String firebaseVapidKey =
+      String.fromEnvironment('FIREBASE_VAPID_KEY');
+
   /// Every key the app needs, paired with whatever was supplied for it.
   static const Map<String, String> _required = {
     'SUPABASE_URL': supabaseUrl,

@@ -6,6 +6,11 @@
 <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
 <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
 <uses-permission android:name="android.permission.CAMERA"/>
+
+<!-- Android 13 (API 33) and up: notifications are a runtime permission. Without
+     this declaration the request dialog never appears and every push is
+     silently discarded by the OS on a fresh install. -->
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="cozune"
         android:name="${applicationName}"
@@ -42,6 +47,26 @@
             <meta-data
   android:name="com.google.android.gms.version"
   android:value="@integer/google_play_services_version"/>
+
+        <!-- Where a notification lands when the server names no channel, or
+             names one this build does not know. Android would otherwise route
+             it to an implicit low-importance channel: no sound, no heads-up,
+             and nothing anywhere saying why. Must match a channel the app
+             actually creates — see NotificationChannels. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="cozune_announcements"/>
+
+        <!-- The status-bar icon. Android renders it as a silhouette, so it has
+             to be a white-on-transparent shape; a full-colour launcher icon
+             comes out as a grey blob. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification"/>
+
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_color"/>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

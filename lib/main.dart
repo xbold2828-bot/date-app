@@ -13,8 +13,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/constants/app_text_styles.dart';
 import 'core/constants/env.dart';
 import 'core/logger/app_logger.dart';
-import 'core/notification/fcm_sender.dart';
 import 'core/notification/notification_helper.dart';
+import 'core/notification/push_deep_link.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/palette_scope.dart';
@@ -55,17 +55,6 @@ void main() async {
 
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-  // ✅ Initialize the client-to-expert message sender pipeline
-  try {
-    await FcmSender.init();
-  } catch (e, s) {
-    AppLogger.e(
-      'FcmSender initialization failed, continuing without it',
-      error: e,
-      stackTrace: s,
-    );
-  }
-
   // ✅ Fetch package/build info once, globally, before the app renders
   await AppInfo.init();
 
@@ -76,28 +65,18 @@ void main() async {
   await configureCrashlyticsAndAnalytics();
 
   await NotificationHelper.initCore(
+    // A tap is parked rather than acted on here.
+    //
+    // On a cold start this fires from main(), before any widget tree exists —
+    // and a cold-start tap is the one that matters most, because that person
+    // opened the app *because* of the notification. Parking it means HomeScreen
+    // picks it up the moment it is mounted and past the auth gate, instead of
+    // the tap being dropped for arriving early. See [PushDeepLinks].
     onNotificationTap: (data) {
-      AppLogger.i('Notification Tapped with data: $data');
-
-      final context = navigatorKey.currentContext;
-      if (context == null) return;
-
-      // // Step 1: land on the pharmacy dashboard first, so there's always a
-      // // sane screen underneath — matters most for cold-start taps, where
-      // // there's no existing navigation stack to fall back to.
-      // GoRouter.of(context).go(AppRoutes.dashboard);
-      //
-      // // Step 2: after a short delay, push the notifications screen on top
-      // // of the dashboard (push, not go, so back navigation returns to the
-      // // dashboard instead of exiting the app).
-      // Future.delayed(const Duration(seconds: 1), () {
-      //   final ctx = navigatorKey.currentContext;
-      //   if (ctx == null) return;
-      //   if (ctx.mounted) {
-      //     GoRouter.of(ctx).push(AppRoutes.notifications);
-      //   }
-      // });
+      AppLogger.i('Notification tapped: $data');
+      PushDeepLinks.receive(data);
     },
+    // Silent pushes. Nothing to draw; the app re-reads what changed on resume.
     onDataMessage: (data) {
       AppLogger.i('Data message received: $data');
     },
@@ -351,6 +330,11 @@ class MyApp extends ConsumerWidget {
     return MaterialApp(
       title: 'cozune',
       debugShowCheckedModeBanner: false,
+      // Declared at the top of this file but never wired up until now, which
+      // meant `navigatorKey.currentContext` was permanently null — anything
+      // navigating from outside the tree (a notification tap, most of all)
+      // silently did nothing.
+      navigatorKey: navigatorKey,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       // Follows the phone until the user flips the switch on the You screen.
