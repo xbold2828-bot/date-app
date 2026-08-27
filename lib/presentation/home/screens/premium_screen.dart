@@ -96,7 +96,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
     _Benefit('No ads, ever', 'Nothing to watch, nothing to sit through.'),
     _Benefit(
       'Every filter',
-      'Online now, verified, situation, vibe and desires.',
+      'Online now, verified, situation, atmosphere and vibe.',
     ),
     _Benefit('Start any conversation', 'No cap on openers.'),
   ];

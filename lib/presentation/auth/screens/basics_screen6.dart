@@ -13,8 +13,8 @@ import 'basics_screen7.dart';
 
 /// Identity verification (the live face check).
 ///
-/// This is not one of the ten funnel steps — it unlocks the adult layer and
-/// messaging, and is always skippable. The on-device animation drives a real
+/// This is not one of the ten funnel steps — it unlocks messaging and the
+/// verified badge, and is always skippable. The on-device animation drives a real
 /// `POST /verification/session`; with the mock provider the session is then
 /// approved via `POST /verification/session/:id/complete`, while a real
 /// provider decides asynchronously by webhook (which returns 403 here, so that
@@ -143,7 +143,7 @@ class _BasicsScreen6State extends ConsumerState<BasicsScreen6>
         }
       }
 
-      // Refresh the self-view so `verified` (which gates the adult layer) is
+      // Refresh the self-view so `verified` (which gates messaging) is
       // current on the screens after this one.
       await ref.read(meProvider.notifier).refresh();
 
@@ -222,7 +222,7 @@ class _BasicsScreen6State extends ConsumerState<BasicsScreen6>
                 style: AppTextStyles.display,
               ),
               const SizedBox(height: 8),
-              // Same rule as the age screen: never name "the adult layer" in
+              // Same rule as the age screen: never name an "adult layer" in
               // anything a person — or a store reviewer — can read. It says
               // what the check unlocks, which is messaging and a badge.
               Text(

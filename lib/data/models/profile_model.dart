@@ -22,8 +22,11 @@ class ProfileStats {
 
 /// `GET /profiles/:id` — the tap-through profile popup for another user.
 ///
-/// The adult "desires" ([preferenceTags]) are only present when the viewer is
+/// Step 6's answers ([preferenceTags]) are only present when the viewer is
 /// verified; otherwise [desiresLocked] is true and [preferenceTags] is null.
+///
+/// The field name is storage, not vocabulary — it is what the API sends, and
+/// renaming it would mean a coordinated server change for no visible gain.
 class PublicProfile {
   final String id;
   final String? displayName;

@@ -81,7 +81,7 @@ class EntitlementRequiredException extends AppException {
   String? get reason => details?['reason'] as String?;
 }
 
-/// 403 — identity verification required to message / set the adult layer.
+/// 403 — identity verification required to message / set your step-6 tags.
 class VerificationRequiredException extends AppException {
   const VerificationRequiredException([
     String message = 'Identity verification is required for this action.',

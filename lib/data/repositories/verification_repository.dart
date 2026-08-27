@@ -2,7 +2,7 @@ import '../../core/constants/api_constants.dart';
 import '../models/verification_model.dart';
 import '../services/api_service.dart';
 
-/// Identity ("live check") verification, which unlocks the adult layer.
+/// Identity ("live check") verification, which unlocks messaging.
 ///
 /// Verification is never required to finish onboarding — it gates the sensitive
 /// preference tags and is offered as its own step the user may skip.

@@ -64,7 +64,7 @@ class ApiConstants {
   static String mediaPrimary(String id) => '/media/$id/primary';
   static String mediaItem(String id) => '/media/$id';
 
-  // ── Identity verification (unlocks the adult layer) ─────────────────────
+  // ── Identity verification (unlocks messaging) ───────────────────────────
   static const String verificationSession = '/verification/session';
   static const String verificationMe = '/verification/me';
   static String verificationComplete(String sessionId) =>

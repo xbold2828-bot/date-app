@@ -231,7 +231,7 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
                           SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'No nudity — keep all photos respectful and SFW.',
+                              'Keep photos clear and respectful — no nudity.',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: AppColors.primary,

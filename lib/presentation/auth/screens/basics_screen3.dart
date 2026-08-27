@@ -23,8 +23,8 @@ import 'basics_screen4.dart';
 /// are structural, and the words inside them are catalogue data.
 ///
 /// The verified-members-only rule on tags flagged sensitive is switched off for
-/// now (see `BusinessConfig.requireVerificationForDesires`) — everyone can
-/// select anything, and saving none is still allowed.
+/// now (the `requireVerificationForDesires` flag keeps its old name because it
+/// is an env key) — everyone can select anything, and saving none is allowed.
 ///
 /// Each section carries its own cap ([SelectionLimits.intoByCategory]) rather
 /// than sharing one budget across the step; hard no's are never capped. Both
@@ -82,7 +82,7 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
 
       // Everything the user picked is sent as-is. The verified-members-only
       // rule on these tags is switched off server-side until identity
-      // verification ships (BusinessConfig.requireVerificationForDesires).
+      // verification ships.
       await repo.updatePreferences(_selectedPreferences.toList());
       final me = await repo.updateHardNos(
         _selectedHardNos.toList(),
