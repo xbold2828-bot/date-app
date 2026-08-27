@@ -1,0 +1,44 @@
+abstract final class AppVectors {
+  static const String _baseUrl = "assets/vectors";
+  static const String _svgBaseUrl = "$_baseUrl/svg";
+  static const String headphoneIcon = "$_svgBaseUrl/headphone_icon.svg";
+  static const String uploadingIcon = "$_svgBaseUrl/uploading.svg";
+  static const String uploadingIcon2 = "$_svgBaseUrl/uploading2.svg";
+  static const String pdfIcon = "$_svgBaseUrl/pdf_icon.svg";
+  static const String deleteIcon = "$_svgBaseUrl/delete_icon.svg";
+  static const String whatsapp = "$_svgBaseUrl/whatsapp.svg";
+  static const String gallery = "$_svgBaseUrl/gallery.svg";
+  static const String account = "$_svgBaseUrl/account.svg";
+  static const String details = "$_svgBaseUrl/details.svg";
+  static const String document = "$_svgBaseUrl/document.svg";
+  static const String edit = "$_svgBaseUrl/edit.svg";
+  static const String language = "$_svgBaseUrl/language.svg";
+  static const String setting = "$_svgBaseUrl/setting.svg";
+
+  static const String documentFilled = "$_svgBaseUrl/document_filled.svg";
+  static const String bank = "$_svgBaseUrl/bank.svg";
+  static const String profile = "$_svgBaseUrl/profile.svg";
+  static const String quotation = "$_svgBaseUrl/quotation.svg";
+  static const String replay = "$_svgBaseUrl/replay.svg";
+  static const String exit = "$_svgBaseUrl/exit.svg";
+  static const String arrowDown = "$_svgBaseUrl/arrow_down.svg";
+  static const String listBullet = "$_svgBaseUrl/list_bullet.svg";
+  static const String colorText = "$_svgBaseUrl/color_text.svg";
+  static const String strikeThrough = "$_svgBaseUrl/strike_through.svg";
+  static const String underline = "$_svgBaseUrl/underline.svg";
+  static const String italic = "$_svgBaseUrl/italic.svg";
+  static const String bold = "$_svgBaseUrl/bold.svg";
+  static const String tickIcon = "$_svgBaseUrl/tick_icon.svg";
+  static const String infoIcon = "$_svgBaseUrl/info.svg";
+  static const String appointment = "$_svgBaseUrl/appoinment.svg";
+  static const String availability = "$_svgBaseUrl/availability.svg";
+  static const String request = "$_svgBaseUrl/request.svg";
+  static const String payout = "$_svgBaseUrl/payout.svg";
+  static const String notification = "$_svgBaseUrl/notification.svg";
+  static const String calender = "$_svgBaseUrl/calender.svg";
+  static const String personIcon = "$_svgBaseUrl/person.svg";
+  static const String adminSettings = "$_svgBaseUrl/adminsetting.svg";
+  static const String paymentIcon = "$_svgBaseUrl/payment.svg";
+  static const String expert = "$_svgBaseUrl/expert.svg";
+  static const String reward = "$_svgBaseUrl/reward.svg";
+}

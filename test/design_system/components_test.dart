@@ -1,4 +1,4 @@
-import 'package:dating_app/core/constants/app_colors.dart';
+import 'package:dating_app/core/theme/app_colors.dart';
 import 'package:dating_app/core/theme/app_theme.dart';
 import 'package:dating_app/presentation/common/widgets/widgets.dart';
 import 'package:flutter/material.dart';

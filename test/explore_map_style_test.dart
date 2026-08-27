@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:dating_app/core/constants/app_colors.dart';
+import 'package:dating_app/core/theme/app_colors.dart';
 import 'package:dating_app/data/services/map_style_service.dart';
 import 'package:flutter/material.dart' show Color;
 import 'package:flutter/services.dart' show rootBundle;

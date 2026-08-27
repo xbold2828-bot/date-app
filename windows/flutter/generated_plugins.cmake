@@ -4,13 +4,18 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   app_links
+  cloud_firestore
   file_selector_windows
+  firebase_core
+  firebase_remote_config
   flutter_secure_storage_windows
   geolocator_windows
+  syncfusion_pdfviewer_windows
   url_launcher_windows
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
+  flutter_local_notifications_windows
   jni
 )
 

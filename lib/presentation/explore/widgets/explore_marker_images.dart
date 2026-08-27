@@ -8,7 +8,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/painting.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' show MapLibreMapController;
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../data/models/discovery_user_model.dart';
 import '../../../data/models/map_user_model.dart';
 

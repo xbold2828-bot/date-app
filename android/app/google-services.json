@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "664420294504",
+    "project_id": "dating-app-notification-ec341",
+    "storage_bucket": "dating-app-notification-ec341.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:664420294504:android:2501466c36db150b7680dd",
+        "android_client_info": {
+          "package_name": "com.cozune.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC5z3_5sRycWCbdR-0LLrEAYOusr02SxKE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

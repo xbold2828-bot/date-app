@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:dating_app/core/constants/app_colors.dart';
+import 'package:dating_app/core/theme/app_colors.dart';
 import 'package:dating_app/core/constants/app_text_styles.dart';
 import 'package:dating_app/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
