@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 
 /// The app-wide messenger, attached to `MaterialApp.scaffoldMessengerKey`.

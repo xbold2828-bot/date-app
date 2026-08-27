@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../constants/app_colors.dart';
 import '../constants/app_text_styles.dart';
+import 'app_colors.dart';
 
 /// Assembles the app's [ThemeData] from the colour and type tokens.
 ///

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../data/models/media_model.dart';

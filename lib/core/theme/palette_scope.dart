@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-
-import '../constants/app_colors.dart';
+import 'app_colors.dart';
 
 /// Keeps [AppColors] pointed at the palette for the theme currently in force.
 ///
