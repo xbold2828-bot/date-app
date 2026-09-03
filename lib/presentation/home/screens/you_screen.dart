@@ -1,10 +1,15 @@
+import 'package:dating_app/core/constants/app_constants.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+import 'package:dating_app/core/constants/static_assets/app_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/utils/onboarding_maps.dart';
+import '../../../core/utils/utils.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../providers/chat_provider.dart';
 import '../../../providers/core_providers.dart';
@@ -20,13 +25,6 @@ import '../widgets/you_header.dart';
 import './blocked_accounts_screen.dart';
 import './premium_screen.dart';
 
-/// The "Me" tab.
-///
-/// Composition only. Everything with state of its own lives beside it in
-/// `../widgets/`: the header and its animated premium ring, the photo gallery,
-/// the device-local location line, and the editor for the onboarding answers.
-/// This file's job is the order those appear in and the two account actions at
-/// the bottom.
 class YouScreen extends ConsumerStatefulWidget {
   const YouScreen({super.key});
 
@@ -53,37 +51,31 @@ class _YouScreenState extends ConsumerState<YouScreen> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.panel,
-        title: Text('Sign Out',
-            style: TextStyle(color: AppColors.textDark)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text('Sign Out', style: TextStyle(color: AppColors.textDark)),
         content: Text('Are you sure you want to sign out?',
             style: TextStyle(color: AppColors.textGrey)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel',
-                style: TextStyle(color: AppColors.textGrey)),
+            child: Text('Cancel', style: TextStyle(color: AppColors.textGrey)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Sign Out',
-                style: TextStyle(color: AppColors.primary)),
+            child: Text('Sign Out', style: TextStyle(color: AppColors.primary)),
           ),
         ],
       ),
     );
 
     if (confirm == true && mounted) {
-      // Detach the device BEFORE the session goes, while the call can still be
-      // authorised. Otherwise the server keeps a token it can never be told
-      // about, and the next person to sign in on this phone starts receiving
-      // this account's messages.
       await ref.read(pushRegistrarProvider).stop();
       await AuthService().signOut();
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const LoginScreen()),
-        (route) => false,
+            (route) => false,
       );
     }
   }
@@ -93,8 +85,8 @@ class _YouScreenState extends ConsumerState<YouScreen> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.panel,
-        title: const Text('Delete Account',
-            style: TextStyle(color: Colors.red)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text('Delete Account', style: TextStyle(color: Colors.red)),
         content: Text(
           'This will permanently delete your account and all data. This cannot be undone.',
           style: TextStyle(color: AppColors.textGrey),
@@ -102,34 +94,27 @@ class _YouScreenState extends ConsumerState<YouScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel',
-                style: TextStyle(color: AppColors.textGrey)),
+            child: Text('Cancel', style: TextStyle(color: AppColors.textGrey)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete',
-                style: TextStyle(color: Colors.red)),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
 
     if (confirm == true && mounted) {
-      // Unregister first: the server drops the tokens itself on delete, but
-      // only if the delete reaches it. This also covers the catch below, where
-      // it did not.
       await ref.read(pushRegistrarProvider).stop();
       try {
         await ref.read(profileRepositoryProvider).deleteAccount();
-      } catch (_) {
-        // Even if the server call fails, sign out locally.
-      }
+      } catch (_) {}
       await AuthService().signOut();
       if (mounted) {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (route) => false,
+              (route) => false,
         );
       }
     }
@@ -139,14 +124,10 @@ class _YouScreenState extends ConsumerState<YouScreen> {
   Widget build(BuildContext context) {
     final me = ref.watch(meProvider).valueOrNull;
     if (me == null) {
-      return Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      );
+      return Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
 
     final stats = ref.watch(myProfileStatsProvider).valueOrNull;
-    // Friends is counted here, from the inbox, rather than fetched — see
-    // `activeConversationCountProvider`.
     final friends = ref.watch(activeConversationCountProvider);
     final tagLabels = ref.watch(tagLabelsProvider).valueOrNull ?? const {};
 
@@ -154,39 +135,15 @@ class _YouScreenState extends ConsumerState<YouScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top bar
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Row(
-              children: [
-                Icon(Icons.radio_button_checked,
-                    size: 20, color: AppColors.textDark),
-                const SizedBox(width: 8),
-                Text(
-                  'RADIUS',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ],
-            ),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Wordmark(),
           ),
 
           YouHeader(me: me, avatarUrl: _primaryPhotoUrl(me.primaryPhotoId)),
 
-          const SizedBox(height: 18),
+          const SizedBox(height: 20),
 
-          // Directly under the header, and deliberately.
-          //
-          // The header ends with the live location line — where the device
-          // thinks you are, shown only to you. Who else can see that is the
-          // very next question, so it is answered in the very next card
-          // instead of being filed away with the account actions at the
-          // bottom, where a location control would be found only by somebody
-          // already worried enough to go hunting for it.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: const LocationSharingCard(),
@@ -203,16 +160,15 @@ class _YouScreenState extends ConsumerState<YouScreen> {
             ),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 26),
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: YouGallery(primaryPhotoId: me.primaryPhotoId),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 26),
 
-          // My Vibe
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: _card(
@@ -221,25 +177,21 @@ class _YouScreenState extends ConsumerState<YouScreen> {
               child: me.profile.personalityTags.isEmpty
                   ? Text('Nothing picked yet.', style: AppTextStyles.caption)
                   : Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final vibe in me.profile.personalityTags)
-                          TagPill(
-                            // Slugs come back from the API; the catalogue turns
-                            // them into words, and `humanizeSlug` covers the
-                            // moment before it has loaded.
-                            label: tagLabels[vibe] ?? humanizeSlug(vibe),
-                            tone: TagTone.neutral,
-                          ),
-                      ],
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final vibe in me.profile.personalityTags)
+                    TagPill(
+                      label: tagLabels[vibe] ?? humanizeSlug(vibe),
+                      tone: TagTone.neutral,
                     ),
+                ],
+              ),
             ),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
 
-          // Bio
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: _card(
@@ -259,47 +211,36 @@ class _YouScreenState extends ConsumerState<YouScreen> {
             ),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
 
-          // Everything answered during onboarding, folded away until wanted.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: ProfileEditPanel(me: me),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
 
-          // Account verification
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: _VerificationCard(isVerified: me.verified),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
 
-          // Radius Premium card
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: _PremiumCard(isPremium: me.premium.isActive),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
 
-          // Appearance.
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 20),
             child: _DarkModeTile(),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
 
-          // Blocked accounts.
-          //
-          // Takes over the "Safety Center" slot, which was a tile that did
-          // nothing. This is the only route back from a block: once one lands,
-          // that person is gone from the radar, from likes, from their profile
-          // and from the inbox, so no other screen has a row left to unblock
-          // them from.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: _menuTile(
@@ -307,14 +248,12 @@ class _YouScreenState extends ConsumerState<YouScreen> {
               label: 'Blocked accounts',
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => const BlockedAccountsScreen(),
-                ),
+                MaterialPageRoute(builder: (_) => const BlockedAccountsScreen()),
               ),
             ),
           ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -325,7 +264,7 @@ class _YouScreenState extends ConsumerState<YouScreen> {
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
           Center(
             child: GestureDetector(
@@ -335,20 +274,18 @@ class _YouScreenState extends ConsumerState<YouScreen> {
                 style: TextStyle(
                   fontSize: 14,
                   color: AppColors.danger,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
           ),
 
-          const SizedBox(height: 40),
+          spacerH(80),
         ],
       ),
     );
   }
 
-  /// URL of the photo marked as the profile picture, if it's loaded and still
-  /// present (it may have just been deleted).
   String? _primaryPhotoUrl(String? primaryId) {
     if (primaryId == null) return null;
     for (final asset in ref.watch(myMediaProvider).valueOrNull ?? const []) {
@@ -357,18 +294,24 @@ class _YouScreenState extends ConsumerState<YouScreen> {
     return null;
   }
 
-  /// A titled white card with a pencil in its corner.
   Widget _card({
     required String label,
     required VoidCallback onEdit,
     required Widget child,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.inputBorder),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+        border: Border.all(color: AppColors.inputBorder.withValues(alpha: 0.6)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -376,20 +319,33 @@ class _YouScreenState extends ConsumerState<YouScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label, style: AppTextStyles.label),
+              Text(
+                label,
+                style: AppTextStyles.label.copyWith(
+                  letterSpacing: 1,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               Semantics(
                 button: true,
                 label: 'Edit ${label.toLowerCase()}',
                 excludeSemantics: true,
                 child: GestureDetector(
                   onTap: onEdit,
-                  child: Icon(Icons.edit_outlined,
-                      size: 16, color: AppColors.textGrey),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.edit_outlined,
+                        size: 14, color: AppColors.textGrey),
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           child,
         ],
       ),
@@ -404,28 +360,40 @@ class _YouScreenState extends ConsumerState<YouScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         decoration: BoxDecoration(
           color: AppColors.card,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.inputBorder),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: AppColors.textDark),
-            const SizedBox(width: 12),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 18, color: AppColors.textDark),
+            ),
+            const SizedBox(width: 14),
             Expanded(
               child: Text(
                 label,
                 style: TextStyle(
                   fontSize: 15,
                   color: AppColors.textDark,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-            Icon(Icons.chevron_right,
-                size: 20, color: AppColors.textGrey),
+            Icon(Icons.chevron_right, size: 20, color: AppColors.textGrey),
           ],
         ),
       ),
@@ -433,14 +401,6 @@ class _YouScreenState extends ConsumerState<YouScreen> {
   }
 }
 
-/// Identity verification status. Says what is true rather than what is hoped:
-/// an unverified account is told it is unverified.
-/// The 🌙 switch.
-///
-/// It shows the brightness actually being drawn, not the stored [ThemeMode] —
-/// so someone whose phone is already dark finds it on rather than off. Flipping
-/// it is an explicit choice, and from that point the app stops following the
-/// phone.
 class _DarkModeTile extends ConsumerWidget {
   const _DarkModeTile();
 
@@ -453,35 +413,46 @@ class _DarkModeTile extends ConsumerWidget {
       label: 'Dark mode',
       excludeSemantics: true,
       child: Container(
-        // Shorter than a menu tile: a Switch is 48pt of touch target on its
-        // own, so the usual 16pt of padding would make this row taller than
-        // everything it sits between.
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
         decoration: BoxDecoration(
           color: AppColors.card,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.inputBorder),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            Icon(
-              dark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
-              size: 20,
-              color: AppColors.textDark,
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                dark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+                size: 18,
+                color: AppColors.textDark,
+              ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             Expanded(
               child: Text(
                 'Dark mode',
                 style: TextStyle(
                   fontSize: 15,
                   color: AppColors.textDark,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
             Switch(
               value: dark,
+              activeColor: AppColors.primary,
               onChanged: (on) =>
                   ref.read(themeModeProvider.notifier).toggle(dark: on),
             ),
@@ -500,44 +471,66 @@ class _VerificationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: (isVerified ? AppColors.ok : Colors.black)
+                .withValues(alpha: isVerified ? 0.12 : 0.03),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
         border: Border.all(
           color: isVerified
-              ? AppColors.ok.withValues(alpha: 0.3)
-              : AppColors.inputBorder,
+              ? AppColors.ok.withValues(alpha: 0.35)
+              : AppColors.inputBorder.withValues(alpha: 0.6),
         ),
       ),
       child: Row(
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
-              color: isVerified
-                  ? AppColors.ok.withValues(alpha: 0.1)
-                  : AppColors.background,
+              gradient: isVerified
+                  ? LinearGradient(
+                colors: [
+                  AppColors.ok.withValues(alpha: 0.2),
+                  AppColors.ok.withValues(alpha: 0.08),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+                  : null,
+              color: isVerified ? null : AppColors.background,
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.verified_outlined,
-              size: 18,
+              size: 20,
               color: isVerified ? AppColors.ok : AppColors.iconMuted,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('ACCOUNT VERIFICATION',
-                    style: AppTextStyles.label.copyWith(fontSize: 10)),
-                const SizedBox(height: 2),
+                    style: AppTextStyles.label.copyWith(
+                      fontSize: 10,
+                      letterSpacing: 1,
+                    )),
+                const SizedBox(height: 3),
                 Text(
                   isVerified ? 'Identity Verified' : 'Not verified yet',
-                  style: AppTextStyles.bodyStrong.copyWith(fontSize: 14),
+                  style: AppTextStyles.bodyStrong.copyWith(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 Text(
                   isVerified
@@ -548,14 +541,13 @@ class _VerificationCard extends StatelessWidget {
               ],
             ),
           ),
-          if (isVerified) const VerificationTick(size: 20),
+          if (isVerified) const VerificationTick(size: 22),
         ],
       ),
     );
   }
 }
 
-/// The premium card — a receipt when it is active, an offer when it is not.
 class _PremiumCard extends StatelessWidget {
   const _PremiumCard({required this.isPremium});
 
@@ -564,52 +556,89 @@ class _PremiumCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: const Color(0xFF241A4D),
-        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF2D1F63), Color(0xFF1A123B)],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.premium.withValues(alpha: 0.25),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(
-                isPremium ? Icons.workspace_premium : Icons.radio_button_checked,
-                size: 20,
-                color: isPremium ? AppColors.premium : AppColors.primary,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.premium,
+                      AppColors.premium.withValues(alpha: 0.6),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  isPremium ? Icons.workspace_premium : Icons.radio_button_checked,
+                  size: 18,
+                  color: Colors.white,
+                ),
               ),
-              const SizedBox(width: 8),
-              // Unconstrained text in a Row overflows the card on a narrow
-              // screen (and at larger system font scales); let it take the
-              // remaining width instead.
+              const SizedBox(width: 10),
               const Expanded(
                 child: Text(
                   'cozune Premium',
                   style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.onImage,
                   ),
                 ),
               ),
+              if (isPremium)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    'ACTIVE',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
             isPremium
                 ? 'Unlimited radius, every filter, and no ads.'
                 : 'See everyone nearby, filter everything, and drop the ads.',
             style: const TextStyle(
-              fontSize: 13,
+              fontSize: 13.5,
               color: Colors.white60,
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
-            height: 46,
+            height: 48,
             child: ElevatedButton(
               onPressed: () => Navigator.push(
                 context,
@@ -625,11 +654,8 @@ class _PremiumCard extends StatelessWidget {
               child: Text(
                 isPremium ? 'Manage Subscription' : 'See what you get',
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  // Not textDark: the pill is a fixed white on a fixed violet
-                  // card, so its label cannot follow the theme's ink or it
-                  // turns white-on-white in dark mode.
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
                   color: AppColors.premiumDeep,
                 ),
               ),

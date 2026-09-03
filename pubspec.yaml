@@ -69,6 +69,10 @@ dependencies:
   dotted_border: ^3.1.0
   url_launcher: ^6.3.2
   pub_semver: ^2.2.0
+  flutter_dotenv: ^6.0.1
+  flutter_launcher_icons: ^0.14.4
+  google_mobile_ads: ^9.1.0
+  equatable: ^2.1.0
 
 dev_dependencies:
   flutter_test:
@@ -78,6 +82,18 @@ dev_dependencies:
   mocktail: ^1.0.4
   http_mock_adapter: ^0.6.1
   flutter_lints: ^6.0.0
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icons/launcher_icon.jpeg"
+  min_sdk_android: 21
+
+  web:
+    generate: true
+    image_path: "assets/icons/launcher_icon.jpeg"
+#    background_color: "#ffffff"   # ✅ FIXED
+#    theme_color: "#ffffff"        # ✅ FIXED
 
 flutter:
   uses-material-design: true
@@ -95,3 +111,4 @@ flutter:
     - assets/vectors/svg/
     - assets/icons/
     - assets/map/
+    - .env

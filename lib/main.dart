@@ -1,3 +1,4 @@
+import 'package:dating_app/core/constants/app_constants.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -5,16 +6,18 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'core/constants/app_text_styles.dart';
 import 'core/constants/env.dart';
 import 'core/logger/app_logger.dart';
 import 'core/notification/notification_helper.dart';
 import 'core/notification/push_deep_link.dart';
+import 'core/router/app_pages.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/palette_scope.dart';
@@ -32,6 +35,8 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await dotenv.load(fileName: ".env");
 
   // Env has no fallbacks, so bail out here with a readable screen instead of
   // letting Supabase.initialize throw on an empty URL.
@@ -53,8 +58,9 @@ void main() async {
   // We just return to stop the rest of the app from executing.
   if (!isFirebaseInitialized) return;
 
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  await MobileAds.instance.initialize(); // ✅ Initialize AdMob SDK
   // ✅ Fetch package/build info once, globally, before the app renders
   await AppInfo.init();
 
@@ -65,18 +71,10 @@ void main() async {
   await configureCrashlyticsAndAnalytics();
 
   await NotificationHelper.initCore(
-    // A tap is parked rather than acted on here.
-    //
-    // On a cold start this fires from main(), before any widget tree exists —
-    // and a cold-start tap is the one that matters most, because that person
-    // opened the app *because* of the notification. Parking it means HomeScreen
-    // picks it up the moment it is mounted and past the auth gate, instead of
-    // the tap being dropped for arriving early. See [PushDeepLinks].
     onNotificationTap: (data) {
       AppLogger.i('Notification tapped: $data');
       PushDeepLinks.receive(data);
     },
-    // Silent pushes. Nothing to draw; the app re-reads what changed on resume.
     onDataMessage: (data) {
       AppLogger.i('Data message received: $data');
     },
@@ -93,8 +91,6 @@ void main() async {
 
 final supabase = Supabase.instance.client;
 
-/// Initializes Firebase and handles critical startup errors by showing a fallback UI.
-/// Returns [true] if Firebase initialized successfully, or [false] if it failed.
 Future<bool> initializeFirebaseWithFallback() async {
   try {
     await Firebase.initializeApp(
@@ -327,26 +323,23 @@ class MyApp extends ConsumerWidget {
         minTextAdapt: true,
         splitScreenMode: true,
         builder: (context, child) {
-    return MaterialApp(
-      title: 'cozune',
+    return MaterialApp.router(
+      title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
-      // Declared at the top of this file but never wired up until now, which
-      // meant `navigatorKey.currentContext` was permanently null — anything
-      // navigating from outside the tree (a notification tap, most of all)
-      // silently did nothing.
-      navigatorKey: navigatorKey,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      // Follows the phone until the user flips the switch on the You screen.
       themeMode: ref.watch(themeModeProvider),
-      // PaletteScope has to sit here rather than around the MaterialApp: it
-      // reads the resolved brightness off Theme.of, which only exists below.
-      builder: (context, child) => PaletteScope(child: child!),
-      // One messenger for the whole app, so a confirmation can be raised from
-      // anywhere — including code holding no BuildContext, and screens whose
-      // context is gone by the time their request comes back.
       scaffoldMessengerKey: radiusMessengerKey,
-      home: const AuthGate(),
+      routerConfig: appRouter,
+      builder: (context, child) {
+        Widget app = child!;
+
+        if (defaultTargetPlatform == TargetPlatform.android) {
+          app = SafeArea(top: false, child: app);
+        }
+
+        return PaletteScope( child: app,);
+      },
     );
   });
   }
@@ -380,7 +373,7 @@ class MissingConfigApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'cozune',
+      title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       home: Scaffold(

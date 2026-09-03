@@ -7,12 +7,12 @@ import '../../../../../core/utils/utils.dart';
 import '../../../../../shared/widgets/app_text.dart';
 import '../../../../../shared/widgets/buttons/common_button.dart';
 
-class MaintenancePage extends StatefulWidget {
+class MaintenanceScreen extends StatefulWidget {
   final String title;
   final String message;
   final VoidCallback onRefresh;
 
-  const MaintenancePage({
+  const MaintenanceScreen({
     super.key,
     this.title = "We're upgrading\nour systems",
     required this.message,
@@ -20,10 +20,10 @@ class MaintenancePage extends StatefulWidget {
   });
 
   @override
-  State<MaintenancePage> createState() => _MaintenancePageState();
+  State<MaintenanceScreen> createState() => _MaintenanceScreenState();
 }
 
-class _MaintenancePageState extends State<MaintenancePage>
+class _MaintenanceScreenState extends State<MaintenanceScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;

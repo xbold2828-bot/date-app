@@ -6,8 +6,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/constants/static_assets/app_icons.dart';
 import '../../../core/logger/app_logger.dart';
+import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_loader.dart';
 import '../../../core/utils/app_snack_bar.dart';
@@ -17,8 +19,8 @@ import '../../../data/services/auth_service.dart';
 import '../../../providers/notification_provider.dart';
 import 'package:pub_semver/pub_semver.dart';
 import '../../../providers/profile_provider.dart';
-import '../../common/force_update_maintenance/presentation/pages/maintenance_page.dart';
-import '../../home/screens/home_screen.dart';
+import '../../common/force_update_maintenance/presentation/pages/maintenance_screen.dart';
+import '../../home/screens/dashboard_screen.dart';
 import 'age_screen.dart';
 import 'basics_screen1.dart';
 import 'basics_screen2.dart';
@@ -64,13 +66,13 @@ class _AuthedBootstrapState extends ConsumerState<AuthedBootstrap> {
     }
 
     return me.when(
-      loading: () => const _SplashPage(),
+      loading: () => const SplashScreen(),
       error: (err, _) => _ErrorRetry(
         message: err.toString(),
         onRetry: () => ref.invalidate(meProvider),
       ),
       data: (user) => user.onboarding.isComplete
-          ? const HomeScreen()
+          ? const DashboardScreen()
           : _resumeAt(user.onboarding.nextStep),
     );
   }
@@ -109,14 +111,14 @@ class _AuthedBootstrapState extends ConsumerState<AuthedBootstrap> {
   }
 }
 
-class _SplashPage extends StatefulWidget {
-  const _SplashPage();
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
 
   @override
-  State<_SplashPage> createState() => _SplashPageState();
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashPageState extends State<_SplashPage> {
+class _SplashScreenState extends State<SplashScreen> {
   String _cachedAppVersion = '0.0.0';
 
   @override
@@ -193,20 +195,10 @@ class _SplashPageState extends State<_SplashPage> {
   //   }
   // }
 
-  /// Fetches & activates Remote Config exactly once per splash run.
-  ///
-  /// - Uses a sane [minimumFetchInterval] instead of [Duration.zero], so
-  ///   repeated app launches within a short window reuse the cached config
-  ///   instead of hitting the network (and the throttle quota) every time.
-  ///   Short interval for debug builds, longer for release.
-  /// - If the fetch itself is throttled or fails for any other reason (no
-  ///   network, timeout, etc.), we swallow the error and fall back to
-  ///   whatever config is already cached/activated from a previous run —
-  ///   `remoteConfig.getString(...)` still works fine on stale data, it
-  ///   just won't reflect the very latest values.
   Future<void> _fetchRemoteConfigSafely(
       FirebaseRemoteConfig remoteConfig,
-      ) async {
+      ) async
+  {
     try {
       await remoteConfig.setConfigSettings(
         RemoteConfigSettings(
@@ -223,10 +215,6 @@ class _SplashPageState extends State<_SplashPage> {
         "Firebase fetch & activate status: ${fetchStatus ? 'NEW DATA ACTIVATED / CACHED DATA FRESH' : 'NO NEW DATA TO ACTIVATE'}",
       );
     } catch (e, st) {
-      // Includes [firebase_remote_config/throttled] and any other fetch
-      // failure. We deliberately do NOT rethrow — the splash flow should
-      // proceed using whatever is already cached/activated (or the SDK's
-      // in-code defaults) rather than get stuck.
       AppLogger.e(
         "Remote Config fetch failed (using cached/default values): $e",
       );
@@ -320,13 +308,11 @@ class _SplashPageState extends State<_SplashPage> {
       if (isMaintenanceMode && mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-            builder: (_) => MaintenancePage(
+            builder: (_) => MaintenanceScreen(
               title: customTitle,
               message: customMessage,
               onRefresh: () async {
                 AppLoader.show();
-                // Manual "retry" from the maintenance page — a deliberate
-                // user action, so a real fetch here is fine.
                 await _fetchRemoteConfigSafely(remoteConfig);
                 final bool stillInMaintenance = _checkMaintenanceMode(
                   remoteConfig,
@@ -334,7 +320,7 @@ class _SplashPageState extends State<_SplashPage> {
                 AppLoader.hide();
 
                 if (!stillInMaintenance) {
-                  // if (mounted) context.go(AppRoutes.splash);
+                  if (mounted) context.go(AppRoutes.splash);
                 } else {
                   AppSnackBar.showWarningSnackBar(
                     message: "Current App is in Maintenance Mode!",

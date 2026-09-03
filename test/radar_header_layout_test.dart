@@ -1,5 +1,5 @@
 import 'package:dating_app/core/theme/app_theme.dart';
-import 'package:dating_app/presentation/home/screens/home_screen.dart';
+import 'package:dating_app/presentation/home/screens/dashboard_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

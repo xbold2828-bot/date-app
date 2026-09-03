@@ -5,7 +5,7 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../providers/core_providers.dart';
 import '../../../providers/profile_provider.dart';
-import '../../home/screens/home_screen.dart';
+import '../../home/screens/dashboard_screen.dart';
 
 /// Step 10 — the vibe agreement.
 ///
@@ -56,7 +56,7 @@ class _BasicsScreen7State extends ConsumerState<BasicsScreen7> {
       if (mounted) {
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => const DashboardScreen()),
           (route) => false,
         );
       }

@@ -1,61 +1,239 @@
 import 'package:flutter/material.dart';
 
-/// The Radius palette — a white ground, a blue accent, purple reserved for
-/// premium, and a dark mode that swaps every value without any screen knowing.
-///
-/// ## How this file works
-///
-/// [RadiusPalette] holds one complete set of values; there are two of them,
-/// [RadiusPalette.light] and [RadiusPalette.dark]. [AppColors] is a thin façade
-/// of getters over whichever one is currently active, so a screen keeps writing
-/// `AppColors.card` and gets the right colour for the mode it is being drawn
-/// in. Nothing outside this file names a palette.
-///
-/// The active palette is set by `MaterialApp.builder` in `main.dart`, above
-/// every screen, before anything below it builds.
-///
-/// **These are getters, not constants.** A widget reading one cannot be
-/// `const`, which is what makes the swap visible at all. If you add a token,
-/// add it to [RadiusPalette], to both palettes, and to the façade.
-///
-/// ## Ink tokens, and why there are three of them
-///
-/// White is not one colour in this design, it is three jobs, and only one of
-/// them survives the dark swap:
-///
-/// * [card] — the surface under cards, chips, inputs. White in light,
-///   `#1B1B29` in dark.
-/// * [onAccent] — ink sitting *on* a [primary] or [premium] fill. White in
-///   light, near-black in dark, because the dark accents are pale.
-/// * [onImage] — ink over a photograph, gradient scrim or map marker. Always
-///   white, in both modes, because a photo is a photo either way.
-///
-/// Reaching for the wrong one is invisible in light mode and obvious in dark,
-/// which is exactly the bug this split exists to prevent.
-///
-/// ## Contrast
-///
-/// Every promise below is asserted by `test/design_system/tokens_test.dart`,
-/// for **both** palettes. Measured on that palette's own [background]:
-///
-/// | Token          | Light   | Dark    | Safe for                        |
-/// |----------------|---------|---------|---------------------------------|
-/// | [textDark]     | 18.1:1  | 16.7:1  | anything                        |
-/// | [textGrey]     |  5.2:1  |  6.9:1  | text at any size (AA)           |
-/// | [primaryInk]   |  6.2:1  | 10.8:1  | text at any size (AA)           |
-/// | [iconMuted]    |  3.4:1  |  4.2:1  | **non-text only** — icons, dots |
-/// | [primary]      |  3.8:1  |  7.9:1  | **fills and controls only**     |
-///
-/// [primary] is the brand blue exactly as specified, and at 3.8:1 on white it
-/// clears the 3:1 bar for a UI component but not the 4.5:1 bar for text. So it
-/// fills buttons, marks active tabs and draws controls — and [primaryInk], the
-/// deeper blue, is what an accent-coloured *word* is set in. Same for
-/// [premium] / [premiumInk].
-///
-/// [inputBorder] does not reach 3:1 against [background] in either mode. That
-/// is safe **only because no state is ever signalled by border alone**: a
-/// selected control changes fill, border and text weight together. New
-/// components must do the same.
+
+
+abstract final class AppColors {
+
+  static RadiusPalette _active = RadiusPalette.light;
+
+  static RadiusPalette get palette => _active;
+
+  static bool get isDark => _active.brightness == Brightness.dark;
+
+  static bool use(Brightness brightness) {
+    if (_active.brightness == brightness) return false;
+    _active = brightness == Brightness.dark
+        ? RadiusPalette.dark
+        : RadiusPalette.light;
+    return true;
+  }
+
+  static Color get background => _active.background;
+
+  static Color get panel => _active.panel;
+
+  static Color get card => _active.card;
+
+  static Color get primary => _active.primary;
+
+  static Color get primaryDeep => _active.primaryDeep;
+
+  static Color get primaryInk => _active.primaryInk;
+
+  static Color get primaryTint => _active.primaryTint;
+
+  static Color get primarySoft => _active.primarySoft;
+
+  static Color get premium => _active.premium;
+
+  static Color get premiumDeep => _active.premiumDeep;
+
+  static Color get premiumInk => _active.premiumInk;
+
+  static Color get premiumTint => _active.premiumTint;
+
+  static Color get textDark => _active.textDark;
+
+  static Color get textGrey => _active.textGrey;
+
+  static Color get iconMuted => _active.iconMuted;
+
+  static Color get onAccent => _active.onAccent;
+
+  static const onImage = Color(0xFFFFFFFF);
+
+  static Color get inputBorder => _active.inputBorder;
+
+  static Color get divider => _active.inputBorder;
+
+  static Color get ok => _active.ok;
+
+  static Color get danger => _active.danger;
+
+  static Color get warning => _active.warning;
+
+  static Color get warningTint => _active.warningTint;
+
+  static Color get scrim => _active.scrim;
+
+  static const Color secondary = Color(0xFF14B8A6);
+  static const Color secondaryDark = secondary;
+
+  static const Color tertiary = Color(0xFFC9B7E3);
+
+  static const Color tertiaryDark = tertiary;
+
+  static const Color backgroundDark = blackColor;
+
+  static const Color surface = blackColor;
+  static const Color surfaceDark = whiteColor;
+
+  static const Color lightPillBg = Color(0xFFE9F3F2);
+
+  static const Color blue = Color(0xFF3544FF);
+
+  static const Color coolGrey = Color(0xFF2B2D33);
+
+  static const Color footertext = Color(0xFF636670);
+
+  static const Color accent = Color(0xFFF59E0B);
+
+  static const Color yellowColor = Color(0xFFD88A00);
+
+  static const Color whiteColor = Color(0xFFFFFFFF);
+
+  static const Color blackColor = Color(0xFF000000);
+
+  static const Color textPrimary = Color(0xFF111827);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color textDisabled = Color(0xFF9CA3AF);
+
+  static const Color textPrimaryDark = Color(0xFFF8FAFC);
+  static const Color textSecondaryDark = Color(0xFFCBD5E1);
+  static const Color textDisabledDark = Color(0xFF64748B);
+
+  static const Color grayishBlue = Color(0x99E5E7EB);
+  static const Color greyColor = Colors.grey;
+  static const Color lightGreyColor = Color(0xffE5E7EB);
+
+  static const Color success = Color(0xFF16A34A);
+  static const Color error = Color(0xFFDC2626);
+  static const Color info = Color(0xFF2563EB);
+
+  static const Color border = Color(0xFFE5E7EB);
+  static const Color borderDark = Color(0xFF334155);
+
+  static const Color transparent = Colors.transparent;
+
+  static const Color themeLight = Color(0xFF0F61A4);
+
+  static const Color themeDark = Color(0xFF3871df);
+
+  static const Color sendMessageColor = Color(0xffDCF8C6);
+
+  static const Color primaryContainerLight = Color.fromRGBO(74, 171, 189, 1.0);
+  static const Color primaryContainerDark = Color(0xFF26B8A1);
+  static const Color secondaryColor = Color(0xFFFE53BB);
+
+  static const Color textColor = Color(0xFF2B2B2B);
+  static const Color lightGrayColor = Color(0x44948282);
+
+  static const Color lightBackgroundColor = Color(0xFFFFFFFF);
+  static const Color lightTextColor = Color(0xFF403930);
+  static const Color darkBackgroundColor = Color(0xFF2B2B2B);
+  static const Color darkTextColor = Color(0xFFF3F2FF);
+  static const Color babyBlue = Color(0xff81deea);
+  static const Color lightRed = Color(0xFFFFCDD2);
+  static const Color deepPurple = Color(0xFF673AB7);
+  static const Color darkGreen = Color(0xFF26B8A1);
+
+  static const Color lightGreen3 = Color(0xFFDBE6DB);
+  static const Color lightGreen = Color(0xFFB6E7B8);
+  static const Color lightGreen2 = Color(0xFF90D5C7);
+  static const Color redPink = Color(0xfff48fb1);
+  static const Color violet = Color(0xffcf94da);
+  static const Color lightPurple = Color(0xFFB29BE3);
+  static const Color redOrange = Color(0xffffab91);
+  static const Color lightBlue = Color(0xFFBBDEFB);
+
+  static const Color youtubeRed = Color.fromARGB(255, 255, 0, 0);
+  static const Color youtubeRedDark = Color.fromARGB(255, 230, 0, 0);
+  static const Color youtubeRedLight = Color.fromARGB(255, 179, 0, 0);
+
+  static const Color lightBackground = Color(0xFFFFFFFF);
+  static const Color lightSurface = Color(0xFFFFFFFF);
+  static const Color lightCard = Color(0xFFF9FAFB);
+
+  static const Color lightTextPrimary = Color(0xFF111827);
+  static const Color lightTextSecondary = Color(0xFF6B7280);
+
+  static const Color lightBorder = Color(0xFFE5E7EB);
+
+  static const Color darkBackground = Color(
+    0xFF0F172A,
+  );
+  static const Color darkSurface = Color(0xFF1E293B);
+  static const Color darkCard = Color(0xFF334155);
+
+  static const Color darkTextPrimary = Color(0xFFF8FAFC);
+  static const Color darkTextSecondary = Color(0xFFCBD5E1);
+
+  static const Color darkBorder = Color(0xFF334155);
+
+  static const List<Color> kConcernCategoryColors = [
+    Color(0xFFEC4899),
+    Color(0xFF8B5CF6),
+    Color(0xFF22C55E),
+    Color(0xFF3B82F6),
+    Color(0xFFEF4444),
+    Color(0xFF16A34A),
+    Color(0xFFF97316),
+    Color(0xFF6366F1),
+    Color(0xFF0EA5E9),
+    Color(0xFFDB2777),
+    Color(0xFFDC2626),
+    Color(0xFF7C3AED),
+  ];
+
+  static const paper = Color(0xFFF6F4EC);
+  static const ink = Color(0xFF1E2A3B);
+  static const inkSoft = Color(0xFF5B6A7C);
+  static const green = Color(0xFF2E7D5F);
+  static const greenSoft = Color(0xFFDCEBE3);
+  static const hairline = Color(0xFFE4E0D3);
+  static const cardShadow = Color(0x14140F0A);
+}
+
+abstract final class AppMapColors {
+
+  static const land = Color(0xFFFAFAFF);
+
+  static const water = Color(0xFFDCE8FF);
+
+  static const waterway = Color(0xFFC7DBFB);
+
+  static const park = Color(0xFFDDF3E9);
+
+  static const woodland = Color(0xFFCFEEDD);
+
+  static const highway = Color(0xFF9BB6F1);
+
+  static const roadMajor = Color(0xFFE3E4F2);
+
+  static const roadMinor = Color(0xFFEFF0FA);
+
+  static const buildingLow = Color(0xFFE9ECFA);
+
+  static const buildingMid = Color(0xFFE2E0F8);
+
+  static const buildingTall = Color(0xFFD2CCF3);
+
+  static const label = Color(0xFF303036);
+
+  static const plum = Color(0xFF7C4DFF);
+
+  static const glow = Color(0xFFB9A5F5);
+
+  static const markerStart = Color(0xFF4A7FE8);
+
+  static const markerEnd = plum;
+
+  static const you = Color(0xFF6236D8);
+
+  static const youPulse = Color(0xFF9B7FE8);
+}
+
+
 @immutable
 class RadiusPalette {
   const RadiusPalette({
@@ -116,9 +294,6 @@ class RadiusPalette {
 
   final Color scrim;
 
-  /// The default. A pure white ground — cards, sheets and the app background
-  /// are all `#FFFFFF`, and hierarchy comes from [inputBorder] hairlines and
-  /// shadow rather than from tinted surfaces.
   static const light = RadiusPalette(
     brightness: Brightness.light,
     background: Color(0xFFFFFFFF),
@@ -145,9 +320,6 @@ class RadiusPalette {
     scrim: Color(0x66141428),
   );
 
-  /// The 🌙 mode. [background] and [card] are the two values the design fixes;
-  /// [panel] sits between them so a sheet still reads as lifted off the ground,
-  /// and the accents lighten because a mid-blue disappears against `#101018`.
   static const dark = RadiusPalette(
     brightness: Brightness.dark,
     background: Color(0xFF101018),
@@ -166,7 +338,6 @@ class RadiusPalette {
     textGrey: Color(0xFF9A9AB5),
     iconMuted: Color(0xFF74748C),
     inputBorder: Color(0xFF2E2E44),
-    // The dark accents are pale, so ink on top of them goes near-black.
     onAccent: Color(0xFF0B0B14),
     ok: Color(0xFF22C55E),
     danger: Color(0xFFF87171),
@@ -175,381 +346,3 @@ class RadiusPalette {
     scrim: Color(0x99000000),
   );
 }
-
-/// Every colour in the app, resolved for the mode currently being drawn.
-///
-/// See [RadiusPalette] for what each token means and which ones are safe for
-/// text.
-abstract final class AppColors {
-
-  static RadiusPalette _active = RadiusPalette.light;
-
-  /// The palette currently in force. Read this only when you need the whole
-  /// set — a single colour should come from the getters below.
-  static RadiusPalette get palette => _active;
-
-  /// True while the dark palette is active. For the rare widget that has to
-  /// branch on mode — a shadow that only makes sense over a light ground, say
-  /// — rather than for picking between two colours, which is what tokens are.
-  static bool get isDark => _active.brightness == Brightness.dark;
-
-  /// Swaps the active palette. Returns whether it actually changed, so the
-  /// caller can skip the rebuild sweep when it did not.
-  ///
-  /// Called from `MaterialApp.builder`, which sits above every screen — do not
-  /// call it from a widget.
-  static bool use(Brightness brightness) {
-    if (_active.brightness == brightness) return false;
-    _active = brightness == Brightness.dark
-        ? RadiusPalette.dark
-        : RadiusPalette.light;
-    return true;
-  }
-
-  // --- Ground ---------------------------------------------------------------
-
-  /// App background.
-  static Color get background => _active.background;
-
-  /// Raised surfaces that sit above [background] — sheets, bottom nav, the
-  /// chat input bar.
-  static Color get panel => _active.panel;
-
-  /// Cards, chips, inputs. **Not** ink on an accent fill — that is [onAccent]
-  /// — and not ink over a photo, which is [onImage].
-  static Color get card => _active.card;
-
-  // --- Accent (blue) --------------------------------------------------------
-
-  /// Actions, active nav, selection. A fill and control colour; for an
-  /// accent-coloured *word*, use [primaryInk].
-  static Color get primary => _active.primary;
-
-  /// Gradient end and pressed states for [primary].
-  static Color get primaryDeep => _active.primaryDeep;
-
-  /// Accent text and accent icons that have to be legible — links, the label
-  /// on a selected chip. AA at any size on both [background] and [primaryTint].
-  static Color get primaryInk => _active.primaryInk;
-
-  /// Fill behind a selected chip or tag pill.
-  static Color get primaryTint => _active.primaryTint;
-
-  /// Dashed borders on notice callouts.
-  static Color get primarySoft => _active.primarySoft;
-
-  // --- Premium (purple) -----------------------------------------------------
-
-  /// Premium, and only premium. If this appears somewhere that does not cost
-  /// money, it has stopped meaning anything.
-  static Color get premium => _active.premium;
-
-  /// Gradient end and pressed states for [premium].
-  static Color get premiumDeep => _active.premiumDeep;
-
-  /// Premium text and premium icons that have to be legible.
-  static Color get premiumInk => _active.premiumInk;
-
-  /// Fill behind premium surfaces.
-  static Color get premiumTint => _active.premiumTint;
-
-  // --- Ink ------------------------------------------------------------------
-
-  /// Primary text.
-  static Color get textDark => _active.textDark;
-
-  /// Secondary text, at any size.
-  static Color get textGrey => _active.textGrey;
-
-  /// Decorative marks only — icons, presence dots, inactive radar rings.
-  /// Passes the UI-component bar, fails text. Never set this on a [Text].
-  static Color get iconMuted => _active.iconMuted;
-
-  /// Ink on a [primary] or [premium] fill: the label inside a filled button,
-  /// the tick inside a selected checkbox. White in light mode, near-black in
-  /// dark, because the dark accents are pale.
-  static Color get onAccent => _active.onAccent;
-
-  /// Ink over a photograph, a gradient scrim, or a map marker. Always white —
-  /// a photo does not change colour with the theme, so neither does the text
-  /// on top of it.
-  static const onImage = Color(0xFFFFFFFF);
-
-  // --- Lines ----------------------------------------------------------------
-
-  /// Hairline borders on cards, chips and inputs.
-  static Color get inputBorder => _active.inputBorder;
-
-  /// Retained for existing call sites; the same hairline as [inputBorder].
-  static Color get divider => _active.inputBorder;
-
-  // --- Semantic -------------------------------------------------------------
-
-  /// Verified, online, success.
-  static Color get ok => _active.ok;
-
-  /// Destructive actions and error states.
-  static Color get danger => _active.danger;
-
-  /// Caution notices. Amber, and distinct from [premium] — a warning that
-  /// looks like an upsell reads as an upsell.
-  static Color get warning => _active.warning;
-
-  /// Fill behind a warning notice.
-  static Color get warningTint => _active.warningTint;
-
-  /// Wash behind a modal or over the bottom of a photo.
-  static Color get scrim => _active.scrim;
-
-  /* =======================
-   * Brand Colors
-   * ======================= */
-  ///Secondary
-  static const Color secondary = Color(0xFF14B8A6);
-  static const Color secondaryDark = secondary;
-
-  ///Tertiary
-  static const Color tertiary = Color(0xFFC9B7E3);
-
-  static const Color tertiaryDark = tertiary;
-
-  ///Background
-  static const Color backgroundDark = blackColor;
-
-  ///Surface
-  static const Color surface = blackColor;
-  static const Color surfaceDark = whiteColor;
-
-  static const Color lightPillBg = Color(0xFFE9F3F2);
-
-  static const Color blue = Color(0xFF3544FF);
-
-  static const Color coolGrey = Color(0xFF2B2D33);
-
-  static const Color footertext = Color(0xFF636670);
-
-  /// Other Colors
-  static const Color accent = Color(0xFFF59E0B);
-
-  // Amber
-  static const Color yellowColor = Color(0xFFD88A00); // Amber
-
-  static const Color whiteColor = Color(0xFFFFFFFF);
-
-  static const Color blackColor = Color(0xFF000000);
-
-  static const Color textPrimary = Color(0xFF111827);
-  static const Color textSecondary = Color(0xFF6B7280);
-  static const Color textDisabled = Color(0xFF9CA3AF);
-
-  static const Color textPrimaryDark = Color(0xFFF8FAFC);
-  static const Color textSecondaryDark = Color(0xFFCBD5E1);
-  static const Color textDisabledDark = Color(0xFF64748B);
-
-  static const Color grayishBlue = Color(0x99E5E7EB);
-  static const Color greyColor = Colors.grey;
-  static const Color lightGreyColor = Color(0xffE5E7EB);
-
-  /* =======================
-   * Status / Feedback Colors
-   * ======================= */
-  static const Color success = Color(0xFF16A34A);
-  static const Color error = Color(0xFFDC2626);
-  static const Color info = Color(0xFF2563EB);
-
-  /* =======================
-   * Border & Divider
-   * ======================= */
-  static const Color border = Color(0xFFE5E7EB);
-  static const Color borderDark = Color(0xFF334155);
-
-  /* =======================
-   * Utility
-   * ======================= */
-  static const Color transparent = Colors.transparent;
-
-  // static const Color themeLight= Colors.green;
-  static const Color themeLight = Color(0xFF0F61A4);
-
-  // static const Color themeLightLighter = Color.fromRGBO(92, 182, 197, 1);
-  static const Color themeDark = Color(0xFF3871df);
-
-  // static const Color themeDark = Color.fromRGBO(26, 131, 147, 1.0);
-  // static const Color themeDark = Color(0xFF25D366);
-  static const Color sendMessageColor = Color(0xffDCF8C6);
-
-  // static const Color themeDark = Color(0xFF09FBD3);
-  static const Color primaryContainerLight = Color.fromRGBO(74, 171, 189, 1.0);
-  static const Color primaryContainerDark = Color(0xFF26B8A1);
-  static const Color secondaryColor = Color(0xFFFE53BB);
-
-  static const Color textColor = Color(0xFF2B2B2B);
-  static const Color lightGrayColor = Color(0x44948282);
-
-  static const Color lightBackgroundColor = Color(0xFFFFFFFF);
-  static const Color lightTextColor = Color(0xFF403930);
-  static const Color darkBackgroundColor = Color(0xFF2B2B2B);
-  static const Color darkTextColor = Color(0xFFF3F2FF);
-  static const Color babyBlue = Color(0xff81deea);
-  static const Color lightRed = Color(0xFFFFCDD2);
-  static const Color deepPurple = Color(0xFF673AB7);
-  static const Color darkGreen = Color(0xFF26B8A1);
-
-  ///Light Colors
-  static const Color lightGreen3 = Color(0xFFDBE6DB);
-  static const Color lightGreen = Color(0xFFB6E7B8);
-  static const Color lightGreen2 = Color(0xFF90D5C7);
-  static const Color redPink = Color(0xfff48fb1);
-  static const Color violet = Color(0xffcf94da);
-  static const Color lightPurple = Color(0xFFB29BE3);
-  static const Color redOrange = Color(0xffffab91);
-  static const Color lightBlue = Color(0xFFBBDEFB);
-
-  //Youtube Colors
-  static const Color youtubeRed = Color.fromARGB(255, 255, 0, 0);
-  static const Color youtubeRedDark = Color.fromARGB(255, 230, 0, 0);
-  static const Color youtubeRedLight = Color.fromARGB(255, 179, 0, 0);
-
-  /* =======================
-   * LIGHT THEME
-   * ======================= */
-  static const Color lightBackground = Color(0xFFFFFFFF);
-  static const Color lightSurface = Color(0xFFFFFFFF);
-  static const Color lightCard = Color(0xFFF9FAFB);
-
-  static const Color lightTextPrimary = Color(0xFF111827);
-  static const Color lightTextSecondary = Color(0xFF6B7280);
-
-  static const Color lightBorder = Color(0xFFE5E7EB);
-
-  /* =======================
-   * DARK THEME
-   * ======================= */
-  static const Color darkBackground = Color(
-    0xFF0F172A,
-  ); // deep dark (not pure black)
-  static const Color darkSurface = Color(0xFF1E293B);
-  static const Color darkCard = Color(0xFF334155);
-
-  static const Color darkTextPrimary = Color(0xFFF8FAFC);
-  static const Color darkTextSecondary = Color(0xFFCBD5E1);
-
-  static const Color darkBorder = Color(0xFF334155);
-
-  static const List<Color> kConcernCategoryColors = [
-    Color(0xFFEC4899),
-    Color(0xFF8B5CF6),
-    Color(0xFF22C55E),
-    Color(0xFF3B82F6),
-    Color(0xFFEF4444),
-    Color(0xFF16A34A),
-    Color(0xFFF97316),
-    Color(0xFF6366F1),
-    Color(0xFF0EA5E9),
-    Color(0xFFDB2777),
-    Color(0xFFDC2626),
-    Color(0xFF7C3AED),
-  ];
-
-  static const paper = Color(0xFFF6F4EC);
-  static const ink = Color(0xFF1E2A3B);
-  static const inkSoft = Color(0xFF5B6A7C);
-  static const green = Color(0xFF2E7D5F);
-  static const greenSoft = Color(0xFFDCEBE3);
-  static const hairline = Color(0xFFE4E0D3);
-  static const cardShadow = Color(0x14140F0A);
-}
-
-/// The Explore map palette.
-///
-/// Kept apart from [AppColors] because it answers a different question. The
-/// main palette dresses *chrome* — surfaces, text, controls — and every value
-/// in it is chosen against [AppColors.background]. These dress *terrain*, and
-/// are chosen against each other: land against water against park, at 5% of
-/// the screen area each, under a marker layer that has to stay the loudest
-/// thing on the map.
-///
-/// **The map does not have a dark mode.** These are plain constants, and the
-/// map renders the same in both themes — the tiles, their labels and the photos
-/// on the markers are light either way, and a half-darkened map reads as a
-/// rendering fault rather than a design. Marker ink is [AppColors.onImage] for
-/// the same reason.
-///
-/// Terrain is pastel and cool — lavender buildings, pastel green parks, pastel
-/// blue water — while everything representing a *person* stays blue-to-violet,
-/// so Explore reads as the same product as the Radar tab rather than a map
-/// bolted onto it. The coral used for motorways is the one warm note, and it
-/// is deliberately desaturated enough to sit under a marker without competing.
-///
-/// The terrain values are also consumed as hex strings by
-/// `assets/map/explore_style.json`; the two must be changed together. Dart
-/// cannot see inside that JSON, so `test/explore_map_style_test.dart` asserts
-/// they still agree.
-class AppMapColors {
-  const AppMapColors._();
-
-  // --- Terrain --------------------------------------------------------------
-
-  /// Land, and the map's background.
-  static const land = Color(0xFFFAFAFF);
-
-  /// Lakes and ocean.
-  static const water = Color(0xFFDCE8FF);
-
-  /// Rivers, streams, canals — a touch stronger, so a river reads as a line
-  /// rather than as a seam in the land.
-  static const waterway = Color(0xFFC7DBFB);
-
-  /// Parks and grass.
-  static const park = Color(0xFFDDF3E9);
-
-  /// Woodland and forest.
-  static const woodland = Color(0xFFCFEEDD);
-
-  /// Motorways and trunk roads.
-  static const highway = Color(0xFF9BB6F1);
-
-  /// Primary and secondary roads.
-  static const roadMajor = Color(0xFFE3E4F2);
-
-  /// Everything else with a name.
-  static const roadMinor = Color(0xFFEFF0FA);
-
-  /// Buildings, short. Nearly all of them.
-  static const buildingLow = Color(0xFFE9ECFA);
-
-  /// Buildings, mid-rise.
-  static const buildingMid = Color(0xFFE2E0F8);
-
-  /// Buildings, tall.
-  static const buildingTall = Color(0xFFD2CCF3);
-
-  /// Map labels. Charcoal, never pure black — pure black on a pastel ground
-  /// reads as a hole punched in the map.
-  static const label = Color(0xFF303036);
-
-  // --- People ---------------------------------------------------------------
-
-  /// The violet end of every people gradient. Pairs with the accent blue.
-  static const plum = Color(0xFF7C4DFF);
-
-  /// The lavender a marker's glow fades out into.
-  static const glow = Color(0xFFB9A5F5);
-
-  /// Start of the marker ring and cluster gradient (accent blue).
-  static const markerStart = Color(0xFF4A7FE8);
-
-  /// End of the marker ring and cluster gradient.
-  static const markerEnd = plum;
-
-  /// The current user. Distinct from [markerStart] on purpose — "you" must not
-  /// look like one more dating profile on the map.
-  static const you = Color(0xFF6236D8);
-
-  /// Fill of the ring pulsing out from the current user.
-  static const youPulse = Color(0xFF9B7FE8);
-}
-
-
-
-

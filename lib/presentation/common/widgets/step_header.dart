@@ -1,5 +1,9 @@
+import 'package:dating_app/core/constants/app_constants.dart';
+import 'package:dating_app/core/utils/utils.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../../core/constants/static_assets/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 
@@ -11,7 +15,7 @@ const int kOnboardingStepCount = 10;
 /// The cozune wordmark. The period is accent blue — the one flourish the brand
 /// gets, and the reason the mark reads as a statement rather than a label.
 class Wordmark extends StatelessWidget {
-  const Wordmark({super.key, this.size = 21, this.color});
+  const Wordmark({super.key, this.size = 24, this.color});
 
   final double size;
   final Color? color;
@@ -24,18 +28,27 @@ class Wordmark extends StatelessWidget {
     );
     return Semantics(
       header: true,
-      label: 'cozune',
+      label: AppConstants.appName,
       excludeSemantics: true,
-      child: Text.rich(
-        TextSpan(
-          children: [
-            TextSpan(text: 'cozune', style: style),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          staticImage(
+            h:25.h,
+            url: AppIcons.roundedLauncherIconNoBg,),
+          spacerW(10),
+          Text.rich(
             TextSpan(
-              text: '.',
-              style: style.copyWith(color: AppColors.primary),
+              children: [
+                TextSpan(text: AppConstants.appName, style: style),
+                TextSpan(
+                  text: '.',
+                  style: style.copyWith(color: AppColors.primary),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

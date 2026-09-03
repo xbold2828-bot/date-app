@@ -8,8 +8,8 @@ import 'env.dart';
 class ApiConstants {
   ApiConstants._();
 
-  static const String baseUrl = Env.apiBaseUrl;
-  static const String socketUrl = Env.socketBaseUrl;
+  static final String baseUrl = Env.apiBaseUrl;
+  static final String socketUrl = Env.socketBaseUrl;
 
   static const Duration connectTimeout = Duration(seconds: 20);
   static const Duration receiveTimeout = Duration(seconds: 20);
@@ -228,8 +228,7 @@ class PushNotificationType {
 }
 
 /// `data.action` values — what the tap handler should do.
-class PushAction {
-  PushAction._();
+abstract final class PushAction {
 
   static const String openConversation = 'open_conversation';
   static const String openMatches = 'open_matches';

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
@@ -6,12 +7,6 @@ import '../../../data/models/user_model.dart';
 import '../../common/widgets/widgets.dart';
 import 'live_location_line.dart';
 
-/// The top of the "Me" tab: photo, name, status, and where you are.
-///
-/// Everything premium about it is gated on [isCurrentUser], which is true here
-/// and only here — see [PremiumAvatar] for why that is a privacy rule rather
-/// than a style switch. The verified tick is deliberately *not* gated: it is a
-/// claim made to other people, so it renders the same on both surfaces.
 class YouHeader extends StatelessWidget {
   const YouHeader({
     super.key,
@@ -32,45 +27,85 @@ class YouHeader extends StatelessWidget {
     return Center(
       child: Column(
         children: [
-          PremiumAvatar(
-            isPremium: isPremium,
-            isCurrentUser: isCurrentUser,
-            // With no premium to draw, the ring falls back to the verified
-            // green it has always been.
-            ringColor: isVerified ? AppColors.ok : AppColors.inputBorder,
-            child: avatarUrl != null
-                ? Image.network(
-                    avatarUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const Icon(
-                      Icons.person,
-                      size: 40,
-                      color: AppColors.onImage,
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: isPremium
+                  ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.premium,
+                  AppColors.premium.withValues(alpha: 0.55),
+                ],
+              )
+                  : null,
+              border: !isPremium
+                  ? Border.all(
+                color: isVerified ? AppColors.ok : AppColors.inputBorder,
+                width: 2,
+              )
+                  : null,
+              boxShadow: isPremium
+                  ? [
+                BoxShadow(
+                  color: AppColors.premium.withValues(alpha: 0.35),
+                  blurRadius: 16,
+                  spreadRadius: 1,
+                ),
+              ]
+                  : null,
+            ),
+            child: PremiumAvatar(
+              isPremium: isPremium,
+              isCurrentUser: isCurrentUser,
+              ringColor: isVerified ? AppColors.ok : AppColors.inputBorder,
+              child: avatarUrl != null
+                  ? CachedNetworkImage(
+                imageUrl: avatarUrl!,
+                fit: BoxFit.cover,
+                placeholder: (_, _) => Container(
+                  color: AppColors.inputBorder.withValues(alpha: 0.3),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                  )
-                : const Icon(Icons.person, size: 40, color: AppColors.onImage),
+                  ),
+                ),
+                errorWidget: (_, _, _) => const Icon(
+                  Icons.person,
+                  size: 40,
+                  color: AppColors.onImage,
+                ),
+              )
+                  : const Icon(Icons.person, size: 40, color: AppColors.onImage),
+            ),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
 
-          // Name, age, and the tick — one row, so the badge stays attached to
-          // the name at every font scale.
           NameWithTick(
             name: me.age != null
                 ? '${me.displayName ?? 'You'}, ${me.age}'
                 : (me.displayName ?? 'You'),
             isVerified: isVerified,
-            style: AppTextStyles.title,
+            style: AppTextStyles.title.copyWith(
+              fontWeight: FontWeight.w700,
+              fontVariations: const [FontVariation('wght', 700)],
+            ),
             tickSize: 19,
             mainAxisAlignment: MainAxisAlignment.center,
           ),
 
           if (isPremium && isCurrentUser) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             const _PremiumPill(),
           ],
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
 
           LiveLocationLine(
             city: me.location?.city,
@@ -83,31 +118,43 @@ class YouHeader extends StatelessWidget {
   }
 }
 
-/// The PREMIUM chip under the name. Purple, because [AppColors.premium] means
-/// exactly one thing in this app.
 class _PremiumPill extends StatelessWidget {
   const _PremiumPill();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
       decoration: BoxDecoration(
-        color: AppColors.premiumTint,
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            AppColors.premium.withValues(alpha: 0.18),
+            AppColors.premiumTint,
+          ],
+        ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.premium.withValues(alpha: 0.45)),
+        border: Border.all(color: AppColors.premium.withValues(alpha: 0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.premium.withValues(alpha: 0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.workspace_premium, size: 13, color: AppColors.premium),
-          const SizedBox(width: 5),
+          Icon(Icons.workspace_premium, size: 14, color: AppColors.premium),
+          const SizedBox(width: 6),
           Text(
             'PREMIUM',
             style: AppTextStyles.caption.copyWith(
               fontSize: 11,
               color: AppColors.premiumInk,
-              letterSpacing: 1,
+              letterSpacing: 1.2,
               fontWeight: FontWeight.w700,
               fontVariations: const [FontVariation('wght', 700)],
             ),

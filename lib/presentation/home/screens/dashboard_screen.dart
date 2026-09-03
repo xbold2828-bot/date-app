@@ -1,8 +1,9 @@
 import 'dart:async';
-
+import 'package:dating_app/core/constants/app_constants.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import '../../../core/ads/banner/banner_ad_widget.dart';
 import '../../../core/notification/push_deep_link.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
@@ -25,50 +26,18 @@ import './favourites_screen.dart';
 import './you_screen.dart';
 import './premium_screen.dart';
 
-/// Intent chips → backend `Intent` value. The full enum, so the row matches
-/// what people actually chose during onboarding — with only four of seven
-/// shown, anyone here for "Serious" or "Friends" was unreachable.
-///
-/// "All" is not in this list: it clears the intent rather than setting one, and
-/// it leads the row ahead of the presence toggles. See [_QuickFilters].
-const List<MapEntry<String, String?>> _filters = [
-  MapEntry('Right now', 'right_now'),
-  MapEntry('Casual', 'casual'),
-  MapEntry('Dating', 'dating'),
-  MapEntry('Serious', 'serious'),
-  MapEntry('Friends', 'friends'),
-  MapEntry('Just chatting', 'just_chatting'),
-  MapEntry('Open to anything', 'open_to_anything'),
-];
+// ============================================================================
+// Screen
+// ============================================================================
 
-/// The five destinations, in the order they appear in the bar.
-///
-/// Explore sits in the middle, between the two feeds and the two inboxes —
-/// it is the browsing surface, and putting it beside Chats would have grouped
-/// it with the things that are about people you have already met.
-enum _Tab {
-  radar(Icons.radar, 'Radar'),
-  likes(Icons.favorite_border, 'Likes'),
-  // `explore_outlined` over `map_outlined`: the compass rose is the closer
-  // sibling of the radar mark the app is built around.
-  explore(Icons.explore_outlined, 'Explore'),
-  chats(Icons.forum_outlined, 'Chats'),
-  you(Icons.person_outline, 'You');
-
-  const _Tab(this.icon, this.label);
-
-  final IconData icon;
-  final String label;
-}
-
-class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key});
+class DashboardScreen extends ConsumerStatefulWidget {
+  const DashboardScreen({super.key});
 
   @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<DashboardScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen>
+class _HomeScreenState extends ConsumerState<DashboardScreen>
     with WidgetsBindingObserver {
   _Tab _current = _Tab.radar;
 
@@ -76,13 +45,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-
-    // Two paths reach here, and both matter:
-    //
-    //  - a tap on a cold start, parked in main() long before this screen
-    //    existed, which is why the pending value is drained once on mount;
-    //  - a tap while the app is already running, which arrives later and is
-    //    why the listener stays attached.
     PushDeepLinks.pending.addListener(_onDeepLink);
     WidgetsBinding.instance.addPostFrameCallback((_) => _onDeepLink());
   }
@@ -94,10 +56,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     super.dispose();
   }
 
-  /// Act on a tapped notification.
-  ///
-  /// [PushDeepLinks.consume] clears the link as it reads it, so a rebuild for
-  /// any other reason cannot navigate a second time.
   void _onDeepLink() {
     final link = PushDeepLinks.consume();
     if (link == null || !mounted) return;
@@ -115,9 +73,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         if (userId != null) {
           showRadiusSheet<void>(
             context: context,
-            // A bare seed: the sheet fetches the real profile itself, and a
-            // notification payload has no business carrying a name and a photo
-            // URL just to pre-paint one frame.
             builder: (_) => ProfileDetailSheet(
               userId: userId,
               seed: const ProfileSeed(name: 'Someone', colorIndex: 0),
@@ -125,22 +80,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           );
         }
       case PushDestination.url:
-        // Announcements only. Nothing in-app to open, and launching a browser
-        // from a notification tap is the app's decision to make elsewhere.
         break;
     }
   }
 
-  /// Open one chat thread from a notification.
-  ///
-  /// The push carries ids, not a rendered inbox row — a notification payload
-  /// has a hard 4KB ceiling and names and photo URLs do not belong in it. So
-  /// the summary is fetched here, by the person rather than the conversation:
-  /// `conversationWith` works even when no thread exists yet, which is the case
-  /// a match notification lands in.
-  ///
-  /// If the lookup fails (offline, most likely) the inbox is the honest
-  /// fallback — the thread is right at the top of it.
   Future<void> _openConversation(PushDeepLink link) async {
     final userId = link.userId;
     if (userId == null) return;
@@ -173,13 +116,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  /// Re-read what may have changed while the app was in the background.
-  ///
-  /// Deliberately NOT the radar: `GET /discovery/nearby` consumes a free daily
-  /// view, so refreshing it on every resume would spend somebody's whole
-  /// allowance just by switching apps. The grid stays a snapshot until it is
-  /// pulled to refresh — and every profile opened from it is fetched live, so
-  /// what people actually read is never stale.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
@@ -193,28 +129,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Activate the live chat badge/inbox refresh while the app is open.
     ref.watch(chatRealtimeProvider);
 
-    // Wraps the whole app surface: a match can arrive from the socket while
-    // the person is on any tab, and the celebration should not belong to
-    // whichever screen happens to be underneath it.
-    return MatchCelebrationHost(
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        body: SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
-              Expanded(child: _body()),
-              _BottomNav(
-                current: _current,
-                // Live unread total: seeded by REST, then bumped by the chat
-                // socket, so a new message lights up Chats from any tab.
-                unread: ref.watch(unreadCountProvider).valueOrNull ?? 0,
-                onSelect: (tab) => setState(() => _current = tab),
-              ),
-            ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+      ),
+      child: MatchCelebrationHost(
+        child: Scaffold(
+          backgroundColor: AppColors.background,
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                Expanded(
+                  child: Stack(
+                    children: [
+                      Positioned.fill(child: _body()),
+                      Align(
+                        alignment: Alignment.bottomCenter,
+                        child: BannerAdWidget(visible: _showsBannerAd(_current)),
+                      ),
+                    ],
+                  ),
+                ),
+                _BottomNav(
+                  current: _current,
+                  unread: ref.watch(unreadCountProvider).valueOrNull ?? 0,
+                  onSelect: (tab) => setState(() => _current = tab),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -222,18 +169,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _body() => switch (_current) {
-        _Tab.radar => const _RadarTab(),
-        _Tab.likes => const FavoritesScreen(),
-        // Explore only shows people who have replied to you, so its empty
-        // state has to be able to send you somewhere you can meet them — and
-        // the tab bar lives here, not there.
-        _Tab.explore => ExploreScreen(
-            onBrowsePeople: () => setState(() => _current = _Tab.radar),
-          ),
-        _Tab.chats => const RequestsScreen(),
-        _Tab.you => const YouScreen(),
-      };
+    _Tab.radar => const _RadarTab(),
+    _Tab.likes => const FavoritesScreen(),
+    _Tab.explore => ExploreScreen(
+      onBrowsePeople: () => setState(() => _current = _Tab.radar),
+    ),
+    _Tab.chats => const ChatsScreen(),
+    _Tab.you => const YouScreen(),
+  };
+
+  /// Ad slot is only shown on Likes, Chats, and You — the tabs where a
+  /// banner doesn't compete with the swipe/grid experience on Radar or
+  /// Explore.
+  bool _showsBannerAd(_Tab tab) =>
+      tab == _Tab.likes || tab == _Tab.chats || tab == _Tab.you;
 }
+
+
+
+// ============================================================================
+// Bottom navigation
+// ============================================================================
 
 class _BottomNav extends StatelessWidget {
   const _BottomNav({
@@ -264,17 +220,13 @@ class _BottomNav extends StatelessWidget {
       child: Row(
         children: _Tab.values.map((tab) {
           final isActive = tab == current;
-          // Chats only. Shown even on the active tab: the count stays truthful
-          // until the thread itself is actually read.
           final badge = tab == _Tab.chats ? unread : 0;
 
           return Expanded(
             child: Semantics(
               button: true,
               selected: isActive,
-              label: badge > 0
-                  ? '${tab.label}, $badge unread'
-                  : tab.label,
+              label: badge > 0 ? '${tab.label}, $badge unread' : tab.label,
               excludeSemantics: true,
               child: InkWell(
                 onTap: () => onSelect(tab),
@@ -305,9 +257,6 @@ class _BottomNav extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         tab.label,
-                        // Five tabs leave ~62dp each on a 320dp phone, and
-                        // "Explore" is the longest label in the bar. Clip
-                        // rather than let it wrap the row taller.
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.caption.copyWith(
@@ -316,7 +265,7 @@ class _BottomNav extends StatelessWidget {
                               ? AppColors.primary
                               : AppColors.textGrey,
                           fontWeight:
-                              isActive ? FontWeight.w700 : FontWeight.w500,
+                          isActive ? FontWeight.w700 : FontWeight.w500,
                           fontVariations: [
                             FontVariation('wght', isActive ? 700 : 500),
                           ],
@@ -366,6 +315,10 @@ class _Badge extends StatelessWidget {
   }
 }
 
+// ============================================================================
+// Radar tab
+// ============================================================================
+
 class _RadarTab extends ConsumerWidget {
   const _RadarTab();
 
@@ -400,7 +353,7 @@ class _RadarTab extends ConsumerWidget {
             sliver: nearbyAsync.when(
               loading: () => SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.only(top: 80),
+                  padding: const EdgeInsets.only(top: 80),
                   child: Center(
                     child: CircularProgressIndicator(
                       color: AppColors.primary,
@@ -423,11 +376,11 @@ class _RadarTab extends ConsumerWidget {
   }
 
   Widget _grid(
-    BuildContext context,
-    WidgetRef ref,
-    NearbyState state,
-    Map<String, bool> presence,
-  ) {
+      BuildContext context,
+      WidgetRef ref,
+      NearbyState state,
+      Map<String, bool> presence,
+      ) {
     if (state.needsLocation) {
       return SliverToBoxAdapter(
         child: _EmptyState(
@@ -462,8 +415,6 @@ class _RadarTab extends ConsumerWidget {
             crossAxisCount: 3,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
-            // Portrait cards. The grid cell sets the width, so they scale
-            // with the screen instead of overflowing on narrow phones.
             childAspectRatio: 0.78,
           ),
           itemCount: items.length,
@@ -479,13 +430,7 @@ class _RadarTab extends ConsumerWidget {
               photoUrl: card.primaryPhotoUrl,
               isOnline: online,
               colorIndex: index,
-              // The sheet fetches the full profile itself; the seed is only so
-              // the name and photo already on screen stay on screen.
               onTap: () {
-                // Counts as a visit on their profile. Not awaited, and it
-                // cannot throw — opening the sheet must not wait on, or be
-                // stopped by, a counter. The server ignores repeats within the
-                // day, so a scroll back and forth is one visit.
                 ref.read(recordProfileViewProvider)(card.id);
 
                 showRadiusSheet<void>(
@@ -530,11 +475,6 @@ class _RadarTab extends ConsumerWidget {
   }
 }
 
-/// Greeting, place, and the mark.
-///
-/// The mark used to fill its rings to the radius the account was set to. There
-/// is no such setting any more — nobody picks a search radius — so it renders
-/// as the plain brand mark and the line under the greeting is just the city.
 class RadarHeader extends StatelessWidget {
   const RadarHeader({super.key, this.name, this.city});
 
@@ -557,10 +497,8 @@ class RadarHeader extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  // The wave rides along with the name — on "Your radar" there
-                  // is nobody being greeted, so it would just be decoration.
                   name == null || name!.isEmpty
-                      ? 'Your radar'
+                      ? 'Your ${AppConstants.appName}'
                       : 'Hey, $name 👋',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -577,15 +515,6 @@ class RadarHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          // No Premium pill. It sat between the greeting and Filters as a
-          // permanent advertisement on the screen people open the app to use,
-          // and it squeezed the name into an ellipsis to do it. Premium is
-          // still reachable from the "You" tab and from every paywall that has
-          // an actual reason to appear.
-          //
-          // Filters sits in the header rather than at the tail of the chip
-          // row: there it was only reachable after scrolling past eight intent
-          // chips, which buried the one control that fixes an empty radar.
           const _FilterButton(),
         ],
       ),
@@ -593,7 +522,6 @@ class RadarHeader extends StatelessWidget {
   }
 }
 
-/// Opens the full filter sheet.
 class _FilterButton extends StatelessWidget {
   const _FilterButton();
 
@@ -628,12 +556,6 @@ class _FilterButton extends StatelessWidget {
   }
 }
 
-/// The horizontal chip row: "All" first, then the two premium presence
-/// toggles, then the intent chips.
-///
-/// "All" leads because it is the way back to an unfiltered radar, and burying
-/// the reset behind a scroll is how people end up stuck on an empty grid
-/// wondering where everyone went.
 class _QuickFilters extends ConsumerWidget {
   const _QuickFilters({required this.filter, required this.isPremium});
 
@@ -645,10 +567,6 @@ class _QuickFilters extends ConsumerWidget {
     void setFilter(DiscoveryFilter next) =>
         ref.read(discoveryFilterProvider.notifier).state = next;
 
-    // Sizes to the chips rather than to a fixed height. A hard height here
-    // squeezed the row below what the chips need and sliced the descenders off
-    // "Just chatting" and "Open to anything" — and it would have broken again
-    // the moment anyone raised their system text size.
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
@@ -677,24 +595,17 @@ class _QuickFilters extends ConsumerWidget {
               filter.copyWith(recentlyActive: !filter.recentlyActive),
             ),
           ),
-          // A little air before the intent chips — they behave differently
-          // from everything to the left (single-select vs toggle).
           Container(
             width: 1,
             height: 22,
             margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             color: AppColors.inputBorder,
           ),
-          // Intent chips only — "Filters" now lives in the header, where it is
-          // reachable without scrolling.
           for (final entry in _filters) ...[
             RadiusChip(
               label: entry.key,
               dense: true,
               selected: entry.value == filter.intent,
-              // copyWith, not a fresh DiscoveryFilter: building a new one here
-              // silently threw away the radius and premium toggles every time
-              // an intent chip was tapped.
               onTap: () => setFilter(filter.copyWith(
                 intent: entry.value,
                 clearIntent: entry.value == null,
@@ -707,14 +618,12 @@ class _QuickFilters extends ConsumerWidget {
     );
   }
 
-  /// A premium presence toggle. Free members see it with a padlock; tapping
-  /// explains the gate instead of firing a request the API would reject.
   Widget _presenceChip(
-    BuildContext context, {
-    required String label,
-    required bool selected,
-    required VoidCallback onToggle,
-  }) {
+      BuildContext context, {
+        required String label,
+        required bool selected,
+        required VoidCallback onToggle,
+      }) {
     final locked = !isPremium;
     return RadiusChip(
       label: label,
@@ -728,7 +637,6 @@ class _QuickFilters extends ConsumerWidget {
   }
 }
 
-/// Shown when the server stops handing out profiles.
 class _UnlockCard extends ConsumerStatefulWidget {
   const _UnlockCard({this.message});
 
@@ -802,8 +710,6 @@ class _UnlockCardState extends ConsumerState<_UnlockCard> {
   }
 }
 
-/// An empty screen is an invitation to act, so every one of these carries a
-/// way forward rather than just an apology.
 class _EmptyState extends StatelessWidget {
   const _EmptyState({
     required this.title,
@@ -845,4 +751,31 @@ class _EmptyState extends StatelessWidget {
       ),
     );
   }
+}
+
+// ============================================================================
+// Static data
+// ============================================================================
+
+const List<MapEntry<String, String?>> _filters = [
+  MapEntry('Right now', 'right_now'),
+  MapEntry('Casual', 'casual'),
+  MapEntry('Dating', 'dating'),
+  MapEntry('Serious', 'serious'),
+  MapEntry('Friends', 'friends'),
+  MapEntry('Just chatting', 'just_chatting'),
+  MapEntry('Open to anything', 'open_to_anything'),
+];
+
+enum _Tab {
+  radar(Icons.radar, 'Radar'),
+  likes(Icons.favorite_border, 'Likes'),
+  explore(Icons.explore_outlined, 'Explore'),
+  chats(Icons.forum_outlined, 'Chats'),
+  you(Icons.person_outline, 'You');
+
+  const _Tab(this.icon, this.label);
+
+  final IconData icon;
+  final String label;
 }

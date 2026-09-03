@@ -1,9 +1,7 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-
 import '../../../../../core/constants/app_constants.dart';
 import '../../../../../core/constants/app_string.dart';
 import '../../../../../core/extensions/global_back_extension.dart';
@@ -13,8 +11,8 @@ import '../../../../../core/utils/utils.dart';
 import '../../../../../shared/widgets/app_text.dart';
 import '../../../../../shared/widgets/buttons/common_button.dart';
 
-class ForceUpdatePage extends StatelessWidget {
-  const ForceUpdatePage({super.key});
+class ForceUpdateScreen extends StatelessWidget {
+  const ForceUpdateScreen({super.key});
 
   final List<String> improvements = const [
     "Performance optimizations for a smoother experience",

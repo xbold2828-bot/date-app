@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/ads/banner/banner_ad_widget.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../providers/chat_provider.dart';
@@ -41,55 +42,65 @@ class ArchivedChatsScreen extends ConsumerWidget {
           style: AppTextStyles.title.copyWith(fontSize: 18),
         ),
       ),
-      body: SafeArea(
-        child: RefreshIndicator(
-          color: AppColors.primary,
-          backgroundColor: AppColors.card,
-          onRefresh: () async => ref.invalidate(archivedConversationsProvider),
-          child: async.when(
-            loading: () => Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            ),
-            error: (err, _) => ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: const [
-                _Empty(
-                  title: "Couldn't load your archive",
-                  body: 'Pull down to try again.',
-                ),
-              ],
-            ),
-            data: (items) {
-              if (items.isEmpty) {
-                return ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: const [
-                    _Empty(
-                      title: 'Nothing archived',
-                      body: 'Chats you archive are kept here, out of your '
-                          'inbox but not deleted.',
-                    ),
-                  ],
-                );
-              }
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: SafeArea(
+              child: RefreshIndicator(
+                color: AppColors.primary,
+                backgroundColor: AppColors.card,
+                onRefresh: () async => ref.invalidate(archivedConversationsProvider),
+                child: async.when(
+                  loading: () => Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  ),
+                  error: (err, _) => ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: const [
+                      _Empty(
+                        title: "Couldn't load your archive",
+                        body: 'Pull down to try again.',
+                      ),
+                    ],
+                  ),
+                  data: (items) {
+                    if (items.isEmpty) {
+                      return ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: const [
+                          _Empty(
+                            title: 'Nothing archived',
+                            body: 'Chats you archive are kept here, out of your '
+                                'inbox but not deleted.',
+                          ),
+                        ],
+                      );
+                    }
 
-              return ListView.separated(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                itemCount: items.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 10),
-                itemBuilder: (_, index) => ConversationTile(
-                  conversation: items[index],
-                  colorIndex: index,
-                  online: presence[items[index].otherUser.id] ??
-                      items[index].otherUser.isOnline,
-                  // Flips the menu's first action to "Move to inbox".
-                  isArchived: true,
+                    return ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                      itemCount: items.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (_, index) => ConversationTile(
+                        conversation: items[index],
+                        colorIndex: index,
+                        online: presence[items[index].otherUser.id] ??
+                            items[index].otherUser.isOnline,
+                        // Flips the menu's first action to "Move to inbox".
+                        isArchived: true,
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
+              ),
+            ),
           ),
-        ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: BannerAdWidget(),
+          ),
+        ],
       ),
     );
   }
