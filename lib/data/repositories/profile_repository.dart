@@ -23,8 +23,8 @@ class ProfileRepository {
     List<String>? personalityTags,
   }) async {
     final body = <String, dynamic>{
-      if (bio != null) 'bio': bio,
-      if (personalityTags != null) 'personalityTags': personalityTags,
+      'bio': ?bio,
+      'personalityTags': ?personalityTags,
     };
     final data = await _api.patch(ApiConstants.usersMeProfile, body: body);
     return MeUser.fromJson(Map<String, dynamic>.from(data as Map));

@@ -1,9 +1,13 @@
 import 'dart:async';
 import 'package:dating_app/core/constants/app_constants.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+import 'package:dating_app/core/utils/app_snack_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/ads/banner/banner_ad_widget.dart';
+import '../../../core/ads/rewarded/rewarded_ad_provider.dart';
+import '../../../core/ads/rewarded/rewarded_unlock_type.dart';
 import '../../../core/notification/push_deep_link.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
@@ -14,6 +18,7 @@ import '../../../providers/core_providers.dart';
 import '../../../providers/match_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../../providers/realtime_provider.dart';
+import '../../../shared/widgets/dialogs/app_dialogs.dart';
 import '../../common/widgets/widgets.dart';
 import '../../explore/screens/explore_screen.dart';
 import '../widgets/discovery_filter_sheet.dart';
@@ -459,7 +464,13 @@ class _RadarTab extends ConsumerWidget {
                 label: state.loadingMore ? 'Loading' : 'Show more people',
                 kind: RadiusButtonKind.ghost,
                 isLoading: state.loadingMore,
-                onPressed: () => ref.read(nearbyProvider.notifier).loadMore(),
+                onPressed: () {
+                  _showDiscoveryLimitDialog(
+                    context,ref
+                  );
+                  // ref.read(nearbyProvider.notifier).loadMore(); // This is the rewared
+
+                  },
               ),
             ),
           ),
@@ -472,6 +483,40 @@ class _RadarTab extends ConsumerWidget {
           ),
       ],
     );
+  }
+
+
+  void _showDiscoveryLimitDialog(BuildContext context, WidgetRef ref) async {
+   final bool success= await AppDialogs.premiumOrAdDialog(
+      context: context,
+      headingText: AppString.discoveryLimitTitle,
+      descriptionText: AppString.discoveryLimitDescription,
+    ) ??false;
+
+   if(success)
+     {
+       if(context.mounted) {
+         _handleWatchAd(context, ref);
+       }
+     }
+
+  }
+
+  Future<void> _handleWatchAd(BuildContext context, WidgetRef ref) async {
+
+    final earned = await ref
+        .read(rewardedAdControllerProvider.notifier)
+        .showAdToUnlock(RewardedUnlockType.getMoreProfiles);
+
+    if (!context.mounted) return;
+
+    if (earned) {
+      ref.read(nearbyProvider.notifier).loadMore();
+    } else {
+      AppSnackBar.showWarningSnackBar(
+        message: 'Ad not available right now. Try again shortly.',
+      );
+    }
   }
 }
 

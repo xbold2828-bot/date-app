@@ -87,7 +87,6 @@ class ArchivedChatsScreen extends ConsumerWidget {
                         colorIndex: index,
                         online: presence[items[index].otherUser.id] ??
                             items[index].otherUser.isOnline,
-                        // Flips the menu's first action to "Move to inbox".
                         isArchived: true,
                       ),
                     );

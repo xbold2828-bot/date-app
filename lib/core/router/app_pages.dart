@@ -1,6 +1,7 @@
 import 'package:dating_app/presentation/auth/screens/authed_bootstrap.dart';
 import 'package:dating_app/presentation/home/screens/archived_chats_screen.dart';
 import 'package:dating_app/presentation/home/screens/dashboard_screen.dart';
+import 'package:dating_app/presentation/home/screens/premium_screen.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -36,6 +37,11 @@ GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.splash,
       pageBuilder: (c, s) => _rtl(const SplashScreen()),
+    ),
+
+    GoRoute(
+      path: AppRoutes.buyPremium,
+      pageBuilder: (c, s) => _rtl(const PremiumScreen()),
     ),
 
     //

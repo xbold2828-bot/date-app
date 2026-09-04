@@ -12,19 +12,21 @@ const Duration kMinGapBetweenAppOpenAds = Duration(minutes: 15);
 const Duration kAppOpenAdMaxCacheAge = Duration(hours: 4);
 const String _kLastShownPrefsKey = 'app_open_ad_last_shown_at';
 
-
 class AppOpenAdController extends Notifier<AppOpenAdState>
     with WidgetsBindingObserver {
   AppOpenAd? _appOpenAd;
   DateTime? _adLoadedAt;
   DateTime? _lastShownAt;
+  bool _disposed = false;
 
   @override
   AppOpenAdState build() {
     final isPremium = ref.watch(isUserHavePremiumProvider);
 
+    _disposed = false;
     WidgetsBinding.instance.addObserver(this);
     ref.onDispose(() {
+      _disposed = true;
       WidgetsBinding.instance.removeObserver(this);
       _appOpenAd?.dispose();
       _appOpenAd = null;
@@ -32,14 +34,20 @@ class AppOpenAdController extends Notifier<AppOpenAdState>
 
     if (isPremium) return const AppOpenAdState();
 
-    _restoreLastShownTime();
-    _loadAd();
+    // Don't touch `state` synchronously inside build() — the provider
+    // isn't initialized until build() returns. Defer to a microtask.
+    Future.microtask(() {
+      _restoreLastShownTime();
+      _loadAd();
+    });
 
     return const AppOpenAdState();
   }
 
   Future<void> _restoreLastShownTime() async {
+    if (_disposed) return;
     final prefs = await SharedPreferences.getInstance();
+    if (_disposed) return;
     final millis = prefs.getInt(_kLastShownPrefsKey);
     if (millis != null) {
       _lastShownAt = DateTime.fromMillisecondsSinceEpoch(millis);
@@ -65,7 +73,9 @@ class AppOpenAdController extends Notifier<AppOpenAdState>
   }
 
   void _loadAd() {
+    if (_disposed) return;
     if (state.isLoadingAd || _isAdAvailable) return;
+
     state = state.copyWith(isLoadingAd: true);
 
     AppOpenAd.load(
@@ -73,12 +83,17 @@ class AppOpenAdController extends Notifier<AppOpenAdState>
       request: const AdRequest(),
       adLoadCallback: AppOpenAdLoadCallback(
         onAdLoaded: (ad) {
+          if (_disposed) {
+            ad.dispose();
+            return;
+          }
           _appOpenAd = ad;
           _adLoadedAt = DateTime.now();
           state = state.copyWith(isLoadingAd: false);
         },
         onAdFailedToLoad: (error) {
           if (kDebugMode) print('App open ad failed: $error');
+          if (_disposed) return;
           state = state.copyWith(isLoadingAd: false);
         },
       ),
@@ -86,6 +101,7 @@ class AppOpenAdController extends Notifier<AppOpenAdState>
   }
 
   void showAdIfEligible() {
+    if (_disposed) return;
     if (ref.read(isUserHavePremiumProvider)) return;
     if (state.isShowingAd || !_cooldownElapsed) return;
 
@@ -98,19 +114,23 @@ class AppOpenAdController extends Notifier<AppOpenAdState>
 
     ad.fullScreenContentCallback = FullScreenContentCallback(
       onAdShowedFullScreenContent: (ad) {
-        state = state.copyWith(isShowingAd: true);
+        if (!_disposed) state = state.copyWith(isShowingAd: true);
       },
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
         _appOpenAd = null;
-        state = state.copyWith(isShowingAd: false);
-        _loadAd();
+        if (!_disposed) {
+          state = state.copyWith(isShowingAd: false);
+          _loadAd();
+        }
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
         ad.dispose();
         _appOpenAd = null;
-        state = state.copyWith(isShowingAd: false);
-        _loadAd();
+        if (!_disposed) {
+          state = state.copyWith(isShowingAd: false);
+          _loadAd();
+        }
       },
     );
 

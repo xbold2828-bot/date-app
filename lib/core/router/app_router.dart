@@ -8,4 +8,5 @@ abstract final class AppRoutes {
 
   static const String forceUpdate = '/force_update';
   static const String archivedChats= '/archived-chats';
+  static const String buyPremium= '/buy-premium';
 }

@@ -6,6 +6,7 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../providers/core_providers.dart';
 import '../../../providers/profile_provider.dart';
+import '../../common/widgets/step_header.dart';
 import 'basics_screen1.dart';
 
 class AgeScreen extends ConsumerStatefulWidget {
@@ -131,26 +132,7 @@ Future<void> _onContinue() async {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.textDark, width: 2),
-                        ),
-                        child: Center(
-                          child: Icon(Icons.circle, size: 10, color: AppColors.primary),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'cozune',
-                        style: AppTextStyles.title,
-                      ),
-                    ],
-                  ),
+                  Wordmark(),
                   Icon(Icons.tune, color: AppColors.textDark),
                 ],
               ),

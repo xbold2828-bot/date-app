@@ -5,8 +5,7 @@ import 'env.dart';
 /// All paths are relative to [baseUrl] (which already contains `/api/v1`).
 /// Success responses are wrapped by the backend in `{ success, data, ... }`;
 /// the [EnvelopeInterceptor] unwraps that so callers receive `data` directly.
-class ApiConstants {
-  ApiConstants._();
+abstract final class ApiConstants {
 
   static final String baseUrl = Env.apiBaseUrl;
   static final String socketUrl = Env.socketBaseUrl;
@@ -41,6 +40,7 @@ class ApiConstants {
   static const String onboardingPersonality = '/onboarding/personality';
   static const String onboardingPreferences = '/onboarding/preferences';
   static const String onboardingHardNos = '/onboarding/hard-nos';
+  static const String subscriptionVerify = '/subscription-verify';
 
   /// Step 8 · finishes the photo step even when nothing was uploaded
   /// (skipped, or storage unavailable) so the funnel never dead-ends.
