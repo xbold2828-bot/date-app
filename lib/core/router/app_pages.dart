@@ -54,10 +54,6 @@ GoRouter appRouter = GoRouter(
     //   pageBuilder: (c, s) => _rtl(const SignInOtpVerifyPage()),
     // ),
     //
-    // GoRoute(
-    //   path: AppRoutes.dashboard,
-    //   pageBuilder: (c, s) => _rtl(const DashboardPage()),
-    // ),
   ],
 );
 

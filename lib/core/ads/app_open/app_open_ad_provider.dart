@@ -21,7 +21,7 @@ class AppOpenAdController extends Notifier<AppOpenAdState>
 
   @override
   AppOpenAdState build() {
-    final isPremium = ref.watch(isUserHavePremiumProvider);
+    // final isPremium = ref.watch(isUserHavePremiumProvider);
 
     _disposed = false;
     WidgetsBinding.instance.addObserver(this);
@@ -32,7 +32,7 @@ class AppOpenAdController extends Notifier<AppOpenAdState>
       _appOpenAd = null;
     });
 
-    if (isPremium) return const AppOpenAdState();
+    // if (isPremium) return const AppOpenAdState();
 
     // Don't touch `state` synchronously inside build() — the provider
     // isn't initialized until build() returns. Defer to a microtask.

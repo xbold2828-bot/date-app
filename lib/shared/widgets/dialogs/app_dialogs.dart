@@ -1,8 +1,11 @@
 import 'package:dating_app/core/router/app_router.dart';
+import 'package:dating_app/providers/is_user_have_premium_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/ads/rewarded/rewarded_unlock_type.dart';
 import '../../../core/constants/app_string.dart';
 import '../../../core/constants/static_assets/app_vectors.dart';
 import 'all_dialogs/common_dialog.dart';
@@ -67,29 +70,37 @@ abstract final class AppDialogs {
   /// The "buy Premium OR watch an ad" paywall dialog — heading, description,
   /// both button labels, both callbacks, and the badge icon are all
   /// dynamic, plus a close (✕) icon in the top corner.
-   static Future<bool?> premiumOrAdDialog({
+  static Future<void> premiumOrAdDialog({
     required BuildContext context,
+    required RewardedUnlockType unlockType,
+    required WidgetRef ref,
     headingText = AppString.matchLimitTitle,
     descriptionText = AppString.matchLimitDescription,
     VoidCallback? onBuyPremium,
-    VoidCallback? onWatchAd,
-    String buyButtonText = AppString.buyPremium ,
+    VoidCallback? onAdEarned,
+    String buyButtonText = AppString.buyPremium,
     String watchAdButtonText = AppString.watchAd,
     IconData? iconData,
     String? vectorAsset,
     bool dismissible = false,
-  }) {
-    return showDialog<bool>(
+  }) async {
+    // Premium users skip the paywall entirely — treat it as an
+    // already-earned unlock.
+    if (ref.read(isUserHavePremiumProvider)) {
+      onAdEarned?.call();
+      return;
+    }
+
+    await showDialog<void>(
       context: context,
       barrierDismissible: dismissible,
       builder: (context) {
         return PremiumOrAdDialog(
           headingText: headingText,
           descriptionText: descriptionText,
-          onBuyPremium: onBuyPremium??(){
-            context.push(AppRoutes.buyPremium);
-          },
-          onWatchAd: onWatchAd ??(){},
+          unlockType: unlockType,
+          onBuyPremium: onBuyPremium ?? () => context.push(AppRoutes.buyPremium),
+          onAdEarned: onAdEarned,
           buyButtonText: buyButtonText,
           watchAdButtonText: watchAdButtonText,
           iconData: iconData,

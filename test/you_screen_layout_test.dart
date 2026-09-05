@@ -40,7 +40,7 @@ class _FakeProfileRepository implements ProfileRepository {
   final ProfileStats? stats;
 
   @override
-  Future<MeUser> me() async => _user;
+  Future<MeUser> me(ref) async => _user;
 
   @override
   Future<ProfileStats> myStats() async =>

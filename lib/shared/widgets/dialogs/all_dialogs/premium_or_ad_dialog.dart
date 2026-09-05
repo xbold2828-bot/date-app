@@ -1,52 +1,30 @@
 import 'package:dating_app/core/constants/static_assets/app_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/ads/rewarded/rewarded_ad_provider.dart';
+import '../../../../core/ads/rewarded/rewarded_unlock_type.dart';
 import '../../../../core/extensions/padding_extension.dart';
+import '../../../../core/logger/app_logger.dart';
+import '../../../../core/utils/app_snack_bar.dart';
 import '../../../../core/utils/utils.dart';
 import '../../app_text.dart';
 import '../../buttons/common_button.dart';
 import '../../buttons/common_outlined_button.dart';
 
-/// A premium-styled dialog for the "buy premium OR watch an ad" paywall
-/// moment (e.g. thrown as [EntitlementRequiredException] from the API).
-///
-/// Everything is dynamic — heading, description, both button labels/actions,
-/// and the badge icon — so it can be reused anywhere the app needs to offer
-/// that choice, not just for one specific gate.
-class PremiumOrAdDialog extends StatelessWidget {
-  /// Dialog heading, e.g. "Out of Likes".
+class PremiumOrAdDialog extends ConsumerStatefulWidget {
   final String headingText;
-
-  /// Supporting copy, e.g. "Upgrade to Premium or watch a short ad to keep
-  /// swiping.".
   final String descriptionText;
-
-  /// Label for the primary (premium) button. Defaults to "Buy Premium".
   final String buyButtonText;
-
-  /// Label for the secondary (ad) button. Defaults to "Watch Ad".
   final String watchAdButtonText;
-
-  /// Called when the primary button is tapped. The dialog closes first.
+  final RewardedUnlockType unlockType;
   final VoidCallback onBuyPremium;
-
-  /// Called when the secondary button is tapped. The dialog closes first.
-  final VoidCallback onWatchAd;
-
-  /// Optional badge icon (drawn from Material icons). Ignored if
-  /// [vectorAsset] is provided.
+  final VoidCallback? onAdEarned;
   final IconData? iconData;
-
-  /// Optional badge icon from an SVG asset (e.g. a crown icon). Takes
-  /// priority over [iconData] when both are supplied.
   final String? vectorAsset;
-
-  /// Whether tapping the scrim dismisses the dialog. Defaults to false so
-  /// the user makes an explicit choice — the cross icon is always there for
-  /// an intentional close.
   final bool dismissible;
 
   const PremiumOrAdDialog({
@@ -54,7 +32,8 @@ class PremiumOrAdDialog extends StatelessWidget {
     required this.headingText,
     required this.descriptionText,
     required this.onBuyPremium,
-    required this.onWatchAd,
+    required this.unlockType,
+    this.onAdEarned,
     this.buyButtonText = 'Buy Premium',
     this.watchAdButtonText = 'Watch Ad',
     this.iconData,
@@ -63,7 +42,68 @@ class PremiumOrAdDialog extends StatelessWidget {
   });
 
   @override
+  ConsumerState<PremiumOrAdDialog> createState() => _PremiumOrAdDialogState();
+}
+
+class _PremiumOrAdDialogState extends ConsumerState<PremiumOrAdDialog> {
+  bool _loadingAd = false;
+
+  Future<void> _handleWatchAd() async {
+    AppLogger.d('[PremiumOrAdDialog] Watch Ad tapped, unlockType=${widget.unlockType}');
+
+    if (_loadingAd) {
+      AppLogger.d('[PremiumOrAdDialog] Ignored tap — already loading an ad');
+      return;
+    }
+
+    setState(() => _loadingAd = true);
+    AppLogger.d('[PremiumOrAdDialog] _loadingAd set to true');
+
+    bool earned = false;
+    String? failureMessage;
+
+    AppLogger.d('[PremiumOrAdDialog] Calling rewardedAdControllerProvider.showAdToUnlock(${widget.unlockType})');
+    try {
+      earned = await ref
+          .read(rewardedAdControllerProvider.notifier)
+          .showAdToUnlock(widget.unlockType);
+      AppLogger.d('[PremiumOrAdDialog] showAdToUnlock resolved: earned=$earned');
+    } catch (e, st) {
+      AppLogger.e('[PremiumOrAdDialog] showAdToUnlock threw', error: e, stackTrace: st);
+      failureMessage = 'Ad not available right now. Try again shortly.';
+    }
+
+    AppLogger.d('[PremiumOrAdDialog] After await — mounted=$mounted, context.mounted=${context.mounted}');
+    if (!mounted || !context.mounted) {
+      AppLogger.d('[PremiumOrAdDialog] Bailing out — widget unmounted');
+      return;
+    }
+
+    // Trust boundary: this dialog only grants a reward when
+    // showAdToUnlock() resolves true. If a reward is being granted
+    // without the ad visibly playing, the defect is inside
+    // rewardedAdControllerProvider.showAdToUnlock() — not here. Check
+    // that it only resolves true from an actual onUserEarnedReward
+    // (or SDK-equivalent) callback, not from onAdLoaded / a cached
+    // instance / a dev stub.
+    if (earned) {
+      AppLogger.d('[PremiumOrAdDialog] earned=true — calling onAdEarned and popping(true)');
+      widget.onAdEarned?.call();
+      context.pop(true);
+      return;
+    }
+
+    AppLogger.d('[PremiumOrAdDialog] earned=false — resetting _loadingAd, showing snackbar: ${failureMessage ?? 'default message'}');
+    setState(() => _loadingAd = false);
+    AppSnackBar.showWarningSnackBar(
+      message: failureMessage ??
+          'You need to watch the full ad to unlock this.',
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    AppLogger.d('[PremiumOrAdDialog] build() — _loadingAd=$_loadingAd');
     final colorScheme = Theme.of(context).colorScheme;
 
     return Dialog(
@@ -76,8 +116,6 @@ class PremiumOrAdDialog extends StatelessWidget {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Gradient header carrying the badge — this is what makes it
-              // read as "premium" rather than a generic alert dialog.
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.only(top: 28.h, bottom: 36.h),
@@ -93,15 +131,11 @@ class PremiumOrAdDialog extends StatelessWidget {
                   ),
                 ),
                 child: Center(
-                  child: vectorAsset==null?
-                  ClipOval(
-                    child: staticImage(
-                      w:80.w,
-                      h: 80.h,
-                      url: AppIcons.appLogo,
-                    ),
-                  ):
-                  Container(
+                  child: widget.vectorAsset == null
+                      ? ClipOval(
+                    child: staticImage(w: 80.w, h: 80.h, url: AppIcons.appLogo),
+                  )
+                      : Container(
                     padding: EdgeInsets.all(16.r),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
@@ -115,14 +149,14 @@ class PremiumOrAdDialog extends StatelessWidget {
                       ],
                     ),
                     child: SvgPicture.asset(
-                      vectorAsset!,
+                      widget.vectorAsset!,
                       width: 32.w,
                       height: 32.w,
                       colorFilter: ColorFilter.mode(
                         colorScheme.primary,
                         BlendMode.srcIn,
                       ),
-                    )
+                    ),
                   ),
                 ),
               ),
@@ -130,7 +164,7 @@ class PremiumOrAdDialog extends StatelessWidget {
               spacerH(20),
 
               AppText(
-                text: headingText,
+                text: widget.headingText,
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
                 textAlign: TextAlign.center,
@@ -139,7 +173,7 @@ class PremiumOrAdDialog extends StatelessWidget {
               spacerH(6),
 
               AppText(
-                text: descriptionText,
+                text: widget.descriptionText,
                 fontSize: 15,
                 fontWeight: FontWeight.w400,
                 color: colorScheme.onSurface.withValues(alpha: 0.6),
@@ -155,10 +189,11 @@ class PremiumOrAdDialog extends StatelessWidget {
                     child: CommonButton(
                       height: 46,
                       bgColor: colorScheme.primary,
-                      text: buyButtonText,
+                      text: widget.buyButtonText,
                       onClick: () {
-                        context.pop();
-                        onBuyPremium();
+                        AppLogger.d('[PremiumOrAdDialog] Buy Premium tapped — popping(false)');
+                        context.pop(false);
+                        widget.onBuyPremium();
                       },
                     ),
                   ),
@@ -167,11 +202,8 @@ class PremiumOrAdDialog extends StatelessWidget {
                     width: double.infinity,
                     child: CommonOutlinedButton(
                       height: 46,
-                      text: watchAdButtonText,
-                      onClick: () {
-                        context.pop(true);
-                        onWatchAd();
-                      },
+                      text: _loadingAd ? 'Loading...' : widget.watchAdButtonText,
+                      onClick: _loadingAd ? null : _handleWatchAd,
                     ),
                   ),
                 ],
@@ -181,14 +213,14 @@ class PremiumOrAdDialog extends StatelessWidget {
             ],
           ),
 
-          // Cross icon — always available regardless of `dismissible`, so
-          // there's an obvious explicit way out even when tapping the
-          // scrim is disabled.
           Positioned(
             top: 12.h,
             right: 12.w,
             child: GestureDetector(
-              onTap: () => context.pop(),
+              onTap: () {
+                AppLogger.d('[PremiumOrAdDialog] Close (X) tapped — popping(false)');
+                context.pop(false);
+              },
               child: Container(
                 padding: EdgeInsets.all(6.r),
                 decoration: BoxDecoration(

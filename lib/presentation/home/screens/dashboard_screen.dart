@@ -1,12 +1,11 @@
 import 'dart:async';
 import 'package:dating_app/core/constants/app_constants.dart';
 import 'package:dating_app/core/constants/app_string.dart';
-import 'package:dating_app/core/utils/app_snack_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/ads/app_open/app_open_ad_provider.dart';
 import '../../../core/ads/banner/banner_ad_widget.dart';
-import '../../../core/ads/rewarded/rewarded_ad_provider.dart';
 import '../../../core/ads/rewarded/rewarded_unlock_type.dart';
 import '../../../core/notification/push_deep_link.dart';
 import '../../../core/theme/app_colors.dart';
@@ -45,6 +44,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<DashboardScreen>
     with WidgetsBindingObserver {
   _Tab _current = _Tab.radar;
+  Timer? _appOpenAdTimer;
 
   @override
   void initState() {
@@ -52,10 +52,19 @@ class _HomeScreenState extends ConsumerState<DashboardScreen>
     WidgetsBinding.instance.addObserver(this);
     PushDeepLinks.pending.addListener(_onDeepLink);
     WidgetsBinding.instance.addPostFrameCallback((_) => _onDeepLink());
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(appOpenAdControllerProvider.notifier).showAdIfEligible();
+    });
+    _appOpenAdTimer = Timer.periodic(kMinGapBetweenAppOpenAds, (_) {
+      if (!mounted) return;
+      ref.read(appOpenAdControllerProvider.notifier).showAdIfEligible();
+    });
   }
 
   @override
   void dispose() {
+    _appOpenAdTimer?.cancel();
     PushDeepLinks.pending.removeListener(_onDeepLink);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -183,9 +192,6 @@ class _HomeScreenState extends ConsumerState<DashboardScreen>
     _Tab.you => const YouScreen(),
   };
 
-  /// Ad slot is only shown on Likes, Chats, and You — the tabs where a
-  /// banner doesn't compete with the swipe/grid experience on Radar or
-  /// Explore.
   bool _showsBannerAd(_Tab tab) =>
       tab == _Tab.likes || tab == _Tab.chats || tab == _Tab.you;
 }
@@ -487,36 +493,16 @@ class _RadarTab extends ConsumerWidget {
 
 
   void _showDiscoveryLimitDialog(BuildContext context, WidgetRef ref) async {
-   final bool success= await AppDialogs.premiumOrAdDialog(
+    await AppDialogs.premiumOrAdDialog(
       context: context,
+      ref: ref,
       headingText: AppString.discoveryLimitTitle,
       descriptionText: AppString.discoveryLimitDescription,
-    ) ??false;
-
-   if(success)
-     {
-       if(context.mounted) {
-         _handleWatchAd(context, ref);
-       }
-     }
-
-  }
-
-  Future<void> _handleWatchAd(BuildContext context, WidgetRef ref) async {
-
-    final earned = await ref
-        .read(rewardedAdControllerProvider.notifier)
-        .showAdToUnlock(RewardedUnlockType.getMoreProfiles);
-
-    if (!context.mounted) return;
-
-    if (earned) {
-      ref.read(nearbyProvider.notifier).loadMore();
-    } else {
-      AppSnackBar.showWarningSnackBar(
-        message: 'Ad not available right now. Try again shortly.',
-      );
-    }
+      unlockType: RewardedUnlockType.getMoreProfiles,
+      onAdEarned: () {
+        ref.read(nearbyProvider.notifier).loadMore();
+      },
+    );
   }
 }
 

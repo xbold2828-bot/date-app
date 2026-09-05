@@ -10,12 +10,12 @@ import 'core_providers.dart';
 /// which each return an updated [MeUser] via [setMe].
 class MeNotifier extends AsyncNotifier<MeUser> {
   @override
-  Future<MeUser> build() => ref.watch(profileRepositoryProvider).me();
+  Future<MeUser> build() => ref.watch(profileRepositoryProvider).me(ref);
 
   Future<void> refresh() async {
     state = const AsyncLoading<MeUser>().copyWithPrevious(state);
     state = await AsyncValue.guard(
-      () => ref.read(profileRepositoryProvider).me(),
+      () => ref.read(profileRepositoryProvider).me(ref),
     );
   }
 

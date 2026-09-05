@@ -129,7 +129,7 @@ class _FakeProfileRepository implements ProfileRepository {
   Map<String, dynamic> json;
 
   @override
-  Future<MeUser> me() async => MeUser.fromJson(json);
+  Future<MeUser> me(ref) async => MeUser.fromJson(json);
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>

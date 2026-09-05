@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import '../../../providers/is_user_have_premium_provider.dart';
 import '../ad_helper.dart';
 
-class BannerAdWidget extends StatefulWidget {
+class BannerAdWidget extends ConsumerStatefulWidget {
   const BannerAdWidget({
     super.key,
     this.visible = true,
@@ -12,16 +14,14 @@ class BannerAdWidget extends StatefulWidget {
   });
 
   final bool visible;
-
   final AdSize size;
-
   final EdgeInsetsGeometry? margin;
 
   @override
-  State<BannerAdWidget> createState() => _BannerAdWidgetState();
+  ConsumerState<BannerAdWidget> createState() => _BannerAdWidgetState();
 }
 
-class _BannerAdWidgetState extends State<BannerAdWidget> {
+class _BannerAdWidgetState extends ConsumerState<BannerAdWidget> {
   BannerAd? _ad;
   bool _loaded = false;
 
@@ -40,7 +40,6 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
     } else if (!widget.visible && _ad != null) {
       _disposeAd();
     } else if (widget.visible && oldWidget.size != widget.size) {
-      // Size changed while visible: reload with the new size.
       _disposeAd();
       _loadAd();
     }
@@ -70,8 +69,10 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final isPremium = ref.watch(isUserHavePremiumProvider);
     final ad = _ad;
-    if (!widget.visible || ad == null || !_loaded) {
+
+    if (isPremium || !widget.visible || ad == null || !_loaded) {
       return const SizedBox.shrink();
     }
 

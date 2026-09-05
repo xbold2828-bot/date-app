@@ -1,4 +1,7 @@
+import 'package:dating_app/core/logger/app_logger.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/api_constants.dart';
+import '../../providers/is_user_have_premium_provider.dart';
 import '../models/profile_model.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
@@ -12,9 +15,13 @@ class ProfileRepository {
 
   /// `GET /users/me` — the full self-view (also provisions the user server-side
   /// on first call).
-  Future<MeUser> me() async {
+  Future<MeUser> me(Ref ref) async {
     final data = await _api.get(ApiConstants.usersMe);
-    return MeUser.fromJson(Map<String, dynamic>.from(data as Map));
+   final response= MeUser.fromJson(Map<String, dynamic>.from(data as Map));
+    ref.read(isUserHavePremiumProvider.notifier).state = response.premium.isActive;
+    AppLogger.d("Is user premium: ${ref.read(isUserHavePremiumProvider)}");
+
+    return response;
   }
 
   /// `PATCH /users/me/profile` — edit bio and "My vibe" (personality) tags.
