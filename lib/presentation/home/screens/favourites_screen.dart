@@ -1,7 +1,9 @@
+import 'package:dating_app/core/logger/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/ads/rewarded/rewarded_unlock_type.dart';
 import '../../../core/constants/app_string.dart';
+import '../../../core/extensions/global_back_extension.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
@@ -80,7 +82,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
           ),
         ),
       ],
-    );
+    ).withGlobalBackHandler(context);
   }
 }
 
@@ -88,9 +90,23 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
 class _LikedYouTab extends ConsumerWidget {
   const _LikedYouTab();
 
+  /// Everyone who liked you: the ones shown in full plus the ones still hidden.
+  int _totalLikes(LikedYouPage page) {
+    final visible = page.items.where((c) => !c.locked).length;
+    return visible + page.lockedCount;
+  }
+
+  String _subtitle(LikedYouPage? page) {
+    if (page == null) return 'They already made the first move.';
+    final total = _totalLikes(page);
+    if (total == 0) return 'They already made the first move.';
+    return total == 1 ? '1 person liked you' : '$total people liked you';
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(likedYouProvider);
+    final page = async.maybeWhen(data: (p) => p, orElse: () => null);
 
     return RefreshIndicator(
       color: AppColors.primary,
@@ -108,10 +124,7 @@ class _LikedYouTab extends ConsumerWidget {
                 children: [
                   Text('Liked you', style: AppTextStyles.display),
                   const SizedBox(height: 6),
-                  Text(
-                    'They already made the first move.',
-                    style: AppTextStyles.bodyMuted,
-                  ),
+                  Text(_subtitle(page), style: AppTextStyles.bodyMuted),
                 ],
               ),
             ),
@@ -128,7 +141,7 @@ class _LikedYouTab extends ConsumerWidget {
                   title: "Couldn't load your likes",
                   body: 'Pull down to try again.',
                 ),
-                data: (page) => _body(context, page),
+                data: (page) => _body(context, ref, page),
               ),
             ),
             const SizedBox(height: 32),
@@ -138,7 +151,7 @@ class _LikedYouTab extends ConsumerWidget {
     );
   }
 
-  Widget _body(BuildContext context, LikedYouPage page) {
+  Widget _body(BuildContext context, WidgetRef ref, LikedYouPage page) {
     if (page.isEmpty) {
       return const _Message(
         title: 'No likes yet',
@@ -147,48 +160,85 @@ class _LikedYouTab extends ConsumerWidget {
       );
     }
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: EdgeInsets.zero,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 0.78,
-            ),
-            itemCount: page.items.length,
-            itemBuilder: (context, index) => _tile(
-              context,
-              page.items[index],
-              index,
-            ),
-          ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.zero,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          childAspectRatio: 0.78,
         ),
-        if (page.lockedCount > 0)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-            child: _UnlockCard(remaining: page.lockedCount),
-          ),
-      ],
+        itemCount: page.items.length,
+        itemBuilder: (context, index) => _tile(
+          context,
+          ref,
+          page.items[index],
+          index,
+        ),
+      ),
     );
   }
 
-  Widget _tile(BuildContext context, LikeCard card, int index) {
+  /// Premium, or watch an ad. After the ad, [AdActions.unlockLikedYou] mints
+  /// the credit and — when [card] has a usable id — spends it to reveal this
+  /// specific card in the same round trip.
+  Future<void> _showUnlockDialog(
+      BuildContext context,
+      WidgetRef ref,
+      LikeCard card,
+      ) async{
+    
+    if(card.id.isEmpty)
+      {
+        showRadiusToast(
+          context,
+          "User Id is Empty",
+          tone: ToastTone.error,
+        );
+
+        return;
+      }
+    
+    return AppDialogs.premiumOrAdDialog(
+      context: context,
+      ref: ref,
+      headingText: AppString.seeWhoLikedYouTitle,
+      descriptionText: AppString.seeWhoLikedYouDescription,
+      unlockType: RewardedUnlockType.seeWhoLikedYou,
+      onAdEarned: () async {
+        try {
+          final (message, success) = await ref
+              .read(adActionsProvider)
+              .unlockLikedYou(card.id, placement: 'likes_unlock');
+
+          if (!context.mounted) return;
+          showRadiusToast(
+            context,
+            message,
+            tone: success ? ToastTone.success : ToastTone.error,
+          );
+        } on AppException catch (e) {
+          if (context.mounted) {
+            showRadiusToast(context, e.message, tone: ToastTone.error);
+          }
+        }
+      },
+    );
+  }
+
+  Widget _tile(BuildContext context, WidgetRef ref, LikeCard card, int index) {
     if (card.locked) {
-      // Not tappable, because there is nothing behind it: the server sent no
-      // id. Presence survives the redaction — "someone near you is online" is
-      // the reason to unlock and identifies nobody.
+      // Tapping offers the unlock (Premium, or watch an ad).
       return ProfileGridCard(
         name: '',
         colorIndex: index,
         isOnline: card.isOnline,
         blurred: true,
-        onTap: () {},
+        onTap: () => _showUnlockDialog(context, ref, card),
       );
     }
 
@@ -337,7 +387,7 @@ class _MutualRow extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context,WidgetRef ref) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Semantics(
       button: true,
       label: 'Match with $_name${online ? ', online now' : ''}',
@@ -385,7 +435,7 @@ class _MutualRow extends ConsumerWidget {
               label: 'Message $_name',
               excludeSemantics: true,
               child: InkWell(
-                onTap: () => _openChat(context,ref),
+                onTap: () => _openChat(context, ref),
                 borderRadius: BorderRadius.circular(999),
                 child: Container(
                   width: 40,
@@ -437,18 +487,18 @@ class _MatchAvatar extends StatelessWidget {
               gradient: photoUrl == null ? avatarGradient(colorIndex) : null,
               image: photoUrl != null
                   ? DecorationImage(
-                      image: NetworkImage(photoUrl!),
-                      fit: BoxFit.cover,
-                    )
+                image: NetworkImage(photoUrl!),
+                fit: BoxFit.cover,
+              )
                   : null,
             ),
             child: photoUrl == null
                 ? Center(
-                    child: Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : '?',
-                      style: AppTextStyles.avatarInitial(20),
-                    ),
-                  )
+              child: Text(
+                name.isNotEmpty ? name[0].toUpperCase() : '?',
+                style: AppTextStyles.avatarInitial(20),
+              ),
+            )
                 : null,
           ),
           if (online)

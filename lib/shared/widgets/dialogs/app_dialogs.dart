@@ -22,6 +22,7 @@ abstract final class AppDialogs {
     IconData? iconData,
     String? vectorLogo,
     String? imageLogo,
+    Color? iconVectorColor,
     bool dismissible = false,
     bool isShowTwoButtons = false,
   }) {
@@ -30,6 +31,7 @@ abstract final class AppDialogs {
       barrierDismissible: dismissible,
       builder: (context) {
         return CommonDialog(
+          iconVectorColor: iconVectorColor,
           isShowTwoButtons: isShowTwoButtons,
           headingText: headingText,
           descriptionText: descriptionText,

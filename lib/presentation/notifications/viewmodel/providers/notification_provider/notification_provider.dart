@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dating_app/core/logger/app_logger.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../providers/core_providers.dart';
@@ -95,12 +96,13 @@ class NotificationListNotifier extends StateNotifier<NotificationListState> {
   Future<void> _autoMarkAllAsRead() async {
     try {
       await _repo.markAllAsRead();
+      if (!mounted) return; // StateNotifier's own mounted flag
       state = state.copyWith(groups: _withAllRead(state.groups));
       _ref.invalidate(unreadNotificationCountProvider);
-    } catch (_) {
-      // Swallow: this is a best-effort background sync. The user still
-      // sees their notifications either way; we just try again next time
-      // the list is fetched.
+    } catch (e, st) {
+      // TEMP: log loudly instead of swallowing, so you can see if this
+      // is actually firing and what it's throwing.
+     AppLogger.d('auto-mark-as-read failed: $e\n$st');
     }
   }
 

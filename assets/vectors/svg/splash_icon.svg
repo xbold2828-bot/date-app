@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 226" width="300" height="226">
+  <title>Cozune stacked</title>
+  <g transform="translate(90,0)">
+  <path d="M28 31 L47 69 L61 49 Z" fill="#7C4DFF" stroke="#7C4DFF" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M92 31 L73 69 L59 49 Z" fill="#7C4DFF" stroke="#7C4DFF" stroke-width="6" stroke-linejoin="round"/>
+  <ellipse cx="60" cy="74" rx="31" ry="29" fill="#7C4DFF"/>
+  <ellipse cx="36.5" cy="77" rx="5" ry="3" fill="#FF6FA5"/>
+  <ellipse cx="83.5" cy="77" rx="5" ry="3" fill="#FF6FA5"/>
+  <circle cx="50" cy="65" r="5.4" fill="#FFFFFF"/>
+  <circle cx="70" cy="65" r="5.4" fill="#FFFFFF"/>
+  <ellipse cx="60" cy="84" rx="18" ry="13" fill="#FFFFFF"/>
+  <ellipse cx="60" cy="78.5" rx="5.2" ry="4.6" fill="#7C4DFF"/>
+  <path d="M60 83 v5" stroke="#7C4DFF" stroke-width="3" stroke-linecap="round"/>
+  <path d="M60 88 q-6.5 5.5 -11 0.5" fill="none" stroke="#7C4DFF" stroke-width="3" stroke-linecap="round"/>
+  <path d="M60 88 q6.5 5.5 11 0.5" fill="none" stroke="#7C4DFF" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <text x="74" y="174" font-family="Poppins, 'Plus Jakarta Sans', Arial, sans-serif" font-weight="700" font-size="46" letter-spacing="-0.92" fill="#7C4DFF">cozune</text>
+  <circle cx="234" cy="173" r="8" fill="#FF6FA5"/>
+  <text x="150" y="202" text-anchor="middle" font-family="Poppins, 'Plus Jakarta Sans', Arial, sans-serif" font-weight="500" font-size="12" letter-spacing="3.2" fill="#6B6480">REAL PEOPLE NEAR YOU</text>
+</svg>

@@ -9,6 +9,8 @@ import '../logger/app_logger.dart';
 abstract final class SecurityService {
   static bool debugForceBreach = false;
 
+  static bool debugShowMessage = false;
+
   static bool debugForceSoftRisks = false;
 
   static const Duration _talsecSettleWindow = Duration(milliseconds: 1800);
@@ -143,6 +145,12 @@ abstract final class SecurityService {
     // reported (soft and hard alike) so you can see what's firing, but
     // isSafe is forced true so the app is never gated during dev/QA.
     if (kDebugMode) {
+
+      if(!debugShowMessage)
+      {
+        return const SecurityCheckResult(isSafe: true, risks: []);
+      }
+
       // For testing: inject every soft risk so the soft-risk snackbar
       // path can be exercised on demand, without waiting for a real
       // VPN connection, open Wi-Fi, missing passcode, or a genuine

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -11,57 +12,36 @@ import '../../../providers/explore_provider.dart';
 import '../marker_layout.dart';
 import 'explore_marker_images.dart';
 
-/// Camera commands the surrounding chrome needs to issue.
-///
-/// The screen owns one of these and hands it to [ExploreMap]. Nothing about
-/// what the map *shows* travels through it — that is all props — so this stays
-/// to the two things a button genuinely has to do imperatively: move the
-/// camera, and read where it is.
+/// Lets the surrounding screen move the camera (zoom buttons, locate button).
+/// What the map shows is passed in as props, not through this controller.
 class ExploreMapController {
   _ExploreMapState? _state;
 
   bool get isReady => _state?._styleReady ?? false;
 
-  /// Centre on [target], keeping the current bearing and the pitch that the
-  /// active view mode implies.
+  /// Centres on [target], keeping bearing and the pitch of the current view mode.
   Future<void> centerOn(LatLng target, {double? zoom}) async =>
       _state?.centerOn(target, zoom: zoom);
 
-  /// Go to [target] and settle close enough to read the street, the way a maps
-  /// app's locate button does. Never zooms *out* — see [_ExploreMapState.goToMe].
+  /// Centres on [target] at street level. Never zooms out.
   Future<void> goToMe(LatLng target) async => _state?.goToMe(target);
 
-  /// Step the zoom by [delta], for the on-screen +/− buttons.
+  /// Changes the zoom by [delta] (used by the +/- buttons).
   Future<void> zoomBy(double delta) async => _state?.zoomBy(delta);
 
   void _attach(_ExploreMapState state) => _state = state;
+
   void _detach(_ExploreMapState state) {
     if (identical(_state, state)) _state = null;
   }
 }
 
-/// The Explore map surface: vector tiles, 3D buildings, people, clusters, you.
+/// The Explore map: vector tiles, 3D buildings, people, clusters and "you".
 ///
-/// Everything positional is rendered by MapLibre — there is no Flutter widget
-/// anywhere over the map except the chrome the screen stacks on top. That is
-/// the difference between markers that are welded to the ground through a
-/// rotate-and-tilt and markers that swim a frame behind it.
-///
-/// ## What is animated, and where
-///
-/// A marker is a bitmap ([ExploreMarkerImages]), so it cannot animate its own
-/// contents. Instead three interpolations run on *layers*, which is a fixed
-/// cost no matter how many people are on screen:
-///
-///   * **entrance** — one 480 ms ramp over the whole people layer, driving
-///     `icon-size` 0.78→1 and `icon-opacity` 0→1 when a new result lands.
-///   * **selection** — the same ramp on a second layer holding only the
-///     selected person, overshooting to 1.12 so the pick reads as a lift.
-///   * **you** — a slow repeating pulse on the ring around the current user.
-///
-/// Each tick is one platform call, throttled well below frame rate. The
-/// alternative — an `AnimationController` per person — is the thing this
-/// design exists to avoid.
+/// Everything positional is drawn by MapLibre layers, so markers stay attached
+/// to the ground while the map rotates and tilts. Animations run on whole
+/// layers (people entrance, selection lift, "you" pulse) instead of one
+/// controller per person, so the cost does not grow with the crowd.
 class ExploreMap extends StatefulWidget {
   const ExploreMap({
     super.key,
@@ -83,8 +63,7 @@ class ExploreMap extends StatefulWidget {
   final LatLng? myLocation;
   final String? selectedId;
 
-  /// Where to open before the device fix arrives, so the first paint is a city
-  /// rather than the Atlantic.
+  /// Where to open before the device location arrives.
   final LatLng? initialTarget;
 
   final ValueChanged<MapUser> onPersonTapped;
@@ -96,9 +75,8 @@ class ExploreMap extends StatefulWidget {
 
 class _ExploreMapState extends State<ExploreMap>
     with TickerProviderStateMixin {
-  // Sources and layers. Named rather than inlined because a typo between the
-  // layer that is created and the layer that is later filtered or animated
-  // fails silently — the map just quietly stops responding.
+  // Source and layer ids. Kept as constants because a typo between creating a
+  // layer and later filtering it fails silently.
   static const _peopleSource = 'radius-people';
   static const _meSource = 'radius-me';
   static const _clusterGlowLayer = 'radius-cluster-glow';
@@ -112,25 +90,28 @@ class _ExploreMapState extends State<ExploreMap>
   static const _meCoreLayer = 'radius-me-core';
   static const _meLabelLayer = 'radius-me-label';
 
-  /// Generic marker shown the instant a person arrives, before their photo has
-  /// been fetched and rasterised. Without it the map would be empty for as long
-  /// as the slowest thumbnail takes.
+  /// Generic marker shown until a person's photo has been loaded.
   static const _fallbackIcon = 'radius-person-fallback';
+
+  /// Above this zoom, clusters break apart into individual people.
+  static const double _clusterMaxZoom = 14;
+
+  /// Animation updates are platform calls, so they are throttled.
+  static const _tickInterval = Duration(milliseconds: 45);
+  static const _pulseInterval = Duration(milliseconds: 90);
 
   MapLibreMapController? _map;
   bool _styleReady = false;
 
-  /// Whether the camera has already been moved to the device fix. See
-  /// [_centerOnFirstFix].
+  /// True once the camera has moved to the device location for the first time.
   bool _centeredOnFirstFix = false;
 
   final _images = ExploreMarkerImages();
 
-  /// userId → the image id currently registered for them. Starts at the
-  /// fallback for everyone and is upgraded as rasters land.
+  /// User id -> image id currently used for that person's marker.
   final Map<String, String> _iconFor = {};
 
-  /// Positions actually drawn, after co-located people have been nudged apart.
+  /// Marker positions actually drawn, after co-located people are spread out.
   Map<String, LatLng> _drawn = {};
 
   late final AnimationController _entrance = AnimationController(
@@ -146,35 +127,16 @@ class _ExploreMapState extends State<ExploreMap>
     duration: const Duration(milliseconds: 2600),
   );
 
-  // Animation ticks are platform calls, so they are sampled rather than run at
-  // frame rate. 22 fps is past the point where these particular interpolations
-  // read as smooth, and it is a third of the traffic 60 fps would produce.
-  static const _tickInterval = Duration(milliseconds: 45);
-  static const _pulseInterval = Duration(milliseconds: 90);
   DateTime _lastEntranceTick = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime _lastPulseTick = DateTime.fromMillisecondsSinceEpoch(0);
 
-  /// Coalesces the source rewrites that marker rasters trigger. A hundred
-  /// photos landing over a few seconds should cost a handful of updates, not a
-  /// hundred.
+  /// Batches source rewrites while many marker photos load.
   Timer? _iconFlush;
 
-  /// Above this zoom the clusterer stops rolling people up and every marker
-  /// is an individual. Shared by the source that does the clustering and the
-  /// tap fallback that must not fire while it is happening.
-  static const double _clusterMaxZoom = 14;
-
-  /// Guards every async continuation that touches the platform: the tab can be
-  /// switched away mid-flight, and talking to a disposed map throws.
+  /// Whether it is safe to talk to the native map. Every async step checks
+  /// this, because the map can be disposed while a call is in flight.
   bool get _live => mounted && _styleReady && _map != null;
 
-  /// The screen's pixel ratio, which the people layer's `icon-size` has to
-  /// cancel out on native — see [ExploreMarkerImages.iconSizeFor].
-  ///
-  /// Read from the view rather than baked in, because it belongs to the
-  /// display the map happens to be on: a desktop window dragged between a
-  /// Retina screen and a plain one changes it mid-session, and markers sized
-  /// for the old one would be left half or double size.
   double _devicePixelRatio = 1;
 
   @override
@@ -184,9 +146,8 @@ class _ExploreMapState extends State<ExploreMap>
     _entrance.addListener(_onEntranceTick);
     _selection.addListener(_onEntranceTick);
     _pulse.addListener(_onPulseTick);
-    // Ticks are throttled, so the last one before completion can be dropped —
-    // which would leave the layer parked at 96% opacity forever. The status
-    // change is the one push that must always land.
+    // Throttling can drop the last tick, so the final frame is pushed on
+    // completion instead.
     _entrance.addStatusListener(_onAnimationStatus);
     _selection.addStatusListener(_onAnimationStatus);
   }
@@ -197,15 +158,17 @@ class _ExploreMapState extends State<ExploreMap>
     final ratio = MediaQuery.devicePixelRatioOf(context);
     if (ratio == _devicePixelRatio) return;
     _devicePixelRatio = ratio;
-    // Anything already on screen was sized against the old ratio. Safe before
-    // the map exists — the push is a no-op until the style is ready.
     unawaited(_pushPersonProperties());
   }
 
   @override
   void dispose() {
-    widget.controller._detach(this);
+    // Mark the map as gone first so any call still in flight stops touching
+    // the native view. This is part of the crash fix.
+    _styleReady = false;
+    _map = null;
     _iconFlush?.cancel();
+    widget.controller._detach(this);
     _entrance.dispose();
     _selection.dispose();
     _pulse.dispose();
@@ -222,10 +185,8 @@ class _ExploreMapState extends State<ExploreMap>
     }
     if (!_live) return;
 
-    // Two different questions, and conflating them is what makes a map replay
-    // its entrance animation every time somebody's online dot flickers. A
-    // different *set of people* is a new result and deserves the animation; the
-    // same people with a changed dot is a redraw and must not.
+    // A different set of people replays the entrance animation; the same
+    // people with a changed online dot only redraws.
     if (!_sameCast(oldWidget.users, widget.users)) {
       unawaited(_publishPeople(animateIn: true));
     } else if (!_sameCrowd(oldWidget.users, widget.users)) {
@@ -243,27 +204,22 @@ class _ExploreMapState extends State<ExploreMap>
     }
   }
 
-  /// Same people, in the same order. Answers "is this a new result?"
+  /// Same people in the same order.
   static bool _sameCast(List<MapUser> a, List<MapUser> b) => listEquals(
-        [for (final user in a) user.id],
-        [for (final user in b) user.id],
-      );
+    [for (final user in a) user.id],
+    [for (final user in b) user.id],
+  );
 
-  /// Same people *and* the same markers. Answers "does anything need redrawing?"
-  ///
-  /// The screen rebuilds on every presence tick, and a tick that changed
-  /// nobody's dot must not cost a hundred re-rasterised faces. Only what a
-  /// marker is actually made of counts: who, where, online, and which photo.
+  /// Same people and the same marker contents (position, online dot, photo,
+  /// distance).
   static bool _sameCrowd(List<MapUser> a, List<MapUser> b) => listEquals(
-        [for (final user in a) _markerIdentity(user)],
-        [for (final user in b) _markerIdentity(user)],
-      );
+    [for (final user in a) _markerIdentity(user)],
+    [for (final user in b) _markerIdentity(user)],
+  );
 
   static String _markerIdentity(MapUser user) =>
       '${user.id}|${user.isOnline}|${user.primaryPhotoUrl}'
-      // The distance is drawn beside the face, so a person who moved closer is
-      // a redraw even though their generalized pin snapped to the same grid.
-      '|${user.latitude}|${user.longitude}|${user.distanceMeters}';
+          '|${user.latitude}|${user.longitude}|${user.distanceMeters}';
 
   @override
   Widget build(BuildContext context) {
@@ -285,22 +241,17 @@ class _ExploreMapState extends State<ExploreMap>
           ExploreCamera.minZoom,
           ExploreCamera.maxZoom,
         ),
-        // The full set: pan, pinch, rotate, tilt. Explore is a place to look
-        // around in, so nothing is taken away.
         rotateGesturesEnabled: true,
         scrollGesturesEnabled: true,
         zoomGesturesEnabled: true,
         tiltGesturesEnabled: true,
         trackCameraPosition: true,
-        // Chrome the app draws for itself, at the sizes and in the corners the
-        // rest of the screen expects.
         compassEnabled: false,
         myLocationEnabled: false,
         logoEnabled: false,
         attributionButtonPosition: AttributionButtonPosition.bottomLeft,
-        // Every layer is created with interaction off, so the native hit test
-        // never claims a tap and this fires for all of them — one code path
-        // for people, clusters and empty map alike.
+        // All layers are created with interaction off, so every tap arrives
+        // through onMapClick.
         featureTapsTriggersMapClick: true,
         onMapCreated: (controller) => _map = controller,
         onStyleLoadedCallback: _onStyleLoaded,
@@ -334,16 +285,9 @@ class _ExploreMapState extends State<ExploreMap>
     await _applySelection();
   }
 
-  /// Move to the device fix the first time there is one.
-  ///
-  /// [MapLibreMap.initialCameraPosition] is read exactly once, when the
-  /// platform view is created — and the fix usually arrives a second or two
-  /// after that. Without this the map opens over the country-scale fallback
-  /// and simply stays there, with the user's own marker somewhere off screen.
-  ///
-  /// Once only. After the first fix the camera belongs to whoever is panning
-  /// it, and a later GPS update yanking the view back would be the map
-  /// fighting the person using it.
+  /// Moves the camera to the device location the first time it is known.
+  /// The initial camera position is only read once, and the location usually
+  /// arrives after that. Later updates never move the camera again.
   Future<void> _centerOnFirstFix() async {
     if (_centeredOnFirstFix || !_live) return;
     final me = widget.myLocation;
@@ -359,12 +303,7 @@ class _ExploreMapState extends State<ExploreMap>
       const GeojsonSourceProperties(
         data: {'type': 'FeatureCollection', 'features': []},
         cluster: true,
-        // Slightly wider than a marker, so two markers never sit close enough
-        // to overlap without merging.
         clusterRadius: 58,
-        // Past this, everyone is drawn individually. It is deliberately below
-        // the zoom where buildings extrude: arriving in the 3D city should
-        // mean arriving at people, not at a number.
         clusterMaxZoom: _clusterMaxZoom,
       ),
     );
@@ -383,7 +322,7 @@ class _ExploreMapState extends State<ExploreMap>
       ['has', 'point_count'],
     ];
 
-    // Clusters, bottom to top: halo, disc, count.
+    // Clusters: halo, disc, count.
     await map.addCircleLayer(
       _peopleSource,
       _clusterGlowLayer,
@@ -402,8 +341,6 @@ class _ExploreMapState extends State<ExploreMap>
       _clusterLayer,
       CircleLayerProperties(
         circleRadius: _clusterRadius(1),
-        // Blue through violet as a group grows — the app's own gradient, in
-        // steps rather than a ramp so a cluster's size band is readable.
         circleColor: [
           'step',
           ['get', 'point_count'],
@@ -443,8 +380,6 @@ class _ExploreMapState extends State<ExploreMap>
         textColor: AppColors.onImage.toHexStringRGB(),
         textAllowOverlap: true,
         textIgnorePlacement: true,
-        // Upright through every rotation and tilt. Without these the count
-        // lies flat on the ground and turns upside down when the map spins.
         textRotationAlignment: 'viewport',
         textPitchAlignment: 'viewport',
       ),
@@ -452,16 +387,9 @@ class _ExploreMapState extends State<ExploreMap>
       enableInteraction: false,
     );
 
-    // People. Two layers over one source: the selected person is excluded from
-    // the base layer and drawn by the second, so selection can be animated
-    // without scaling everybody.
-    // The spot on the ground each person's marker stands on.
-    //
-    // Two jobs. It reads as the marker's contact point, which is what stops a
-    // tilted map from looking like faces hovering over a city. And it is drawn
-    // from geometry rather than from a registered image, so if a face ever
-    // fails to rasterise or register, the person is still visible and still
-    // tappable rather than silently absent from a map that claims to show them.
+    // A dot on the ground under each marker. It is drawn from geometry rather
+    // than an image, so a person is still visible and tappable even if their
+    // photo fails to load.
     await map.addCircleLayer(
       _peopleSource,
       _peopleGroundLayer,
@@ -476,15 +404,8 @@ class _ExploreMapState extends State<ExploreMap>
       enableInteraction: false,
     );
 
-    // Created at full visibility, then animated in — not the other way round.
-    //
-    // Creating these at `progress: 0` meant a layer whose baseline state was
-    // invisible, and whose only route to being seen was a stream of
-    // `setLayerProperties` calls. Any platform where those quietly do nothing
-    // (maplibre_gl_web applies paint properties but not layout ones) leaves
-    // the map permanently empty while the header cheerfully reports the count.
-    // Visible is the safe default; the entrance animation is an enhancement on
-    // top of it, and its final frame lands on this same value anyway.
+    // People are created fully visible and then animated, so a platform that
+    // ignores property updates still shows them.
     await map.addSymbolLayer(
       _peopleSource,
       _peopleLayer,
@@ -492,6 +413,8 @@ class _ExploreMapState extends State<ExploreMap>
       filter: notCluster,
       enableInteraction: false,
     );
+    // The selected person is drawn on their own layer so selection can animate
+    // without scaling everyone.
     await map.addSymbolLayer(
       _peopleSource,
       _selectedLayer,
@@ -504,12 +427,8 @@ class _ExploreMapState extends State<ExploreMap>
       enableInteraction: false,
     );
 
-    // How far away each face is, printed beside it.
-    //
-    // Above the marker layers so a label is never buried under the person
-    // standing behind them, and on its own layer rather than as the people
-    // layer's `textField`: that layer is rewritten on every animation tick, and
-    // scaling a distance with the entrance would leave the number stretching.
+    // Distance label beside each face, on its own layer so it does not stretch
+    // with the marker animation.
     await map.addSymbolLayer(
       _peopleSource,
       _peopleDistanceLayer,
@@ -518,7 +437,7 @@ class _ExploreMapState extends State<ExploreMap>
       enableInteraction: false,
     );
 
-    // You. Not a dating profile — a pulse, a dot, and a word.
+    // The current user: pulse, dot and label.
     await map.addCircleLayer(
       _meSource,
       _mePulseLayer,
@@ -558,27 +477,23 @@ class _ExploreMapState extends State<ExploreMap>
     );
   }
 
-  /// Cluster disc radius by member count, scaled by [factor] so the halo layer
-  /// can reuse the same size bands.
+  /// Cluster disc radius by member count. [factor] lets the halo reuse the
+  /// same size bands.
   List<Object> _clusterRadius(double factor) => [
-        'step',
-        ['get', 'point_count'],
-        17.0 * factor,
-        11,
-        23.0 * factor,
-        51,
-        29.0 * factor,
-        201,
-        35.0 * factor,
-      ];
+    'step',
+    ['get', 'point_count'],
+    17.0 * factor,
+    11,
+    23.0 * factor,
+    51,
+    29.0 * factor,
+    201,
+    35.0 * factor,
+  ];
 
   // ── Layer property sets ───────────────────────────────────────────────────
-  //
-  // `setLayerProperties` sends the map WITHOUT skipping nulls, so anything left
-  // out of one of these is reset to its default. They must therefore each be
-  // the complete set for their layer, and the creation call and the animation
-  // ticks must both go through the same builder — otherwise the first tick
-  // silently strips whatever creation set and animation didn't.
+  // setLayerProperties resets anything left out, so each builder returns the
+  // complete set for its layer and is used for both creation and animation.
 
   SymbolLayerProperties _personProperties({
     required double progress,
@@ -586,44 +501,26 @@ class _ExploreMapState extends State<ExploreMap>
   }) {
     final eased = Curves.easeOutBack.transform(progress.clamp(0, 1));
     final base = selected ? 1.12 : 1.0;
-    // Grows into place rather than popping: 0.78 → full size.
     final scale = (0.78 + 0.22 * eased) * base;
 
     return SymbolLayerProperties(
       iconImage: ['get', 'icon'],
-      // Life size, which is not the same number on every platform — the
-      // plugin declares these bitmaps at a different pixel ratio on native
-      // than on the web. See ExploreMarkerImages.iconSizeFor.
       iconSize: ExploreMarkerImages.iconSizeFor(_devicePixelRatio) * scale,
       // The marker's tail tip sits on the coordinate.
       iconAnchor: 'bottom',
-      // People are the point of the map: they overlap each other and they
-      // overlap labels, rather than being dropped by the label engine.
       iconAllowOverlap: true,
       iconIgnorePlacement: true,
-      // Upright under rotation and pitch, always.
       iconRotationAlignment: 'viewport',
       iconPitchAlignment: 'viewport',
       iconOpacity: Curves.easeOut.transform(progress.clamp(0, 1)),
-      // Lower sort key means drawn on top. With the map north-up — which it
-      // is unless somebody has deliberately rotated it — southern markers are
-      // the near ones, so latitude straight through puts the near marker over
-      // the far one instead of behind it.
+      // Lower key draws on top; using latitude puts nearer (southern) markers
+      // over farther ones on a north-up map.
       symbolSortKey: ['get', 'sort'],
     );
   }
 
-  /// "450 m", set beside a person's face.
-  ///
-  /// ## Where the offsets come from
-  ///
-  /// The marker bitmap is anchored `bottom`, so its tail tip is on the
-  /// coordinate and everything else is above it. At life size that puts the
-  /// centre of the photo disc `disc/2 + glow + tail` ≈ 43 px up, and its right
-  /// edge `disc/2` ≈ 27 px across. `text-offset` is in ems of [_distanceSize],
-  /// so those two distances become the constants below — the label lands level
-  /// with the face and just clear of the ring, at every zoom, because both the
-  /// marker and the text are sized in screen space rather than on the ground.
+  /// Distance text (for example "450 m") beside a person's face. The offsets
+  /// place it level with the photo and just clear of its ring.
   static const double _distanceSize = 11.5;
 
   SymbolLayerProperties _distanceProperties({double progress = 1}) {
@@ -631,22 +528,15 @@ class _ExploreMapState extends State<ExploreMap>
       textField: ['get', 'distance'],
       textFont: const ['Noto Sans Bold'],
       textSize: _distanceSize,
-      // Left edge of the text at the offset point, so a long value grows away
-      // from the face rather than back across it.
       textAnchor: 'left',
       textOffset: const [2.9, -3.75],
       textColor: AppMapColors.plum.toHexStringRGB(),
-      // The map under a marker is pastel road and building fill, not a flat
-      // ground colour, so the halo is what keeps the number legible.
       textHaloColor: AppColors.onImage.toHexStringRGB(),
       textHaloWidth: 1.9,
       textHaloBlur: 0.3,
       textOpacity: Curves.easeOut.transform(progress.clamp(0, 1)),
-      // Same as the faces: people are the point of the map, so their labels
-      // are not candidates for the label engine to drop.
       textAllowOverlap: true,
       textIgnorePlacement: true,
-      // Upright through every rotation and tilt.
       textRotationAlignment: 'viewport',
       textPitchAlignment: 'viewport',
       symbolSortKey: ['get', 'sort'],
@@ -654,7 +544,7 @@ class _ExploreMapState extends State<ExploreMap>
   }
 
   CircleLayerProperties _mePulseProperties(double progress) {
-    // One outward sweep per cycle: the ring grows and fades, then restarts.
+    // One ring that grows and fades, then restarts.
     final eased = Curves.easeOut.transform(progress.clamp(0, 1));
     return CircleLayerProperties(
       circleRadius: 12 + 30 * eased,
@@ -676,7 +566,7 @@ class _ExploreMapState extends State<ExploreMap>
   void _onEntranceTick() {
     final now = DateTime.now();
     final settled = !_entrance.isAnimating && !_selection.isAnimating;
-    // Always push the final frame, or the layer is left mid-animation.
+    // The final frame is always pushed so the layer is never left mid-animation.
     if (!settled && now.difference(_lastEntranceTick) < _tickInterval) return;
     _lastEntranceTick = now;
     unawaited(_pushPersonProperties());
@@ -690,27 +580,19 @@ class _ExploreMapState extends State<ExploreMap>
         _peopleLayer,
         _personProperties(progress: _entrance.value, selected: false),
       );
+      // The selected layer uses only the selection animation, so the lift
+      // plays on every selection.
       await map.setLayerProperties(
         _selectedLayer,
-        _personProperties(
-          // Its own controller, and *only* its own: taking the max with the
-          // entrance meant that once the entrance had finished at 1, every
-          // later selection was already at full size and the lift never
-          // played. The layer is empty until somebody is picked anyway, so it
-          // has nothing to animate in alongside the crowd.
-          progress: _selection.value,
-          selected: true,
-        ),
+        _personProperties(progress: _selection.value, selected: true),
       );
-      // Fades in with the crowd it labels. Only the entrance drives it — a
-      // selection empties this layer rather than scaling it.
       await map.setLayerProperties(
         _peopleDistanceLayer,
         _distanceProperties(progress: _entrance.value),
       );
     } catch (_) {
-      // The style can be torn down between the tick and the call landing.
-      // Dropping a frame of an animation is not worth surfacing.
+      // The map can be torn down between the tick and the call. Dropping one
+      // animation frame is harmless.
     }
   }
 
@@ -733,13 +615,12 @@ class _ExploreMapState extends State<ExploreMap>
 
     _drawn = spreadColocated(widget.users);
 
-    // Everyone starts on the generic marker so the map fills immediately;
-    // their own face replaces it as it rasterises.
+    // Everyone starts on the fallback marker; real photos replace it as they load.
     for (final user in widget.users) {
       _iconFor.putIfAbsent(user.id, () => _fallbackIcon);
     }
     _iconFor.removeWhere(
-      (id, _) => !widget.users.any((user) => user.id == id),
+          (id, _) => !widget.users.any((user) => user.id == id),
     );
 
     await _writePeopleSource();
@@ -749,9 +630,6 @@ class _ExploreMapState extends State<ExploreMap>
       _entrance
         ..reset()
         ..forward();
-      // A new set of people is either the first load or the result of somebody
-      // changing the radius or the filters. Both are moments where the honest
-      // thing to do is show them what they just asked for.
       await _frameOnPeople();
     }
 
@@ -763,44 +641,35 @@ class _ExploreMapState extends State<ExploreMap>
     try {
       await _map!.setGeoJsonSource(_peopleSource, _peopleGeoJson());
     } catch (_) {
-      // Style swapped out from under us; the next publish will redo it.
+      // Style was replaced or the map is gone; the next publish redoes it.
     }
   }
 
   Map<String, dynamic> _peopleGeoJson() => {
-        'type': 'FeatureCollection',
-        'features': [
-          for (final user in widget.users)
-            if (_drawn[user.id] case final at?)
-              {
-                'type': 'Feature',
-                'properties': {
-                  'id': user.id,
-                  'icon': _iconFor[user.id] ?? _fallbackIcon,
-                  // Printed beside the face by _peopleDistanceLayer. Empty
-                  // rather than absent when the server sent no number: a
-                  // missing property makes `['get', 'distance']` null, and
-                  // maplibre-gl-js logs an expression error for every feature
-                  // it evaluates that on.
-                  'distance': formatDistance(user.distanceMeters) ?? '',
-                  // Higher for people further north, so painting order runs
-                  // back-to-front on a tilted map.
-                  'sort': at.latitude,
-                },
-                'geometry': {
-                  'type': 'Point',
-                  'coordinates': [at.longitude, at.latitude],
-                },
-              },
-        ],
-      };
+    'type': 'FeatureCollection',
+    'features': [
+      for (final user in widget.users)
+        if (_drawn[user.id] case final at?)
+          {
+            'type': 'Feature',
+            'properties': {
+              'id': user.id,
+              'icon': _iconFor[user.id] ?? _fallbackIcon,
+              // Empty string rather than null when the distance is unknown.
+              'distance': formatDistance(user.distanceMeters) ?? '',
+              // Latitude as sort key so drawing runs back to front.
+              'sort': at.latitude,
+            },
+            'geometry': {
+              'type': 'Point',
+              'coordinates': [at.longitude, at.latitude],
+            },
+          },
+    ],
+  };
 
-  /// Rasterises faces and registers them, a few at a time.
-  ///
-  /// Bounded concurrency because the alternative is a hundred simultaneous
-  /// image fetches and decodes, which on a mid-range phone stalls the very
-  /// frame the map is trying to draw. Source rewrites are coalesced by
-  /// [_scheduleIconFlush] so a batch costs one update, not one per face.
+  /// Loads marker photos with a small number of workers, so a large crowd does
+  /// not stall the frame with a hundred simultaneous decodes.
   Future<void> _loadMarkerImages() async {
     final queue = List<MapUser>.from(widget.users);
     const workers = 4;
@@ -811,12 +680,9 @@ class _ExploreMapState extends State<ExploreMap>
         final selected = user.id == widget.selectedId;
         try {
           await _register(user, selected: false);
-          // The selected face is a second raster at a second size; only ever
-          // one of them exists at a time.
           if (selected) await _register(user, selected: true);
         } catch (_) {
-          // Keep the fallback marker. One unreachable photo is not a reason to
-          // stop drawing the other ninety-nine people.
+          // Keep the fallback marker for anyone whose photo fails.
         }
       }
     }
@@ -844,7 +710,7 @@ class _ExploreMapState extends State<ExploreMap>
     _iconFlush?.cancel();
     _iconFlush = Timer(
       const Duration(milliseconds: 140),
-      () => unawaited(_writePeopleSource()),
+          () => unawaited(_writePeopleSource()),
     );
   }
 
@@ -878,60 +744,45 @@ class _ExploreMapState extends State<ExploreMap>
         ? null
         : widget.users.where((user) => user.id == selectedId).firstOrNull;
 
-    // Is the bigger, brighter raster for this person on the GPU yet?
-    //
-    // On a first selection it never is — it is built on demand — and what the
-    // map does in that gap is the whole of this method's difficulty. It used to
-    // hide the crowd *and* draw nobody in their place, so tapping somebody
-    // blanked the map until the raster landed, and blanked it permanently if
-    // the raster failed. The person you just picked is the one thing that must
-    // stay on screen.
+    // The larger selected-marker image is built on demand, so it may not be
+    // ready yet. The plain marker stays visible until it is.
     final selectedImage = selected == null
         ? null
         : ExploreMarkerImages.imageId(selected, selected: true);
     final ready = selectedImage != null && _images.has(selectedImage);
 
-    // Picking somebody empties the map of everyone else.
-    //
-    // The alternative — highlight them and leave the crowd up — makes "who am I
-    // looking at" a question the user has to keep answering, and on a dense map
-    // the person they just chose is the one hardest to keep track of. Clearing
-    // the map is also what makes the bottom composer unambiguous: there is
-    // exactly one person on screen, and the message goes to them.
+    // Selecting someone hides everyone else, so the composer below clearly
+    // targets the one person on screen.
     final focused = selected != null;
     final filters = peopleLayerFilters(selectedId: selectedId, ready: ready);
 
     try {
-      await _map!.setFilter(_peopleLayer, filters.base);
-      await _map!.setFilter(_peopleGroundLayer, filters.ground);
-      await _map!.setFilter(_selectedLayer, filters.selected);
-      await _map!.setFilter(_peopleDistanceLayer, filters.distance);
+      final map = _map!;
+      await map.setFilter(_peopleLayer, filters.base);
+      await map.setFilter(_peopleGroundLayer, filters.ground);
+      await map.setFilter(_selectedLayer, filters.selected);
+      await map.setFilter(_peopleDistanceLayer, filters.distance);
       for (final layer in const [
         _clusterGlowLayer,
         _clusterLayer,
         _clusterCountLayer,
       ]) {
-        await _map!.setFilter(layer, filters.clusters);
+        await map.setFilter(layer, filters.clusters);
       }
     } catch (_) {
       return;
     }
 
-    // Go to them. Selection arrives from three places — a marker, the strip and
-    // the grid — and all three should land the camera in the same place, so the
-    // move lives here rather than at each call site.
+    // Every route into a selection (marker, strip, grid) ends here, so the
+    // camera move lives here too.
     if (focused) {
       final at = _drawn[selected.id];
       if (at != null) unawaited(centerOn(at, zoom: ExploreCamera.focusZoom));
     }
 
     if (selected != null && !ready) {
-      // Build the bigger raster, then come back through here to swap it in.
-      //
-      // Failure is survivable now and must stay that way: the plain marker is
-      // already on screen from the filters above, so a photo that will not
-      // decode costs the highlight, not the person. Swallowing here is also
-      // what stops an unhandled async error reaching the console.
+      // Build the larger image, then come back to swap it in. A failure only
+      // costs the highlight, not the person.
       unawaited(
         _register(selected, selected: true).catchError((Object _) {}),
       );
@@ -953,9 +804,7 @@ class _ExploreMapState extends State<ExploreMap>
   Future<void> _onTap(math.Point<double> point, LatLng coordinates) async {
     if (!_live) return;
 
-    // A rect rather than the bare point: the incoming coordinate and the query
-    // share the platform's pixel space, and a few pixels of slop is the
-    // difference between "tapped her" and "tapped the road behind her".
+    // Query a small rectangle rather than a single point so near-misses count.
     final rect = Rect.fromCenter(
       center: Offset(point.x, point.y),
       width: 44,
@@ -969,8 +818,6 @@ class _ExploreMapState extends State<ExploreMap>
         [
           _selectedLayer,
           _peopleLayer,
-          // Included so a person stays reachable even in the case the ground
-          // dot exists to cover: a face that never rasterised.
           _peopleGroundLayer,
           _clusterLayer,
           _clusterCountLayer,
@@ -994,25 +841,15 @@ class _ExploreMapState extends State<ExploreMap>
       }
 
       final id = properties['id'] as String?;
-      final person =
-          widget.users.where((user) => user.id == id).firstOrNull;
+      final person = widget.users.where((user) => user.id == id).firstOrNull;
       if (person != null) {
-        // The camera move belongs to _applySelection, which every route into a
-        // selection passes through — doing it here too would animate twice.
         widget.onPersonTapped(person);
         return;
       }
     }
 
-    // Nothing rendered answered. Fall back to geometry.
-    //
-    // `queryRenderedFeatures` is the precise tool and also the fragile one: it
-    // needs every layer id in the request to exist, and maplibre-gl-js answers
-    // a request naming an unknown layer with an error on the console and an
-    // empty list. That failure is indistinguishable from "you tapped the road",
-    // so a single mis-created layer silently costs the whole tap interaction.
-    // The markers' coordinates are already in Dart, so the tap can be resolved
-    // against them directly and identically on every platform.
+    // Nothing rendered was hit, so fall back to matching the tap against the
+    // known marker coordinates. This works even if a layer query fails.
     final person = personNearTap(
       tap: coordinates,
       people: widget.users,
@@ -1029,8 +866,7 @@ class _ExploreMapState extends State<ExploreMap>
     widget.onBackgroundTapped();
   }
 
-  /// Step into a cluster rather than jumping past it, so the group visibly
-  /// breaks apart into the people in it.
+  /// Zooms in on a cluster so it visibly breaks apart.
   Future<void> _zoomIntoCluster(Map<dynamic, dynamic> feature) async {
     final geometry = feature['geometry'];
     if (geometry is! Map) return;
@@ -1038,7 +874,6 @@ class _ExploreMapState extends State<ExploreMap>
     if (coordinates is! List || coordinates.length < 2) return;
 
     final current = _map?.cameraPosition;
-
     final target = LatLng(
       (coordinates[1] as num).toDouble(),
       (coordinates[0] as num).toDouble(),
@@ -1056,12 +891,8 @@ class _ExploreMapState extends State<ExploreMap>
     final map = _map;
     if (map == null || !_styleReady) return;
 
-    // `cameraPosition`, not `queryCameraPosition()`. The latter throws
-    // UnimplementedError on web — it is one of a handful of methods
-    // maplibre_gl_web never implemented — which took the centre-on-me button
-    // down with it. This getter is kept up to date by the camera-move stream
-    // (`trackCameraPosition: true` on the widget), so it needs no platform
-    // call at all and behaves the same on every platform.
+    // Uses the tracked cameraPosition getter, which needs no platform call
+    // (queryCameraPosition is not implemented on web).
     final current = map.cameraPosition;
 
     try {
@@ -1071,9 +902,7 @@ class _ExploreMapState extends State<ExploreMap>
             target: target,
             zoom: zoom ?? current?.zoom ?? ExploreCamera.defaultZoom,
             tilt: ExploreCamera.pitchFor(widget.viewMode),
-            // Whatever way they turned the map is theirs to keep — snapping
-            // back to north because they pressed "centre on me" would undo a
-            // deliberate act.
+            // Keep the rotation the user chose.
             bearing: current?.bearing ?? 0,
           ),
         ),
@@ -1082,25 +911,13 @@ class _ExploreMapState extends State<ExploreMap>
     } catch (_) {}
   }
 
-  /// The locate button's move: centre on the user *and* arrive somewhere they
-  /// can see where they are.
-  ///
-  /// [centerOn] deliberately keeps the current zoom, which is right when the
-  /// camera is already somewhere deliberate. It was wrong here. Pressing
-  /// "where am I" from a city-wide view re-centred the map and left it city
-  /// wide, so the answer to "where am I" was a purple dot in a field of
-  /// rooftops — the button appeared to do nothing, because the only thing that
-  /// moved was scenery.
-  ///
-  /// So it zooms to street level, and takes the *larger* of that and where the
-  /// camera already is: somebody who had zoomed into their own building and
-  /// then panned away is asking to go back, not to be pulled back out.
+  /// Locate button: centres on the user and zooms to street level, but never
+  /// zooms out from where the camera already is.
   Future<void> goToMe(LatLng target) async {
     final map = _map;
     if (map == null || !_styleReady) return;
 
-    // A later GPS fix must not drag the camera off the spot they just asked
-    // for — see _centerOnFirstFix.
+    // A later location update must not pull the camera away from here.
     _centeredOnFirstFix = true;
 
     final current = map.cameraPosition?.zoom ?? ExploreCamera.defaultZoom;
@@ -1110,28 +927,15 @@ class _ExploreMapState extends State<ExploreMap>
     );
   }
 
-  /// Open the camera around everyone the map is showing, not at a fixed zoom.
+  /// Frames the camera around everyone shown (and the user), instead of a
+  /// fixed zoom that could leave people off screen.
   ///
-  /// This is what was wrong with the first version. It always opened at
-  /// [ExploreCamera.defaultZoom], which on a phone-width viewport covers about
-  /// ±3.4 km — while the radius filter goes up to "10 km+". So with a wide
-  /// radius the map was correct, the header counted the right people, and every
-  /// one of them was rendered off screen. The map looked empty and there was
-  /// nothing on it to suggest scrolling.
-  ///
-  /// Framing on the actual result set fixes that for every radius at once, and
-  /// keeps working if the bands are ever changed.
-  ///
-  /// Deliberately **not** `CameraUpdate.newLatLngBounds`: that helper resets
-  /// tilt and bearing to zero, which would flatten the 3D view every time the
-  /// radius changed. Computing the zoom here keeps the camera the user chose.
+  /// Not CameraUpdate.newLatLngBounds, because that resets tilt and bearing.
   Future<void> _frameOnPeople() async {
     if (!_live) return;
 
     final points = [
       ..._drawn.values,
-      // Include ourselves: "who is around me" is a question about a place, and
-      // a frame that excludes the viewer does not answer it.
       ?widget.myLocation,
     ];
     if (points.isEmpty) return;
@@ -1139,17 +943,13 @@ class _ExploreMapState extends State<ExploreMap>
     final viewport = context.size;
     if (viewport == null || viewport.isEmpty) return;
 
-    // Framing supersedes centring on the device fix. Without this, a GPS fix
-    // that lands after the people do would yank the camera back to the user at
-    // a fixed zoom and throw the frame away.
+    // Framing replaces the first-location centring.
     _centeredOnFirstFix = true;
 
     final frame = frameFor(
       points,
       viewport: viewport,
       minZoom: ExploreCamera.minZoom,
-      // Never closer than the zoom a tap on a person settles at, so a tight
-      // group does not arrive already inside a building.
       maxZoom: ExploreCamera.focusZoom,
       soloZoom: ExploreCamera.defaultZoom,
       tilted: widget.viewMode == ExploreViewMode.tilted,
@@ -1159,8 +959,7 @@ class _ExploreMapState extends State<ExploreMap>
     await centerOn(frame.centre, zoom: frame.zoom);
   }
 
-  /// One step of the on-screen zoom buttons, clamped to the map's own range so
-  /// the control goes inert at the ends rather than pretending to work.
+  /// One step of the on-screen zoom buttons, clamped to the map's zoom range.
   Future<void> zoomBy(double delta) async {
     final map = _map;
     if (map == null || !_styleReady) return;
@@ -1176,7 +975,7 @@ class _ExploreMapState extends State<ExploreMap>
     } catch (_) {}
   }
 
-  /// The 2D/3D toggle. Tilt only — the position and zoom people chose stay put.
+  /// 2D/3D toggle. Changes tilt only.
   Future<void> _applyPitch() async {
     if (!_live) return;
     try {
@@ -1187,7 +986,7 @@ class _ExploreMapState extends State<ExploreMap>
     } catch (_) {}
   }
 
-  /// A hex string between two colours, for the cluster step ramp.
+  /// Colour halfway between two colours, as a hex string.
   static String _blend(Color a, Color b, double t) =>
       Color.lerp(a, b, t)!.toHexStringRGB();
 }

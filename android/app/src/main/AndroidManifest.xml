@@ -12,7 +12,7 @@
      silently discarded by the OS on a fresh install. -->
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
-        android:label="cozune"
+        android:label="Cozune"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
         android:networkSecurityConfig="@xml/network_security_config">

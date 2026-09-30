@@ -1,6 +1,10 @@
+import 'package:dating_app/shared/widgets/dialogs/app_dialogs.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
+import '../../../core/extensions/global_back_extension.dart';
+import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/theme/theme_controller.dart';
@@ -11,7 +15,6 @@ import '../../../providers/chat_provider.dart';
 import '../../../providers/core_providers.dart';
 import '../../../providers/notification_provider.dart';
 import '../../../providers/profile_provider.dart';
-import '../../auth/screens/login_screen.dart';
 import '../../common/widgets/widgets.dart';
 import '../widgets/location_sharing_card.dart';
 import '../widgets/profile_edit_panel.dart';
@@ -29,96 +32,117 @@ class YouScreen extends ConsumerStatefulWidget {
 }
 
 class _YouScreenState extends ConsumerState<YouScreen> {
+  // ---------------------------------------------------------------------------
+  // Action Handlers
+  // ---------------------------------------------------------------------------
+
   Future<void> _onEditBio(String bio) async {
     final saved = await showEditBioSheet(context, bio);
-    if (saved && mounted) _snack('Bio updated');
+    if (saved && mounted) _snack('Bio updated successfully');
   }
 
   Future<void> _onEditVibes(List<String> vibes) async {
     final saved = await showEditVibesSheet(context, vibes);
-    if (saved && mounted) _snack('Vibe updated');
+    if (saved && mounted) _snack('Vibes updated successfully');
   }
 
-  void _snack(String msg) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  void _snack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(fontWeight: FontWeight.w500)),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
 
   Future<void> _onSignOut() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.panel,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text('Sign Out', style: TextStyle(color: AppColors.textDark)),
-        content: Text('Are you sure you want to sign out?',
-            style: TextStyle(color: AppColors.textGrey)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: TextStyle(color: AppColors.textGrey)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Sign Out', style: TextStyle(color: AppColors.primary)),
-          ),
-        ],
-      ),
+
+    final confirm = await AppDialogs.commonDialog(
+      iconData: Icons.logout,
+      iconVectorColor: AppColors.whiteColor,
+    context: context, headingText: 'Sign Out', descriptionText: 'Are you sure you want to sign out?', buttonText: 'Sign Out',
+      isShowTwoButtons: true,
     );
 
     if (confirm == true && mounted) {
       await ref.read(pushRegistrarProvider).stop();
       await AuthService().signOut();
+
       if (!mounted) return;
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-            (route) => false,
-      );
+      _navigateToLogin();
     }
   }
 
   Future<void> _onDeleteAccount() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.panel,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text('Delete Account', style: TextStyle(color: Colors.red)),
-        content: Text(
-          'This will permanently delete your account and all data. This cannot be undone.',
-          style: TextStyle(color: AppColors.textGrey),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: TextStyle(color: AppColors.textGrey)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+    final confirm = await _showActionDialog(
+      title: 'Delete Account',
+      content: 'This will permanently delete your account and all data. This cannot be undone.',
+      actionText: 'Delete',
+      actionColor: AppColors.danger,
     );
 
     if (confirm == true && mounted) {
       await ref.read(pushRegistrarProvider).stop();
       try {
         await ref.read(profileRepositoryProvider).deleteAccount();
-      } catch (_) {}
-      await AuthService().signOut();
-      if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-              (route) => false,
-        );
+      } catch (_) {
+        // Handle error if necessary
       }
+      await AuthService().signOut();
+
+      if (!mounted) return;
+      _navigateToLogin();
     }
   }
+
+  Future<bool?> _showActionDialog({
+    required String title,
+    required String content,
+    required String actionText,
+    required Color actionColor,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.panel,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(title, style: TextStyle(color: actionColor, fontWeight: FontWeight.bold)),
+        content: Text(content, style: TextStyle(color: AppColors.textGrey, height: 1.4)),
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel', style: TextStyle(color: AppColors.textGrey)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: actionColor.withValues(alpha: 0.1),
+              foregroundColor: actionColor,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: Text(actionText, style: const TextStyle(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _navigateToLogin() {
+
+    context.go(AppRoutes.login);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build Method
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
     final me = ref.watch(meProvider).valueOrNull;
+
     if (me == null) {
       return Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
@@ -127,7 +151,10 @@ class _YouScreenState extends ConsumerState<YouScreen> {
     final friends = ref.watch(activeConversationCountProvider);
     final tagLabels = ref.watch(tagLabelsProvider).valueOrNull ?? const {};
 
+    final primaryPhotoUrl = _getPrimaryPhotoUrl(me.primaryPhotoId);
+
     return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -136,16 +163,14 @@ class _YouScreenState extends ConsumerState<YouScreen> {
             child: Wordmark(),
           ),
 
-          YouHeader(me: me, avatarUrl: _primaryPhotoUrl(me.primaryPhotoId)),
-
-          const SizedBox(height: 20),
+          YouHeader(me: me, avatarUrl: primaryPhotoUrl),
+          spacerH(20),
 
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 20),
             child: LocationSharingCard(),
           ),
-
-          const SizedBox(height: 20),
+          spacerH(20),
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -155,19 +180,17 @@ class _YouScreenState extends ConsumerState<YouScreen> {
               friends: friends,
             ),
           ),
-
-          const SizedBox(height: 26),
+          spacerH(26),
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: YouGallery(primaryPhotoId: me.primaryPhotoId),
           ),
-
-          const SizedBox(height: 26),
+          spacerH(26),
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _card(
+            child: _ProfileSectionCard(
               label: 'MY VIBE',
               onEdit: () => _onEditVibes(me.profile.personalityTags),
               child: me.profile.personalityTags.isEmpty
@@ -185,12 +208,11 @@ class _YouScreenState extends ConsumerState<YouScreen> {
               ),
             ),
           ),
-
-          const SizedBox(height: 14),
+          spacerH(16),
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _card(
+            child: _ProfileSectionCard(
               label: 'BIO',
               onEdit: () => _onEditBio(me.profile.bio ?? ''),
               child: Text(
@@ -206,40 +228,36 @@ class _YouScreenState extends ConsumerState<YouScreen> {
               ),
             ),
           ),
-
-          const SizedBox(height: 14),
+          spacerH(16),
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: ProfileEditPanel(me: me),
           ),
-
-          const SizedBox(height: 14),
+          spacerH(16),
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: _VerificationCard(isVerified: me.verified),
           ),
-
-          const SizedBox(height: 14),
+          spacerH(16),
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: _PremiumCard(isPremium: me.premium.isActive),
           ),
+          spacerH(24),
 
-          const SizedBox(height: 14),
-
+          // Settings & Actions
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 20),
             child: _DarkModeTile(),
           ),
-
-          const SizedBox(height: 14),
+          spacerH(12),
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _menuTile(
+            child: _MenuTile(
               icon: Icons.block_outlined,
               label: 'Blocked accounts',
               onTap: () => Navigator.push(
@@ -248,66 +266,82 @@ class _YouScreenState extends ConsumerState<YouScreen> {
               ),
             ),
           ),
-
-          const SizedBox(height: 10),
+          spacerH(12),
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _menuTile(
+            child: _MenuTile(
               icon: Icons.logout_outlined,
               label: 'Sign Out',
               onTap: _onSignOut,
             ),
           ),
-
-          const SizedBox(height: 20),
+          spacerH(32),
 
           Center(
             child: GestureDetector(
               onTap: _onDeleteAccount,
-              child: Text(
-                'Delete Account',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.danger,
-                  fontWeight: FontWeight.w600,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  'Delete Account',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.danger.withValues(alpha: 0.8),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
           ),
-
           spacerH(80),
         ],
       ),
-    );
+    ).withGlobalBackHandler(context);
   }
 
-  String? _primaryPhotoUrl(String? primaryId) {
+  String? _getPrimaryPhotoUrl(String? primaryId) {
     if (primaryId == null) return null;
-    for (final asset in ref.watch(myMediaProvider).valueOrNull ?? const []) {
+    final media = ref.watch(myMediaProvider).valueOrNull ?? const [];
+
+    for (final asset in media) {
       if (asset.id == primaryId) return asset.url;
     }
     return null;
   }
+}
 
-  Widget _card({
-    required String label,
-    required VoidCallback onEdit,
-    required Widget child,
-  }) {
+// -----------------------------------------------------------------------------
+// Extracted Widgets for Premium UI & Better Performance
+// -----------------------------------------------------------------------------
+
+class _ProfileSectionCard extends StatelessWidget {
+  const _ProfileSectionCard({
+    required this.label,
+    required this.onEdit,
+    required this.child,
+  });
+
+  final String label;
+  final VoidCallback onEdit;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
-        border: Border.all(color: AppColors.inputBorder.withValues(alpha: 0.6)),
+        border: Border.all(color: AppColors.inputBorder.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -318,8 +352,9 @@ class _YouScreenState extends ConsumerState<YouScreen> {
               Text(
                 label,
                 style: AppTextStyles.label.copyWith(
-                  letterSpacing: 1,
-                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textDark.withValues(alpha: 0.8),
                 ),
               ),
               Semantics(
@@ -328,42 +363,51 @@ class _YouScreenState extends ConsumerState<YouScreen> {
                 excludeSemantics: true,
                 child: GestureDetector(
                   onTap: onEdit,
+                  behavior: HitTestBehavior.opaque,
                   child: Container(
-                    padding: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppColors.background,
+                      color: AppColors.background.withValues(alpha: 0.5),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.edit_outlined,
-                        size: 14, color: AppColors.textGrey),
+                    child: Icon(Icons.edit_outlined, size: 16, color: AppColors.textGrey),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          spacerH(16),
           child,
         ],
       ),
     );
   }
+}
 
-  Widget _menuTile({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
+class _MenuTile extends StatelessWidget {
+  const _MenuTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         decoration: BoxDecoration(
           color: AppColors.card,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 10,
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 12,
               offset: const Offset(0, 4),
             ),
           ],
@@ -371,25 +415,25 @@ class _YouScreenState extends ConsumerState<YouScreen> {
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: AppColors.background,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, size: 18, color: AppColors.textDark),
+              child: Icon(icon, size: 20, color: AppColors.textDark),
             ),
-            const SizedBox(width: 14),
+            spacerW(16),
             Expanded(
               child: Text(
                 label,
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: 16,
                   color: AppColors.textDark,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-            Icon(Icons.chevron_right, size: 20, color: AppColors.textGrey),
+            Icon(Icons.chevron_right_rounded, size: 22, color: AppColors.textGrey),
           ],
         ),
       ),
@@ -409,14 +453,14 @@ class _DarkModeTile extends ConsumerWidget {
       label: 'Dark mode',
       excludeSemantics: true,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
           color: AppColors.card,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 10,
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 12,
               offset: const Offset(0, 4),
             ),
           ],
@@ -424,33 +468,32 @@ class _DarkModeTile extends ConsumerWidget {
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: AppColors.background,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
-                dark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
-                size: 18,
+                dark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                size: 20,
                 color: AppColors.textDark,
               ),
             ),
-            const SizedBox(width: 14),
+            spacerW(16),
             Expanded(
               child: Text(
                 'Dark mode',
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: 16,
                   color: AppColors.textDark,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-            Switch(
+            Switch.adaptive(
               value: dark,
-              activeThumbColor: AppColors.primary,
-              onChanged: (on) =>
-                  ref.read(themeModeProvider.notifier).toggle(dark: on),
+              activeColor: AppColors.primary,
+              onChanged: (on) => ref.read(themeModeProvider.notifier).toggle(dark: on),
             ),
           ],
         ),
@@ -467,35 +510,35 @@ class _VerificationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
             color: (isVerified ? AppColors.ok : Colors.black)
-                .withValues(alpha: isVerified ? 0.12 : 0.03),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
+                .withValues(alpha: isVerified ? 0.08 : 0.02),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
         border: Border.all(
           color: isVerified
-              ? AppColors.ok.withValues(alpha: 0.35)
-              : AppColors.inputBorder.withValues(alpha: 0.6),
+              ? AppColors.ok.withValues(alpha: 0.25)
+              : AppColors.inputBorder.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
         children: [
           Container(
-            width: 42,
-            height: 42,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               gradient: isVerified
                   ? LinearGradient(
                 colors: [
                   AppColors.ok.withValues(alpha: 0.2),
-                  AppColors.ok.withValues(alpha: 0.08),
+                  AppColors.ok.withValues(alpha: 0.05),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -505,39 +548,43 @@ class _VerificationCard extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.verified_outlined,
-              size: 20,
+              Icons.verified_rounded,
+              size: 24,
               color: isVerified ? AppColors.ok : AppColors.iconMuted,
             ),
           ),
-          const SizedBox(width: 14),
+          spacerW(16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('ACCOUNT VERIFICATION',
-                    style: AppTextStyles.label.copyWith(
-                      fontSize: 10,
-                      letterSpacing: 1,
-                    )),
-                const SizedBox(height: 3),
+                Text(
+                  'ACCOUNT VERIFICATION',
+                  style: AppTextStyles.label.copyWith(
+                    fontSize: 10,
+                    letterSpacing: 1.2,
+                    color: AppColors.textGrey,
+                  ),
+                ),
+                spacerH(4),
                 Text(
                   isVerified ? 'Identity Verified' : 'Not verified yet',
                   style: AppTextStyles.bodyStrong.copyWith(
-                    fontSize: 14.5,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+                spacerH(2),
                 Text(
                   isVerified
                       ? 'Your profile is trusted and visible to others.'
                       : 'Verify to unlock the full experience.',
-                  style: AppTextStyles.caption.copyWith(fontSize: 12),
+                  style: AppTextStyles.caption.copyWith(fontSize: 13, height: 1.3),
                 ),
               ],
             ),
           ),
-          if (isVerified) const VerificationTick(size: 22),
+          if (isVerified) const VerificationTick(size: 26),
         ],
       ),
     );
@@ -552,19 +599,19 @@ class _PremiumCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [Color(0xFF2D1F63), Color(0xFF1A123B)],
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
             color: AppColors.premium.withValues(alpha: 0.25),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+            blurRadius: 30,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
@@ -574,85 +621,90 @@ class _PremiumCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
                       AppColors.premium,
-                      AppColors.premium.withValues(alpha: 0.6),
+                      AppColors.premium.withValues(alpha: 0.7),
                     ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
-                  isPremium ? Icons.workspace_premium : Icons.radio_button_checked,
-                  size: 18,
+                  isPremium ? Icons.workspace_premium_rounded : Icons.star_rounded,
+                  size: 22,
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(width: 10),
+              spacerW(14),
               const Expanded(
                 child: Text(
-                  'cozune Premium',
+                  'Cozune Premium',
                   style: TextStyle(
-                    fontSize: 19,
+                    fontSize: 20,
                     fontWeight: FontWeight.w800,
                     color: AppColors.onImage,
+                    letterSpacing: -0.5,
                   ),
                 ),
               ),
               if (isPremium)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
+                    color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                   ),
                   child: const Text(
                     'ACTIVE',
                     style: TextStyle(
                       fontSize: 10,
                       color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
                     ),
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 10),
+          spacerH(12),
           Text(
             isPremium
                 ? 'Unlimited radius, every filter, and no ads.'
                 : 'See everyone nearby, filter everything, and drop the ads.',
-            style: const TextStyle(
-              fontSize: 13.5,
-              color: Colors.white60,
-              height: 1.4,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.white.withValues(alpha: 0.7),
+              height: 1.5,
             ),
           ),
-          const SizedBox(height: 18),
+          spacerH(20),
           SizedBox(
             width: double.infinity,
-            height: 48,
             child: ElevatedButton(
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const PremiumScreen()),
               ),
               style: ElevatedButton.styleFrom(
+                padding: EdgeInsets.symmetric(vertical: 14.h),
                 backgroundColor: AppColors.onImage,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
+                foregroundColor: AppColors.premiumDeep,
                 elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
               child: Text(
                 isPremium ? 'Manage Subscription' : 'See what you get',
-                style: TextStyle(
-                  fontSize: 14.5,
+                style: const TextStyle(
+                  fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.premiumDeep,
+                  letterSpacing: -0.2,
                 ),
               ),
             ),

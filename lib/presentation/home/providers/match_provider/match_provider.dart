@@ -219,7 +219,6 @@ class NearbyNotifier extends AsyncNotifier<NearbyState> {
         onlineOnly: filter.onlineOnly,
         recentlyActive: filter.recentlyActive,
         relationshipStatus: filter.relationshipStatus,
-        personalityTags: filter.personalityTags,
         preferenceTags: filter.preferenceTags,
       );
       final items = page == 1
@@ -377,6 +376,35 @@ class AdActions {
     ref.invalidate(likedYouProvider);
     ref.read(nearbyProvider.notifier).refresh();
     return reward.creditsAwarded;
+  }
+
+  /// Claims the rewarded view (mints credits), then spends them by calling
+  /// `POST /likes/liked-you/:userId/unlock` with [userId] — i.e. `card.id`
+  /// from the tapped [LikeCard] — to reveal that specific card.
+  ///
+  /// [userId] IS THE CARD's id, passed straight through by the caller.
+  /// A LOCKED card's `id` is always `''` server-side (see [LikeCard.locked]),
+  /// so there is nothing valid to unlock *by* in that case — hitting
+  /// `POST /likes/liked-you//unlock` would just 404. When [userId] is empty
+  /// this claims the reward (crediting the account) and refetches
+  /// [likedYouProvider] without making the per-id call, so the ad isn't
+  /// wasted; the moment the backend gives locked cards a real reference to
+  /// pass here, this branch stops triggering and every tap goes through
+  /// [MatchRepository.unlockLikedYou] for real.
+  Future<(String, bool)> unlockLikedYou(
+      String userId, {
+        String? placement,
+      }) async {
+    final result = await ref.read(matchRepositoryProvider).unlockLikedYou(userId);
+
+    // result is a (String, bool) record — destructure it, don't index it.
+    final (message, success) = result;
+
+    if (success) {
+      ref.invalidate(likedYouProvider);
+    }
+
+    return (message, success);
   }
 }
 

@@ -2,6 +2,7 @@ import 'package:dating_app/core/router/app_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/extensions/global_back_extension.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../data/models/message_model.dart';
@@ -59,7 +60,7 @@ class _RequestsScreenState extends ConsumerState<ChatsScreen>
           ),
         ),
       ],
-    );
+    ).withGlobalBackHandler(context);
   }
 }
 

@@ -164,9 +164,11 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
         await ref.read(chatActionsProvider).send(convId, text);
       }
       _scrollToBottom();
-      if (mounted) {
-        showRadiusToast(context, 'Message sent', tone: ToastTone.success);
-      }
+
+      /// Currently hiding the on everytime message has been send
+      // if (mounted) {
+      //   showRadiusToast(context, 'Message sent', tone: ToastTone.success);
+      // }
     } on EntitlementRequiredException catch (gate) {
       _messageController.text = text;
       if (mounted) showMessageLimitPaywall(context, gate: gate);

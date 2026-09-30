@@ -1,15 +1,19 @@
+import 'package:dating_app/core/constants/app_string.dart';
+import 'package:dating_app/core/utils/utils.dart';
+import 'package:dating_app/shared/widgets/buttons/common_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../../core/theme/app_colors.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
+import '../../../core/extensions/global_back_extension.dart';
+import '../../../core/extensions/unfocus_on_tap_extension.dart';
+import '../../../core/router/app_router.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../providers/core_providers.dart';
 import '../../../providers/profile_provider.dart';
 import '../widgets/onboarding_widgets.dart';
-import 'basics_screen3.dart';
 
-/// Step 4 · "My situation" — `PATCH /onboarding/status`. Single-select.
 class StatusScreen extends ConsumerStatefulWidget {
   const StatusScreen({super.key});
 
@@ -18,17 +22,16 @@ class StatusScreen extends ConsumerStatefulWidget {
 }
 
 class _StatusScreenState extends ConsumerState<StatusScreen> {
-  /// Label → the exact `RelationshipStatus` enum value the API expects.
   static const List<(String, String, String)> _options = [
-    ('Single', 'single', 'Unattached and looking.'),
-    ('Seeing someone', 'seeing_someone', 'Dating, nothing exclusive yet.'),
+    (AppString.statusSingle, 'single', AppString.statusSingleBlurb),
+    (AppString.statusSeeing, 'seeing_someone', AppString.statusSeeingBlurb),
+    (AppString.statusOpen, 'open_relationship', AppString.statusOpenBlurb),
+    (AppString.statusCouple, 'couple', AppString.statusCoupleBlurb),
     (
-      'Open relationship',
-      'open_relationship',
-      'Partnered, with the freedom to explore.'
+    AppString.statusPrivate,
+    'prefer_not_to_say',
+    AppString.statusPrivateBlurb,
     ),
-    ('Couple', 'couple', 'Here together, looking together.'),
-    ('Prefer not to say', 'prefer_not_to_say', 'Keep this off my profile.'),
   ];
 
   String? _selected;
@@ -36,7 +39,7 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
 
   Future<void> _onContinue() async {
     if (_selected == null) {
-      _showSnack('Please pick the option that fits you');
+      _showSnack(AppString.statusPickError);
       return;
     }
 
@@ -47,12 +50,7 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
           .updateRelationshipStatus(_selected!);
       ref.read(meProvider.notifier).setMe(me);
 
-      if (mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const BasicsScreen3()),
-        );
-      }
+      if (mounted) context.push(AppRoutes.preferences);
     } on AppException catch (e) {
       _showSnack(e.message);
     } finally {
@@ -71,33 +69,30 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const OnboardingHeader(step: 4, label: 'IDENTITY'),
+            const OnboardingHeader(step: 4, label: AppString.sectionIdentity),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 28),
+                    spacerH(28),
+                    Text(AppString.statusTitle, style: AppTextStyles.display),
+                    spacerH(6),
                     Text(
-                      'My situation.',
-                      style: AppTextStyles.display,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Honesty up front saves everyone time. Pick the one that fits.',
+                      AppString.statusSubtitle,
                       style: TextStyle(fontSize: 13, color: AppColors.textGrey),
                     ),
-                    const SizedBox(height: 28),
+                    spacerH(28),
                     ..._options.map(_optionTile),
-                    const SizedBox(height: 32),
-                    OnboardingButton(
-                      label: 'Continue',
+                    spacerH(32),
+                    CommonButton(
+                      text: AppString.continueText,
                       isLoading: _isLoading,
-                      enabled: _selected != null,
-                      onPressed: _onContinue,
+                      isDisableButton: _selected == null,
+                      onClick: _onContinue,
                     ),
-                    const SizedBox(height: 40),
+                    spacerH(40),
                   ],
                 ),
               ),
@@ -105,7 +100,7 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
           ],
         ),
       ),
-    );
+    ).unfocusOnTap().withGlobalBackHandler(context);
   }
 
   Widget _optionTile((String, String, String) option) {
@@ -120,7 +115,7 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           decoration: BoxDecoration(
             color: selected
-                ? AppColors.primary.withValues(alpha:0.06)
+                ? AppColors.primary.withValues(alpha: 0.06)
                 : AppColors.card,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
@@ -145,7 +140,7 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
                     ? Icon(Icons.check, size: 13, color: AppColors.onAccent)
                     : null,
               ),
-              const SizedBox(width: 14),
+              spacerW(14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,18 +150,14 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: selected
-                            ? AppColors.primary
-                            : AppColors.textDark,
+                        color:
+                        selected ? AppColors.primary : AppColors.textDark,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    spacerH(2),
                     Text(
                       blurb,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textGrey,
-                      ),
+                      style: TextStyle(fontSize: 12, color: AppColors.textGrey),
                     ),
                   ],
                 ),

@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../constants/api_constants.dart';
+import '../constants/notification_constants.dart';
 
 /// Where a tapped notification should take the user.
 enum PushDestination {

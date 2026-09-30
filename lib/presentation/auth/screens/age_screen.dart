@@ -1,13 +1,18 @@
+import 'package:dating_app/core/constants/app_string.dart';
+import 'package:dating_app/core/extensions/global_back_extension.dart';
 import 'package:dating_app/core/extensions/unfocus_on_tap_extension.dart';
+import 'package:dating_app/core/utils/utils.dart';
+import 'package:dating_app/shared/widgets/buttons/common_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/theme/app_colors.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
+import '../../../core/router/app_router.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../providers/core_providers.dart';
 import '../../../providers/profile_provider.dart';
-import '../../common/widgets/step_header.dart';
-import 'basics_screen1.dart';
+import '../widgets/onboarding_widgets.dart';
 
 class AgeScreen extends ConsumerStatefulWidget {
   const AgeScreen({super.key});
@@ -21,21 +26,22 @@ class _AgeScreenState extends ConsumerState<AgeScreen> {
   final TextEditingController _dayController = TextEditingController();
   final TextEditingController _monthController = TextEditingController();
   final TextEditingController _yearController = TextEditingController();
-    DateTime? _selectedDate;
+
+  DateTime? _selectedDate;
   bool _isAdult = false;
   bool _isLoading = false;
 
-Future<void> _onContinue() async {
+  Future<void> _onContinue() async {
     if (_nameController.text.trim().isEmpty) {
-      _showSnack('Please enter your display name');
+      _showSnack(AppString.ageEnterName);
       return;
     }
     if (_selectedDate == null) {
-      _showSnack('Please select your birth date');
+      _showSnack(AppString.ageSelectDob);
       return;
     }
     if (!_isAdult) {
-      _showSnack('You must be 18 or older to continue');
+      _showSnack(AppString.ageMustBeAdult);
       return;
     }
 
@@ -46,13 +52,7 @@ Future<void> _onContinue() async {
       ref.read(meProvider.notifier).setMe(me);
 
       if (mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) =>
-                BasicsScreen(displayName: _nameController.text.trim()),
-          ),
-        );
+        context.push(AppRoutes.basics, extra: _nameController.text.trim());
       }
     } on AppException catch (e) {
       _showSnack(e.message);
@@ -62,8 +62,7 @@ Future<void> _onContinue() async {
   }
 
   void _showSnack(String msg) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
@@ -77,7 +76,7 @@ Future<void> _onContinue() async {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
-    final maxDate = DateTime(now.year - 1, now.month, now.day); // allow selection, we check after
+    final maxDate = DateTime(now.year - 1, now.month, now.day);
     final minDate = DateTime(now.year - 80);
 
     final picked = await showDatePicker(
@@ -95,9 +94,7 @@ Future<void> _onContinue() async {
               surface: AppColors.card,
               onSurface: AppColors.textDark,
             ),
-            dialogTheme: DialogThemeData(
-              backgroundColor: AppColors.card,
-            ),
+            dialogTheme: DialogThemeData(backgroundColor: AppColors.card),
           ),
           child: child!,
         );
@@ -106,14 +103,13 @@ Future<void> _onContinue() async {
 
     if (picked != null) {
       final age = DateTime.now().difference(picked).inDays ~/ 365;
-      final isEighteenPlus = age >= 18;
 
       setState(() {
         _selectedDate = picked;
         _dayController.text = picked.day.toString().padLeft(2, '0');
         _monthController.text = picked.month.toString().padLeft(2, '0');
         _yearController.text = picked.year.toString();
-        _isAdult = isEighteenPlus; // auto check if 18+, auto uncheck if not
+        _isAdult = age >= 18;
       });
     }
   }
@@ -123,225 +119,183 @@ Future<void> _onContinue() async {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 16),
-
-              // Top bar
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Wordmark(),
-                  Icon(Icons.tune, color: AppColors.textDark),
-                ],
-              ),
-
-              const SizedBox(height: 40),
-
-              // Heading
-              Text(
-                'How old are you?',
-                style: AppTextStyles.display,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Cozune is for adults only. Please share your birth date.',
-                style: TextStyle(fontSize: 14, color: AppColors.textGrey),
-              ),
-
-              const SizedBox(height: 32),
-
-              // Display name label
-              Text(
-                'DISPLAY NAME',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textGrey,
-                  letterSpacing: 1.1,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _nameController,
-                style: TextStyle(fontSize: 15, color: AppColors.textDark),
-                decoration: InputDecoration(
-                  hintText: 'How should we call you?',
-                  hintStyle: TextStyle(color: AppColors.textGrey),
-                  filled: true,
-                  fillColor: AppColors.card,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 14),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: AppColors.inputBorder),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: AppColors.inputBorder),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: AppColors.primary, width: 1.5),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-             
-             // DOB row
-              Row(
-                children: [
-                  _dobField('DAY', 'DD', _dayController, 2),
-                  const SizedBox(width: 12),
-                  _dobField('MONTH', 'MM', _monthController, 2),
-                  const SizedBox(width: 12),
-                  _dobField('YEAR', 'YYYY', _yearController, 4),
-                ],
-              ),
-              const SizedBox(height: 28),
-
-              // 18+ checkbox
-              GestureDetector(
-                onTap: _selectedDate == null
-                    ? () => _showSnack('Please select your birth date first')
-                    : null, // locked — controlled by calendar result only
-               child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: _isAdult
-                        ? AppColors.primary.withValues(alpha: 0.08)
-                        : (_selectedDate != null
-                            ? AppColors.danger.withValues(alpha: 0.08) // tint if picked but underage
-                            : AppColors.card),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _isAdult
-                          ? AppColors.primary
-                          : (_selectedDate != null
-                              ? Colors.red.shade200
-                              : AppColors.inputBorder),
+        child: Column(
+          children: [
+            const OnboardingHeader(step: 1, label: AppString.sectionIdentity,isShowBackButton: false),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    spacerH(24),
+                    Text(AppString.ageTitle, style: AppTextStyles.display),
+                    spacerH(8),
+                    Text(
+                      AppString.ageSubtitle,
+                      style: TextStyle(fontSize: 14, color: AppColors.textGrey),
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 22,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _isAdult
-                              ? AppColors.primary
-                              : Colors.grey.shade200,
-                          border: Border.all(
-                            color: _isAdult
-                                ? AppColors.primary
-                                : Colors.grey.shade400,
-                            width: 2,
-                          ),
-                        ),
-                        child: _isAdult
-                            ? Icon(Icons.check,
-                                size: 14, color: AppColors.onAccent)
-                            : (_selectedDate != null
-                                ? const Icon(Icons.close,
-                                    size: 14, color: Colors.red)
-                                : null),
+                    spacerH(32),
+                    Text(
+                      AppString.displayNameCaps,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textGrey,
+                        letterSpacing: 1.1,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          _isAdult
-                              ? "I confirm I'm 18 or older"
-                              : (_selectedDate != null
-                                  ? "You must be 18 or older to use cozune"
-                                  : "I confirm I'm 18 or older"),
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: _isAdult
-                                ? AppColors.textDark
-                                : (_selectedDate != null
-                                    ? Colors.red.shade400
-                                    : AppColors.textGrey),
-                            fontWeight: FontWeight.w500,
-                          ),
+                    ),
+                    spacerH(8),
+                    TextField(
+                      controller: _nameController,
+                      style: TextStyle(fontSize: 15, color: AppColors.textDark),
+                      decoration: InputDecoration(
+                        hintText: AppString.displayNameHint,
+                        hintStyle: TextStyle(color: AppColors.textGrey),
+                        filled: true,
+                        fillColor: AppColors.card,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: AppColors.inputBorder),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: AppColors.inputBorder),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide:
+                          BorderSide(color: AppColors.primary, width: 1.5),
                         ),
                       ),
-                      if (_selectedDate != null && !_isAdult)
-                        const Icon(Icons.lock_outline,
-                            size: 16, color: Colors.red),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Info notes.
-              //
-              // This one used to advertise "the adult layer", which told anyone
-              // reading the screen — a store reviewer included — that the app
-              // has one. It now says what the date of birth is actually for.
-              _infoNote(
-                Icons.info_outline,
-                "We use your date of birth to confirm you're 18+. It stays "
-                'private — only your age is shown.',
-              ),
-              const SizedBox(height: 12),
-              _infoNote(
-                Icons.chat_bubble_outline,
-                'A verification code (OTP) may be sent to confirm your birth date if required.',
-              ),
-
-              const SizedBox(height: 32),
-
-              // Continue button
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _onContinue,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
                     ),
-                    elevation: 0,
-                  ),
-                  child: _isLoading
-                      ? CircularProgressIndicator(color: AppColors.onAccent)
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Continue',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.onAccent,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Icon(Icons.arrow_forward, color: AppColors.onAccent, size: 18),
-                          ],
+                    spacerH(24),
+                    Row(
+                      children: [
+                        _dobField(
+                          AppString.dayLabel,
+                          AppString.dayHint,
+                          _dayController,
                         ),
+                        spacerW(12),
+                        _dobField(
+                          AppString.monthLabel,
+                          AppString.monthHint,
+                          _monthController,
+                        ),
+                        spacerW(12),
+                        _dobField(
+                          AppString.yearLabel,
+                          AppString.yearHint,
+                          _yearController,
+                        ),
+                      ],
+                    ),
+                    spacerH(28),
+                    _adultConfirmation(),
+                    spacerH(20),
+                    _infoNote(Icons.info_outline, AppString.ageNotePrivacy),
+                    spacerH(12),
+                    _infoNote(
+                      Icons.chat_bubble_outline,
+                      AppString.ageNoteOtp,
+                    ),
+                    spacerH(32),
+                    CommonButton(
+                      isLoading: _isLoading,
+                      text: AppString.continueText,
+                      onClick: _onContinue,
+                    ),
+                    spacerH(32),
+                  ],
                 ),
               ),
-              const SizedBox(height: 32),
-            ],
+            ),
+          ],
+        ),
+      ),
+    ).unfocusOnTap().withGlobalBackHandler(context);
+  }
+
+  Widget _adultConfirmation() {
+    final picked = _selectedDate != null;
+    final underage = picked && !_isAdult;
+
+    return GestureDetector(
+      onTap: picked ? null : () => _showSnack(AppString.ageSelectDobFirst),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: _isAdult
+              ? AppColors.primary.withValues(alpha: 0.08)
+              : (underage
+              ? AppColors.danger.withValues(alpha: 0.08)
+              : AppColors.card),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: _isAdult
+                ? AppColors.primary
+                : (underage ? Colors.red.shade200 : AppColors.inputBorder),
           ),
         ),
-      ).unfocusOnTap(),
+        child: Row(
+          children: [
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _isAdult ? AppColors.primary : Colors.grey.shade200,
+                border: Border.all(
+                  color: _isAdult ? AppColors.primary : Colors.grey.shade400,
+                  width: 2,
+                ),
+              ),
+              child: _isAdult
+                  ? Icon(Icons.check, size: 14, color: AppColors.onAccent)
+                  : (underage
+                  ? const Icon(Icons.close, size: 14, color: Colors.red)
+                  : null),
+            ),
+            spacerW(12),
+            Expanded(
+              child: Text(
+                underage ? AppString.ageUnderage : AppString.ageConfirm,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: _isAdult
+                      ? AppColors.textDark
+                      : (underage ? Colors.red.shade400 : AppColors.textGrey),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            if (underage)
+              const Icon(Icons.lock_outline, size: 16, color: Colors.red),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _dobField(String label, String hint,
-      TextEditingController controller, int maxLen) {
+  Widget _dobField(
+      String label,
+      String hint,
+      TextEditingController controller,
+      ) {
     final isFilled = controller.text.isNotEmpty;
+    final borderColor = isFilled ? AppColors.primary : AppColors.inputBorder;
+    final borderWidth = isFilled ? 1.5 : 1.0;
+
+    OutlineInputBorder border() => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: BorderSide(color: borderColor, width: borderWidth),
+    );
+
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -355,7 +309,7 @@ Future<void> _onContinue() async {
               letterSpacing: 1.1,
             ),
           ),
-          const SizedBox(height: 6),
+          spacerH(6),
           GestureDetector(
             onTap: _pickDate,
             child: AbsorbPointer(
@@ -375,24 +329,11 @@ Future<void> _onContinue() async {
                   filled: true,
                   fillColor: AppColors.card,
                   contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(
-                      color: isFilled ? AppColors.primary : AppColors.inputBorder,
-                      width: isFilled ? 1.5 : 1,
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(
-                      color: isFilled ? AppColors.primary : AppColors.inputBorder,
-                      width: isFilled ? 1.5 : 1,
-                    ),
-                  ),
+                  border: border(),
+                  enabledBorder: border(),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(
-                        color: AppColors.primary, width: 1.5),
+                    borderSide: BorderSide(color: AppColors.primary, width: 1.5),
                   ),
                 ),
               ),
@@ -408,7 +349,7 @@ Future<void> _onContinue() async {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, size: 16, color: AppColors.textGrey),
-        const SizedBox(width: 10),
+        spacerW(10),
         Expanded(
           child: Text(
             text,

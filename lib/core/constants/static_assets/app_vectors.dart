@@ -1,6 +1,22 @@
 abstract final class AppVectors {
   static const String _baseUrl = "assets/vectors";
   static const String _svgBaseUrl = "$_baseUrl/svg";
+
+  // Branding
+  static const String appIconViolet = "$_svgBaseUrl/01_app_icon_violet.svg";
+  static const String appIconWhite = "$_svgBaseUrl/02_app_icon_white.svg";
+  static const String markViolet = "$_svgBaseUrl/03_mark_violet.svg";
+  static const String markWhite = "$_svgBaseUrl/04_mark_white.svg";
+  static const String markBlack = "$_svgBaseUrl/05_mark_black.svg";
+  static const String primaryLockup = "$_svgBaseUrl/06_primary_lockup.svg";
+  static const String primaryDark = "$_svgBaseUrl/07_primary_dark.svg";
+  static const String primaryInkText = "$_svgBaseUrl/08_primary_ink_text.svg";
+  static const String splashIcon = "$_svgBaseUrl/splash_icon.svg";
+  static const String wordmarkViolet = "$_svgBaseUrl/10_wordmark_violet.svg";
+  static const String wordmarkBlack = "$_svgBaseUrl/11_wordmark_black.svg";
+  static const String markSmallSimple = "$_svgBaseUrl/12_mark_small_simple.svg";
+
+  // Icons
   static const String headphoneIcon = "$_svgBaseUrl/headphone_icon.svg";
   static const String uploadingIcon = "$_svgBaseUrl/uploading.svg";
   static const String uploadingIcon2 = "$_svgBaseUrl/uploading2.svg";

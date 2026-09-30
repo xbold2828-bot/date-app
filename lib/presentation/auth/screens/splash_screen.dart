@@ -1,42 +1,33 @@
 import 'dart:async';
 import 'dart:convert';
-
+import 'package:dating_app/core/constants/static_assets/app_vectors.dart';
+import 'package:dating_app/core/utils/utils.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pub_semver/pub_semver.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-import '../../../core/constants/static_assets/app_icons.dart';
 import '../../../core/logger/app_logger.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_loader.dart';
 import '../../../core/utils/app_snack_bar.dart';
-import '../../../core/utils/utils.dart';
 import '../../../data/models/user_model.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../providers/notification_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../common/force_update_maintenance/presentation/pages/maintenance_screen.dart';
-import '../../home/screens/dashboard_screen.dart';
-import 'age_screen.dart';
-import 'basics_screen1.dart';
-import 'basics_screen2.dart';
-import 'basics_screen3.dart';
-import 'basics_screen4.dart';
-import 'basics_screen5.dart';
-import 'basics_screen7.dart';
-import 'login_screen.dart';
-import 'status_screen.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key, this.skipStartupChecks = false});
 
+  /// True right after sign-in, when the version and maintenance checks have
+  /// already run.
   final bool skipStartupChecks;
 
   @override
@@ -59,12 +50,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
     try {
       if (!widget.skipStartupChecks) {
-        // ── Fetch Remote Config ONCE and reuse it for both checks below.
-        // Calling fetchAndActivate() twice back-to-back (once for version,
-        // once for maintenance) is what triggers the
-        // [firebase_remote_config/throttled] error — Firebase enforces a
-        // fetch quota, and hammering it twice per splash load burns through
-        // it fast (especially during dev/hot-restart testing).
+        // Remote Config is fetched once and reused, because fetching twice
+        // triggers [firebase_remote_config/throttled].
         final FirebaseRemoteConfig remoteConfig = FirebaseRemoteConfig.instance;
         await _fetchRemoteConfigSafely(remoteConfig);
         if (!mounted) return;
@@ -77,7 +64,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         );
         if (!mounted) return;
 
-        // ── Step 1: Force-update check ─────────────────────────────────────
         final bool needsUpdate = _checkAppVersion(remoteConfig);
         if (!mounted) return;
 
@@ -86,56 +72,39 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           return;
         }
 
-        // ── Step 2: Maintenance check ────────────────────────────────────────
-        // Pushes MaintenanceScreen itself and returns true if the app is
-        // currently under maintenance; nothing further to do here in that case.
         final bool isUnderMaintenance = _checkMaintenanceMode(remoteConfig);
         if (!mounted) return;
 
-        if (isUnderMaintenance) {
-          return;
-        }
+        if (isUnderMaintenance) return;
       }
 
-      // ── Step 3: Auth routing ─────────────────────────────────────────────
       final session = Supabase.instance.client.auth.currentSession;
       if (!mounted) return;
 
       if (session == null) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-              (route) => false,
-        );
+        context.go(AppRoutes.login);
         return;
       }
 
-      // ── Step 4: Domain user (provisions on first call) + onboarding state ─
-      // Invalidate first so a retry after a previous failure actually
-      // re-fetches instead of replaying a cached error.
+      // Invalidate first so a retry after a failure actually re-fetches.
       ref.invalidate(meProvider);
       final user = await ref.read(meProvider.future);
       if (!mounted) return;
 
-      // Register this device for push the moment the domain user exists, and
-      // not a moment earlier: registration is keyed to that user, so doing it
-      // before `GET /users/me` has provisioned them would either 401 or
-      // attach the token to nothing.
+      // Register this device for push once the domain user exists.
       if (!_pushStarted) {
         _pushStarted = true;
         ref.read(pushRegistrarProvider).start();
       }
 
-      final Widget destination = user.onboarding.isComplete
-          ? const DashboardScreen()
-          : _resumeAt(user.onboarding.nextStep);
-
-      if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => destination),
-            (route) => false,
-      );
+      if (user.onboarding.isComplete) {
+        context.go(AppRoutes.dashboard);
+      } else {
+        // `go` replaces the stack, so the onboarding screens can `push`
+        // from here and their back button behaves normally.
+        context.go(_onboardingRoute(user.onboarding.nextStep));
+      }
     } catch (e, st) {
-      // Outer safety net — never leave the user stuck on the splash screen.
       AppLogger.e("!!! UNHANDLED ERROR IN SPLASH INITIALIZE !!!");
       AppLogger.e("Exception: $e");
       AppLogger.e("Stacktrace: $st");
@@ -143,38 +112,23 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     }
   }
 
-  /// Maps the backend's outstanding step to the screen that satisfies it, so a
-  /// retry mid-funnel picks up where the user left off instead of restarting
-  /// from the age gate.
-  ///
-  /// Two screens each save a pair of steps (intent+personality,
-  /// preferences+hard-no's), so both of those steps route to the same screen.
-  Widget _resumeAt(String? nextStep) {
-    switch (nextStep) {
-      case OnboardingSteps.ageVerification:
-        return const AgeScreen();
-      case OnboardingSteps.basics:
-        return const BasicsScreen();
-      case OnboardingSteps.intent:
-      case OnboardingSteps.personality:
-        return const BasicsScreen2();
-      case OnboardingSteps.status:
-        return const StatusScreen();
-      case OnboardingSteps.preferences:
-      case OnboardingSteps.hardNos:
-        return const BasicsScreen3();
-      case OnboardingSteps.photo:
-        return const BasicsScreen4();
-      case OnboardingSteps.location:
-        return const BasicsScreen5();
-      case OnboardingSteps.agreement:
-        return const BasicsScreen7();
-      default:
-      // No step named (or an unknown one from a newer backend): start over
-      // rather than guess. Completed steps are skipped by the funnel anyway.
-        return const AgeScreen();
-    }
-  }
+  /// Maps the backend's outstanding onboarding step to the route that
+  /// satisfies it, so users resume where they left off.
+  String _onboardingRoute(String? nextStep) => switch (nextStep) {
+    OnboardingSteps.ageVerification => AppRoutes.age,
+    OnboardingSteps.basics => AppRoutes.basics,
+    OnboardingSteps.intent ||
+    OnboardingSteps.personality =>
+    AppRoutes.intent,
+    OnboardingSteps.status => AppRoutes.status,
+    OnboardingSteps.preferences ||
+    OnboardingSteps.hardNos =>
+    AppRoutes.preferences,
+    OnboardingSteps.photo => AppRoutes.photos,
+    OnboardingSteps.location => AppRoutes.location,
+    OnboardingSteps.agreement => AppRoutes.agreement,
+    _ => AppRoutes.age,
+  };
 
   Future<void> _fetchRemoteConfigSafely(
       FirebaseRemoteConfig remoteConfig,
@@ -202,9 +156,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     }
   }
 
-  /// Checks if the current app version is lower than the minimum required
-  /// version. Reads from the already-activated [remoteConfig] instance —
-  /// does NOT fetch again.
   bool _checkAppVersion(FirebaseRemoteConfig remoteConfig) {
     try {
       AppLogger.d("=== STARTING APP VERSION CHECK ===");
@@ -253,15 +204,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       AppLogger.e("!!! CRITICAL ERROR DURING APP VERSION CHECK !!!");
       AppLogger.e("Exception caught: $e");
       AppLogger.e("Stacktrace: $stacktrace");
-      AppLogger.e(
-        "Returning fallback value: false (User will bypass update screen to prevent locking them out)",
-      );
+      // Fail open so a bad config never locks users out.
+      AppLogger.e("Returning fallback value: false");
       return false;
     }
   }
 
-  /// Checks if the app is currently in Maintenance Mode. Reads from the
-  /// already-activated [remoteConfig] instance — does NOT fetch again.
   bool _checkMaintenanceMode(FirebaseRemoteConfig remoteConfig) {
     try {
       AppLogger.d("=== STARTING MAINTENANCE CHECK ===");
@@ -286,6 +234,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       );
 
       if (isMaintenanceMode && mounted) {
+        // Still a Navigator route: it carries a refresh callback that a
+        // go_router route cannot.
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
             builder: (_) => MaintenanceScreen(
@@ -330,18 +280,89 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarIconBrightness: Brightness.light,
-        statusBarBrightness: Brightness.dark,
+      value: SystemUiOverlayStyle(
+        statusBarIconBrightness:
+        AppColors.isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness:
+        AppColors.isDark ? Brightness.dark : Brightness.light,
       ),
       child: Scaffold(
         backgroundColor: colorScheme.surface,
         body: kIsWeb
             ? const _WebSplashSkeleton()
-            : Center(
-          child: staticImage(
-            url: AppIcons.roundedLauncherIconNoBg,
-            w: 200,
+            : Center(child: SvgPicture.asset(AppVectors.splashIcon)),
+      ),
+    );
+  }
+}
+
+class _ErrorRetry extends StatelessWidget {
+  const _ErrorRetry({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.cloud_off, size: 48, color: AppColors.textGrey),
+              spacerH(16),
+              Text(
+                "Couldn't reach cozune",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
+              ),
+              spacerH(8),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: AppColors.textGrey),
+              ),
+              spacerH(24),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: onRetry,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    'Retry',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.onAccent,
+                    ),
+                  ),
+                ),
+              ),
+              spacerH(12),
+              TextButton(
+                onPressed: () async {
+                  await AuthService().signOut();
+                  if (context.mounted) context.go(AppRoutes.login);
+                },
+                child: Text(
+                  'Sign out',
+                  style: TextStyle(color: AppColors.textGrey),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -349,6 +370,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 }
 
+/// Web-only loading skeleton. Its spacers use plain `SizedBox` because the
+/// layout is sized from the measured width, not screen-scaled units.
 class _WebSplashSkeleton extends StatefulWidget {
   const _WebSplashSkeleton();
 
@@ -465,12 +488,8 @@ class _WebSplashSkeletonState extends State<_WebSplashSkeleton>
     );
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // 📱 MOBILE LAYOUT SKELETON
-  // ───────────────────────────────────────────────────────────────────────────
   Widget _buildMobileSkeleton(double maxWidth) {
-    // Reserve horizontal padding, everything else scales off what's left.
-    final double contentWidth = maxWidth - 32; // 16px padding each side
+    final double contentWidth = maxWidth - 32;
 
     return SingleChildScrollView(
       physics: const NeverScrollableScrollPhysics(),
@@ -548,11 +567,8 @@ class _WebSplashSkeletonState extends State<_WebSplashSkeleton>
     );
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // ⏸️ TABLET LAYOUT SKELETON
-  // ───────────────────────────────────────────────────────────────────────────
   Widget _buildTabletSkeleton(double maxWidth) {
-    final double contentWidth = maxWidth - 64; // 32px padding each side
+    final double contentWidth = maxWidth - 64;
 
     return SingleChildScrollView(
       physics: const NeverScrollableScrollPhysics(),
@@ -638,12 +654,9 @@ class _WebSplashSkeletonState extends State<_WebSplashSkeleton>
     );
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // 💻 DESKTOP & 4K LAYOUT SKELETON
-  // ───────────────────────────────────────────────────────────────────────────
   Widget _buildDesktopSkeleton(double maxWidth) {
     final double cappedWidth = maxWidth > 1320 ? 1320 : maxWidth;
-    final double contentWidth = cappedWidth - 80; // 40px padding each side
+    final double contentWidth = cappedWidth - 80;
 
     return Center(
       child: Container(
@@ -777,9 +790,6 @@ class _WebSplashSkeletonState extends State<_WebSplashSkeleton>
     );
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // ✨ CORE SHIMMER ENGINE
-  // ───────────────────────────────────────────────────────────────────────────
   Widget _shimmerBox({
     required double width,
     required double height,
@@ -806,7 +816,7 @@ class _WebSplashSkeletonState extends State<_WebSplashSkeleton>
             ).createShader(bounds);
           },
           child: Container(
-            width: width == double.infinity ? double.infinity : width,
+            width: width,
             height: height,
             decoration: BoxDecoration(
               color: Colors.grey.shade200,
@@ -830,86 +840,6 @@ class _SlidingGradientTransform extends GradientTransform {
       bounds.width * (slidePercent * 2 - 1),
       0.0,
       0.0,
-    );
-  }
-}
-
-class _ErrorRetry extends StatelessWidget {
-  const _ErrorRetry({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.cloud_off, size: 48, color: AppColors.textGrey),
-              const SizedBox(height: 16),
-              Text(
-                "Couldn't reach cozune",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: AppColors.textGrey),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: onRetry,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: Text(
-                    'Retry',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.onAccent,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () async {
-                  await AuthService().signOut();
-                  if (context.mounted) {
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                          (route) => false,
-                    );
-                  }
-                },
-                child: Text(
-                  'Sign out',
-                  style: TextStyle(color: AppColors.textGrey),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

@@ -28,13 +28,11 @@ class ProfileActionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final bottomSafe = keyboardOpen ? 0.0 : MediaQuery.paddingOf(context).bottom;
+
     return Container(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        12,
-        16,
-        16 + MediaQuery.paddingOf(context).bottom,
-      ),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottomSafe),
       decoration: BoxDecoration(
         color: AppColors.panel,
         border: Border(

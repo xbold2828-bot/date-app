@@ -52,92 +52,107 @@ Provider<SubscriptionActions>((ref) => SubscriptionActions(ref));
 
 
 
-// import 'dart:async';
-//
+
 // import 'package:flutter/foundation.dart';
+// import 'package:flutter/services.dart';
 // import 'package:flutter_riverpod/flutter_riverpod.dart';
-// import 'package:in_app_purchase/in_app_purchase.dart';
+// import 'package:purchases_flutter/purchases_flutter.dart';
 //
 // import '../core/logger/app_logger.dart';
-// import '../data/models/subscription_model.dart';
+// import '../data/repositories/payments_repository.dart';
+// import '../presentation/home/models/payment_model.dart';
 // import 'core_providers.dart';
 // import 'profile_provider.dart';
 //
-// /// Store product IDs, keyed by the same plan ids the backend/UI already use
-// /// ('weekly' / 'monthly' / 'yearly'). These must match exactly what's
-// /// configured in App Store Connect / Play Console.
-// class PurchaseIds {
-//   const PurchaseIds._();
-//
-//   static const weekly = 'cozune_premium_weekly';
-//   static const monthly = 'cozune_premium_monthly';
-//   static const yearly = 'cozune_premium_yearly';
-//
-//   static const all = <String>{weekly, monthly, yearly};
-//
-//   static String? planForProductId(String productId) {
-//     switch (productId) {
-//       case weekly:
-//         return 'weekly';
-//       case monthly:
-//         return 'monthly';
-//       case yearly:
-//         return 'yearly';
-//       default:
-//         return null;
-//     }
-//   }
-// }
-//
-// /// The plugin's single instance. `in_app_purchase` doesn't need an explicit
-// /// init call — the first real call (`isAvailable`, `queryProductDetails`)
-// /// wakes up StoreKit/Play Billing lazily.
-// final inAppPurchaseProvider =
-// Provider<InAppPurchase>((ref) => InAppPurchase.instance);
-//
-// /// Whether the store is reachable at all on this device — false on an iOS
-// /// Simulator without a sandbox account, or a device with no Play Store.
-// final iapAvailableProvider = FutureProvider<bool>(
-//       (ref) => ref.watch(inAppPurchaseProvider).isAvailable(),
+// final paymentsRepositoryProvider = Provider<PaymentsRepository>(
+//       (ref) => PaymentsRepository(ref.watch(apiClientProvider)),
 // );
 //
-// /// Store-priced products for the three plans, keyed by [PurchaseIds]. The buy
-// /// call always uses a `ProductDetails` the store just handed back, never a
-// /// stale/cached one.
-// final productDetailsProvider =
-// FutureProvider<Map<String, ProductDetails>>((ref) async {
-//   final available = await ref.watch(iapAvailableProvider.future);
-//   if (!available) return {};
+// final paymentsConfigProvider = FutureProvider<PaymentsConfig>(
+//       (ref) => ref.watch(paymentsRepositoryProvider).config(),
+// );
 //
-//   final iap = ref.watch(inAppPurchaseProvider);
-//   final response = await iap.queryProductDetails(PurchaseIds.all);
+// final paymentHistoryProvider = FutureProvider.autoDispose<PaymentHistoryPage>(
+//       (ref) => ref.watch(paymentsRepositoryProvider).history(),
+// );
 //
-//   if (response.error != null) {
-//     AppLogger.e('queryProductDetails failed: ${response.error}');
+// final paymentManageInfoProvider = FutureProvider.autoDispose<PaymentManageInfo>(
+//       (ref) => ref.watch(paymentsRepositoryProvider).manage(),
+// );
+//
+// final mySubscriptionProvider = FutureProvider<PaymentSubscriptionStatus>(
+//       (ref) => ref.watch(paymentsRepositoryProvider).subscription(),
+// );
+//
+// final revenueCatConfiguredProvider = FutureProvider<bool>((ref) async {
+//   final config = await ref.watch(paymentsConfigProvider.future);
+//   final isIOS = defaultTargetPlatform == TargetPlatform.iOS;
+//   final apiKey = isIOS ? config.publicKeyIos : config.publicKeyAndroid;
+//
+//   if (apiKey.isEmpty) {
+//     AppLogger.e('RevenueCat: no public key for this platform in /payments/config');
+//     return false;
 //   }
-//   if (response.notFoundIDs.isNotEmpty) {
-//     AppLogger.e('Store product IDs not found: ${response.notFoundIDs}');
-//   }
 //
-//   return {for (final p in response.productDetails) p.id: p};
+//   await Purchases.setLogLevel(LogLevel.warn);
+//   await Purchases.configure(
+//     PurchasesConfiguration(apiKey)..appUserID = config.appUserId,
+//   );
+//   return true;
 // });
 //
-// /// The paywall catalogue. Prices live on the server so a plan change doesn't
-// /// need an app release; the store's own localized price (via
-// /// [productDetailsProvider]) is what `PremiumScreen` should actually charge —
-// /// see the override there. Store guidelines require the price shown to match
-// /// what the store charges.
-// final planCatalogueProvider = FutureProvider<PlanCatalogue>(
-//       (ref) => ref.watch(subscriptionRepositoryProvider).plans(),
-// );
+// final paywallOfferingProvider = FutureProvider<Offering?>((ref) async {
+//   final configured = await ref.watch(revenueCatConfiguredProvider.future);
+//   if (!configured) {
+//     AppLogger.e('RevenueCat: SDK not configured, no offering to fetch');
+//     return null;
+//   }
 //
-// /// My premium status.
-// final mySubscriptionProvider = FutureProvider<MySubscription>(
-//       (ref) => ref.watch(subscriptionRepositoryProvider).mine(),
-// );
+//   final config = await ref.watch(paymentsConfigProvider.future);
+//   final offerings = await Purchases.getOfferings();
+//   AppLogger.d(
+//     'RevenueCat: offerings available = ${offerings.all.keys.toList()}, '
+//         'looking for "${config.offeringId}"',
+//   );
+//   final offering = offerings.getOffering(config.offeringId) ?? offerings.current;
+//   if (offering == null) {
+//     AppLogger.e(
+//       'RevenueCat: no offering matched "${config.offeringId}" and no '
+//           'current offering is set in the dashboard',
+//     );
+//   } else {
+//     AppLogger.d(
+//       'RevenueCat: using offering "${offering.identifier}" with packages '
+//           '${offering.availablePackages.map((p) => p.storeProduct.identifier).toList()}',
+//     );
+//   }
+//   return offering;
+// });
 //
-// /// One purchase-stream outcome, surfaced for the UI to react to.
-// enum PurchaseUiStatus { pending, success, restored, error, cancelled }
+// final planPackagesProvider = FutureProvider<Map<String, Package>>((ref) async {
+//   final offering = await ref.watch(paywallOfferingProvider.future);
+//   if (offering == null) return {};
+//
+//   final config = await ref.watch(paymentsConfigProvider.future);
+//   final result = <String, Package>{};
+//   for (final plan in config.plans) {
+//     final package = offering.availablePackages.firstWhereOrNull(
+//           (p) =>
+//       p.storeProduct.identifier == plan.productId ||
+//           p.storeProduct.identifier.startsWith('${plan.productId}:'),
+//     );
+//     if (package == null) {
+//       AppLogger.e(
+//         'RevenueCat: no package found for plan "${plan.plan}" '
+//             '(productId "${plan.productId}")',
+//       );
+//     }
+//     if (package != null) result[plan.plan] = package;
+//   }
+//   return result;
+// });
+//
+// enum PurchaseUiStatus { success, restored, cancelled, error }
 //
 // class PurchaseUiEvent {
 //   const PurchaseUiEvent(this.status, {this.message});
@@ -145,170 +160,62 @@ Provider<SubscriptionActions>((ref) => SubscriptionActions(ref));
 //   final String? message;
 // }
 //
-// final purchaseEventProvider = StateProvider<PurchaseUiEvent?>((ref) => null);
-//
-// /// Owns the app-wide purchase stream subscription. Read this provider once,
-// /// early (e.g. in `AuthGate`/`MyApp`'s build), so a purchase queued while the
-// /// app was killed — a common iOS restore case, or Android's slow-network
-// /// PENDING state — gets replayed into a live listener instead of silently
-// /// dropped because nothing was subscribed yet.
-// final purchaseStreamControllerProvider = Provider<PurchaseStreamController>(
-//       (ref) {
-//     final controller = PurchaseStreamController(ref);
-//     controller._start();
-//     ref.onDispose(controller.dispose);
-//     return controller;
-//   },
-// );
-//
-// class PurchaseStreamController {
-//   PurchaseStreamController(this._ref);
-//   final Ref _ref;
-//   StreamSubscription<List<PurchaseDetails>>? _sub;
-//
-//   void _start() {
-//     final iap = _ref.read(inAppPurchaseProvider);
-//     _sub = iap.purchaseStream.listen(
-//       _onPurchaseUpdate,
-//       onDone: () => _sub?.cancel(),
-//       onError: (Object error) {
-//         AppLogger.e('Purchase stream error', error: error);
-//         _ref.read(purchaseEventProvider.notifier).state =
-//             PurchaseUiEvent(PurchaseUiStatus.error, message: error.toString());
-//       },
-//     );
-//   }
-//
-//   Future<void> _onPurchaseUpdate(List<PurchaseDetails> purchases) async {
-//     for (final purchase in purchases) {
-//       switch (purchase.status) {
-//         case PurchaseStatus.pending:
-//           _ref.read(purchaseEventProvider.notifier).state =
-//           const PurchaseUiEvent(PurchaseUiStatus.pending);
-//           break;
-//
-//         case PurchaseStatus.purchased:
-//         case PurchaseStatus.restored:
-//           await _verifyAndComplete(purchase);
-//           break;
-//
-//         case PurchaseStatus.error:
-//           _ref.read(purchaseEventProvider.notifier).state = PurchaseUiEvent(
-//             PurchaseUiStatus.error,
-//             message: purchase.error?.message ?? 'Purchase failed.',
-//           );
-//           if (purchase.pendingCompletePurchase) {
-//             await _ref.read(inAppPurchaseProvider).completePurchase(purchase);
-//           }
-//           break;
-//
-//         case PurchaseStatus.canceled:
-//           _ref.read(purchaseEventProvider.notifier).state =
-//           const PurchaseUiEvent(PurchaseUiStatus.cancelled);
-//           if (purchase.pendingCompletePurchase) {
-//             await _ref.read(inAppPurchaseProvider).completePurchase(purchase);
-//           }
-//           break;
-//       }
-//     }
-//   }
-//
-//   /// Sends the receipt/purchase token to the backend so it can verify
-//   /// server-to-server with Apple/Google and flip `premium` on the account —
-//   /// trusting the on-device status alone is spoofable.
-//   ///
-//   /// `verifyPurchase` isn't defined on `SubscriptionRepository` yet — add it
-//   /// there to match your `/subscription/verify`-style endpoint.
-//   Future<void> _verifyAndComplete(PurchaseDetails purchase) async {
-//     try {
-//       final plan = PurchaseIds.planForProductId(purchase.productID);
-//       final isIOS = defaultTargetPlatform == TargetPlatform.iOS;
-//
-//       await _ref.read(subscriptionRepositoryProvider).verifyPurchase(
-//         plan: plan,
-//         productId: purchase.productID,
-//         transactionId: purchase.purchaseID,
-//         source: kIsWeb? "web" : isIOS ? 'ios' : 'android',
-//         receiptData: purchase.verificationData.serverVerificationData,
-//       );
-//
-//       _ref.invalidate(mySubscriptionProvider);
-//       await _ref.read(meProvider.notifier).refresh();
-//
-//       _ref.read(purchaseEventProvider.notifier).state = PurchaseUiEvent(
-//         purchase.status == PurchaseStatus.restored
-//             ? PurchaseUiStatus.restored
-//             : PurchaseUiStatus.success,
-//       );
-//     } catch (e, s) {
-//       AppLogger.e('Purchase verification failed', error: e, stackTrace: s);
-//       _ref.read(purchaseEventProvider.notifier).state = const PurchaseUiEvent(
-//         PurchaseUiStatus.error,
-//         message: 'We received your payment but could not confirm it yet. '
-//             'Try "Restore purchase" in a moment.',
-//       );
-//     } finally {
-//       // Always ack the store, verified or not — an un-acked purchase gets
-//       // replayed on every app start until it is.
-//       if (purchase.pendingCompletePurchase) {
-//         await _ref.read(inAppPurchaseProvider).completePurchase(purchase);
-//       }
-//     }
-//   }
-//
-//   void dispose() => _sub?.cancel();
-// }
-//
-// /// Purchase actions the UI calls directly.
 // class SubscriptionActions {
 //   SubscriptionActions(this._ref);
 //   final Ref _ref;
 //
-//   /// Starts a real store purchase for [plan] ('weekly' / 'monthly' / 'yearly').
-//   /// Fire-and-forget by design: StoreKit/Play Billing take over with their own
-//   /// payment sheet, and the result arrives later on [purchaseEventProvider]
-//   /// via the purchase stream — not as a return value here.
-//   Future<void> checkout(String plan) async {
-//     // Make sure the stream listener exists before we buy anything.
-//     _ref.read(purchaseStreamControllerProvider);
+//   Future<PurchaseUiEvent> purchase(String planId) async {
+//     try {
+//       final packages = await _ref.read(planPackagesProvider.future);
+//       final package = packages[planId];
+//       if (package == null) {
+//         return const PurchaseUiEvent(
+//           PurchaseUiStatus.error,
+//           message: 'This plan is not available on the store right now.',
+//         );
+//       }
 //
-//     final products = await _ref.read(productDetailsProvider.future);
-//     final productId = switch (plan) {
-//       'weekly' => PurchaseIds.weekly,
-//       'monthly' => PurchaseIds.monthly,
-//       'yearly' => PurchaseIds.yearly,
-//       _ => throw ArgumentError('Unknown plan: $plan'),
-//     };
-//
-//     final product = products[productId];
-//     if (product == null) {
-//       _ref.read(purchaseEventProvider.notifier).state = const PurchaseUiEvent(
+//       await Purchases.purchase(PurchaseParams.package(package));
+//       await _sync();
+//       return const PurchaseUiEvent(PurchaseUiStatus.success);
+//     } on PlatformException catch (e) {
+//       final errorCode = PurchasesErrorHelper.getErrorCode(e);
+//       if (errorCode == PurchasesErrorCode.purchaseCancelledError) {
+//         return const PurchaseUiEvent(PurchaseUiStatus.cancelled);
+//       }
+//       return PurchaseUiEvent(
 //         PurchaseUiStatus.error,
-//         message: 'This plan is not available on the store right now.',
+//         message: e.message ?? 'Purchase could not be completed.',
 //       );
-//       return;
+//     } catch (e) {
+//       return PurchaseUiEvent(PurchaseUiStatus.error, message: e.toString());
 //     }
-//
-//     final purchaseParam = PurchaseParam(productDetails: product);
-//     // Subscriptions go through buyNonConsumable on both platforms — the
-//     // plugin has no separate buySubscription API.
-//     await _ref
-//         .read(inAppPurchaseProvider)
-//         .buyNonConsumable(purchaseParam: purchaseParam);
 //   }
 //
-//   /// Replays past purchases through the same stream `checkout` uses, so
-//   /// restored transactions get verified and acked the same way.
-//   Future<void> restore() async {
-//     _ref.read(purchaseStreamControllerProvider);
-//     await _ref.read(inAppPurchaseProvider).restorePurchases();
+//   Future<PurchaseUiEvent> restore() async {
+//     try {
+//       await Purchases.restorePurchases();
+//       final result = await _ref.read(paymentsRepositoryProvider).restore();
+//       await _refreshEntitlements();
+//       return PurchaseUiEvent(
+//         result.isPremium ? PurchaseUiStatus.restored : PurchaseUiStatus.error,
+//         message: result.isPremium
+//             ? null
+//             : 'No previous purchase found on this account.',
+//       );
+//     } catch (e) {
+//       return PurchaseUiEvent(PurchaseUiStatus.error, message: e.toString());
+//     }
 //   }
 //
-//   Future<MySubscription> cancel() async {
-//     final result = await _ref.read(subscriptionRepositoryProvider).cancel();
+//   Future<void> _sync() async {
+//     await _ref.read(paymentsRepositoryProvider).sync();
+//     await _refreshEntitlements();
+//   }
+//
+//   Future<void> _refreshEntitlements() async {
 //     _ref.invalidate(mySubscriptionProvider);
 //     await _ref.read(meProvider.notifier).refresh();
-//     return result;
 //   }
 // }
 //

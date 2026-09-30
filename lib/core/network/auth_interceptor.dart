@@ -1,3 +1,4 @@
+import 'package:dating_app/core/logger/app_logger.dart';
 import 'package:dio/dio.dart';
 
 /// Reads the current access token (may be null when logged out).
@@ -40,6 +41,7 @@ class AuthInterceptor extends Interceptor {
     final token = await getToken();
     if (token != null && token.isNotEmpty) {
       options.headers['Authorization'] = 'Bearer $token';
+      AppLogger.d("It is a token $token");
     }
     handler.next(options);
   }

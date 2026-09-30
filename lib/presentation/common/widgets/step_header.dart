@@ -2,6 +2,7 @@ import 'package:dating_app/core/constants/app_constants.dart';
 import 'package:dating_app/core/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/static_assets/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
@@ -10,7 +11,7 @@ import '../../../core/constants/app_text_styles.dart';
 /// The backend owns the canonical funnel length, so screens label themselves
 /// with their real step number rather than a per-screen count that drifts as
 /// screens are added.
-const int kOnboardingStepCount = 10;
+const int kOnboardingStepCount = 8;
 
 /// The cozune wordmark. The period is accent blue — the one flourish the brand
 /// gets, and the reason the mark reads as a statement rather than a label.
@@ -34,9 +35,10 @@ class Wordmark extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           staticImage(
-            h:25.h,
-            url: AppIcons.roundedLauncherIconNoBg,),
-          spacerW(10),
+            h: 30.h,
+            url: AppIcons.roundedLauncherIconNoBg,
+          ),
+          spacerW(5),
           Text.rich(
             TextSpan(
               children: [
@@ -59,12 +61,20 @@ class Wordmark extends StatelessWidget {
 ///
 /// One widget so all ten steps read identically — and so the progress track
 /// can never disagree with the step number.
+///
+/// The back button is shown only when there is something to go back to:
+/// either a custom [onBack] was supplied, or go_router has a page to pop
+/// ([BuildContext.canPop]). When it is hidden, the gap after it is removed
+/// too, so the wordmark sits flush with the left edge.
 class StepHeader extends StatelessWidget {
+  final bool isShowBackButton;
   const StepHeader({
     super.key,
     required this.step,
     required this.label,
     this.onBack,
+    this.isShowBackButton=true,
+
     this.trailing,
   });
 
@@ -74,12 +84,13 @@ class StepHeader extends StatelessWidget {
   /// The section name shown opposite the counter, e.g. "IDENTITY".
   final String label;
 
+  /// Overrides the default `context.pop()` behaviour.
   final VoidCallback? onBack;
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
-    final canPop = onBack != null || Navigator.of(context).canPop();
+    final canPop = onBack != null || context.canPop();
     final progress = (step / kOnboardingStepCount).clamp(0.0, 1.0);
 
     return Padding(
@@ -88,19 +99,19 @@ class StepHeader extends StatelessWidget {
         children: [
           Row(
             children: [
-              SizedBox(
-                width: 38,
-                height: 38,
-                child: canPop
-                    ? _BackButton(onTap: onBack ?? () => Navigator.pop(context))
-                    : null,
-              ),
-              const SizedBox(width: 12),
+              if (canPop && isShowBackButton) ...[
+                SizedBox(
+                  width: 38,
+                  height: 38,
+                  child: BackButton(onTap: onBack ?? () => context.pop()),
+                ),
+                spacerW(12),
+              ],
               const Expanded(child: Wordmark(size: 17)),
               SizedBox(width: 38, child: trailing),
             ],
           ),
-          const SizedBox(height: 14),
+          spacerH(14),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -111,7 +122,7 @@ class StepHeader extends StatelessWidget {
               Text(label.toUpperCase(), style: AppTextStyles.label),
             ],
           ),
-          const SizedBox(height: 8),
+          spacerH(8),
           Semantics(
             label: 'Step $step of $kOnboardingStepCount',
             value: '${(progress * 100).round()} percent',
@@ -137,8 +148,8 @@ class StepHeader extends StatelessWidget {
 }
 
 /// The square back affordance used across onboarding and detail screens.
-class _BackButton extends StatelessWidget {
-  const _BackButton({required this.onTap});
+class BackButton extends StatelessWidget {
+  const BackButton({super.key, required this.onTap});
 
   final VoidCallback onTap;
 
@@ -172,19 +183,24 @@ class _BackButton extends StatelessWidget {
 }
 
 /// A standalone back affordance for screens without a [StepHeader].
+///
+/// Renders nothing when there is no page to pop (and no custom [onTap]).
 class RadiusBackButton extends StatelessWidget {
   const RadiusBackButton({super.key, this.onTap});
 
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        width: 38,
-        height: 38,
-        child: _BackButton(
-          onTap: onTap ?? () => Navigator.pop(context),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final canPop = onTap != null || context.canPop();
+    if (!canPop) return const SizedBox.shrink();
+
+    return SizedBox(
+      width: 38,
+      height: 38,
+      child: BackButton(onTap: onTap ?? () => context.pop()),
+    );
+  }
 }
 
 /// The sticky footer that holds a screen's primary action.

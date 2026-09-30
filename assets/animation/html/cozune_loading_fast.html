@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cozune — loading (faster)</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--v:#7C4DFF;--vd:#9B72FF;--p:#FF6FA5;--pd:#FF87B5;--ink:#1A1526;--mut:#6B6480;--line:#EAE5F7;--bg:#F5F1FE;--card:#FFF;--dark:#131019}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:Poppins,system-ui,sans-serif;background:var(--bg);color:var(--ink);padding:20px}
+h1{font-size:23px;font-weight:700;letter-spacing:-.02em;color:var(--v)}h1 span{color:var(--p)}
+.sub{color:var(--mut);font-size:13.5px;margin:4px 0 20px;line-height:1.5}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.card.pick{border:2px solid var(--v);box-shadow:0 6px 20px -8px rgba(124,77,255,.45)}
+.card.dk .stage{background:var(--dark)}
+.stage{height:210px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.meta{padding:11px 14px;border-top:1px solid var(--line)}
+.meta b{font-size:13px;font-weight:600}
+.meta small{font-size:11px;color:var(--mut);display:block;margin-top:1px}
+.tag{display:inline-block;background:var(--v);color:#fff;font-size:9.5px;font-weight:700;border-radius:99px;padding:2px 8px;margin-left:6px;vertical-align:middle}
+.wm{font-family:Poppins;font-weight:700;letter-spacing:-.02em;color:var(--v);display:inline-flex;align-items:flex-end}
+.wm i{width:.22em;height:.22em;border-radius:50%;background:var(--p);margin-left:.09em;margin-bottom:.17em;display:inline-block;font-style:normal}
+.note{background:#F0EAFF;border-left:4px solid var(--v);padding:15px 17px;margin-top:22px;border-radius:0 12px 12px 0;font-size:13px;line-height:1.65}
+.note b{display:block;margin-bottom:5px}
+.note code{background:#fff;border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:12px}
+
+/* ---- fast keyframes ---- */
+@keyframes bobF{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes blinkF{0%,55%,68%,100%{transform:scaleY(1)}61%{transform:scaleY(.08)}}
+@keyframes twL{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+@keyframes twR{0%,100%{transform:rotate(4deg)}50%{transform:rotate(-4deg)}}
+@keyframes dotJ{0%,70%,100%{transform:translateY(0) scale(.85);opacity:.4}35%{transform:translateY(-10px) scale(1);opacity:1}}
+@keyframes ripF{0%{transform:scale(.4);opacity:.6}100%{transform:scale(1.45);opacity:0}}
+@keyframes spinF{to{transform:rotate(360deg)}}
+@keyframes barSlide{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
+@keyframes tailWag{0%,100%{transform:rotate(-16deg)}50%{transform:rotate(16deg)}}
+@keyframes squash{0%,100%{transform:scale(1,1)}45%{transform:scale(1.07,.93)}70%{transform:scale(.97,1.03)}}
+@keyframes shimmer{0%{background-position:-160px 0}100%{background-position:160px 0}}
+
+/* 1 — bob + dots */
+.v1 .cat{animation:bobF .85s ease-in-out infinite}
+.v1 .eyeL,.v1 .eyeR{transform-origin:center;animation:blinkF 1.5s ease-in-out infinite}
+.v1 .earL{transform-origin:47px 69px;animation:twL .85s ease-in-out infinite}
+.v1 .earR{transform-origin:73px 69px;animation:twR .85s ease-in-out infinite}
+.v1 .dot{animation:dotJ .95s ease-in-out infinite}
+.v1 .dot:nth-child(2){animation-delay:.14s}.v1 .dot:nth-child(3){animation-delay:.28s}
+
+/* 2 — bob + rings  ⭐ */
+.v2 .cat{animation:bobF .8s ease-in-out infinite}
+.v2 .eyeL,.v2 .eyeR{transform-origin:center;animation:blinkF 1.4s ease-in-out infinite}
+.v2 .ring{transform-origin:60px 74px;animation:ripF 1.25s ease-out infinite}
+.v2 .ring:nth-of-type(2){animation-delay:.42s}
+.v2 .ring:nth-of-type(3){animation-delay:.84s}
+
+/* 3 — bob + spinner ring */
+.v3 .cat{animation:bobF .82s ease-in-out infinite}
+.v3 .eyeL,.v3 .eyeR{transform-origin:center;animation:blinkF 1.5s ease-in-out infinite}
+.v3 .prog{stroke:var(--v);stroke-dasharray:64 220;stroke-linecap:round;transform-origin:60px 60px;animation:spinF .85s linear infinite}
+
+/* 4 — bob + shimmer bar */
+.v4 .cat{animation:bobF .85s ease-in-out infinite}
+.v4 .eyeL,.v4 .eyeR{transform-origin:center;animation:blinkF 1.5s ease-in-out infinite}
+.v4 .bar{width:118px;height:5px;border-radius:5px;background:var(--line);overflow:hidden;position:relative}
+.v4 .bar b{position:absolute;inset:0;width:40%;border-radius:5px;background:linear-gradient(90deg,var(--v),var(--p));animation:barSlide 1s ease-in-out infinite}
+
+/* 5 — squash + tail wag */
+.v5 .cat{animation:squash .7s ease-in-out infinite}
+.v5 .eyeL,.v5 .eyeR{transform-origin:center;animation:blinkF 1.4s ease-in-out infinite}
+.v5 .tail{transform-origin:96px 96px;animation:tailWag .55s ease-in-out infinite}
+
+/* 6 — dark, rings + dots */
+.v6 .cat{animation:bobF .8s ease-in-out infinite}
+.v6 .ring{transform-origin:60px 74px;animation:ripF 1.25s ease-out infinite}
+.v6 .ring:nth-of-type(2){animation-delay:.42s}
+.v6 .dot{animation:dotJ .95s ease-in-out infinite}
+.v6 .dot:nth-child(2){animation-delay:.14s}.v6 .dot:nth-child(3){animation-delay:.28s}
+
+.lbl{font-size:12px;color:var(--mut);font-weight:500;letter-spacing:.02em}
+.lbl.dkt{color:#9C93B0}
+</style>
+</head>
+<body>
+<h1>cozune<span>.</span></h1>
+<p class="sub">Faster loaders — each one clearly signals “working”, not just idling.</p>
+
+<div class="grid">
+
+<!-- 1 -->
+<div class="card"><div class="stage v1">
+ <div style="display:flex;flex-direction:column;align-items:center;gap:15px">
+  <svg class="cat" width="76" height="76" viewBox="0 0 120 120">
+   <path class="earL" d="M28 31 L47 69 L61 49 Z" fill="#7C4DFF" stroke="#7C4DFF" stroke-width="6" stroke-linejoin="round"/>
+   <path class="earR" d="M92 31 L73 69 L59 49 Z" fill="#7C4DFF" stroke="#7C4DFF" stroke-width="6" stroke-linejoin="round"/>
+   <ellipse cx="60" cy="74" rx="31" ry="29" fill="#7C4DFF"/>
+   <ellipse cx="36.5" cy="77" rx="5" ry="3" fill="#FF6FA5"/><ellipse cx="83.5" cy="77" rx="5" ry="3" fill="#FF6FA5"/>
+   <circle class="eyeL" cx="50" cy="65" r="5.4" fill="#fff"/><circle class="eyeR" cx="70" cy="65" r="5.4" fill="#fff"/>
+   <ellipse cx="60" cy="84" rx="18" ry="13" fill="#fff"/><ellipse cx="60" cy="78.5" rx="5.2" ry="4.6" fill="#7C4DFF"/>
+  </svg>
+  <div style="display:flex;gap:8px">
+   <span class="dot" style="width:9px;height:9px;border-radius:50%;background:#7C4DFF"></span>
+   <span class="dot" style="width:9px;height:9px;border-radius:50%;background:#FF6FA5"></span>
+   <span class="dot" style="width:9px;height:9px;border-radius:50%;background:#7C4DFF"></span>
+  </div>
+ </div>
+</div><div class="meta"><b>1 · Bob + dots</b><small>fastest to read as “loading”</small></div></div>
+
+<!-- 2 -->
+<div class="card pick"><div class="stage v2">
+ <div style="display:flex;flex-direction:column;align-items:center;gap:12px">
+  <svg width="150" height="140" viewBox="0 0 150 140" style="overflow:visible">
+   <g transform="translate(15,8)">
+    <circle class="ring" cx="60" cy="74" r="44" fill="none" stroke="#7C4DFF" stroke-width="3"/>
+    <circle class="ring" cx="60" cy="74" r="44" fill="none" stroke="#7C4DFF" stroke-width="3"/>
+    <circle class="ring" cx="60" cy="74" r="44" fill="none" stroke="#7C4DFF" stroke-width="3"/>
+    <g class="cat">
+     <path d="M28 31 L47 69 L61 49 Z" fill="#7C4DFF" stroke="#7C4DFF" stroke-width="6" stroke-linejoin="round"/>
+     <path d="M92 31 L73 69 L59 49 Z" fill="#7C4DFF" stroke="#7C4DFF" stroke-width="6" stroke-linejoin="round"/>
+     <ellipse cx="60" cy="74" rx="31" ry="29" fill="#7C4DFF"/>
+     <ellipse cx="36.5" cy="77" rx="5" ry="3" fill="#FF6FA5"/><ellipse cx="83.5" cy="77" rx="5" ry="3" fill="#FF6FA5"/>
+     <circle class="eyeL" cx="50" cy="65" r="5.4" fill="#fff"/><circle class="eyeR" cx="70" cy="65" r="5.4" fill="#fff"/>
+     <ellipse cx="60" cy="84" rx="18" ry="13" fill="#fff"/><ellipse cx="60" cy="78.5" rx="5.2" ry="4.6" fill="#7C4DFF"/>
+    </g>
+   </g>
+  </svg>
+  <span class="lbl">finding people near you…</span>
+ </div>
+</div><div class="meta"><b>2 · Bob + radar rings<span class="tag">PICK</span></b><small>fast, and says what it’s doing</small></div></div>
+
+<!-- 3 -->
+<div class="card"><div class="stage v3">
+ <svg width="128" height="128" viewBox="0 0 120 120">
+  <circle cx="60" cy="60" r="46" fill="none" stroke="#EAE5F7" stroke-width="5"/>
+  <circle class="prog" cx="60" cy="60" r="46" fill="none" stroke-width="5"/>
+  <g class="cat" transform="translate(60,62) scale(.6) translate(-60,-72)">
+   <path d="M28 31 L47 69 L61 49 Z" fill="#7C4DFF" stroke="#7C4DFF" stroke-width="6" stroke-linejoin="round"/>
+   <path d="M92 31 L73 69 L59 49 Z" fill="#7C4DFF" stroke="#7C4DFF" stroke-width="6" stroke-linejoin="round"/>
+   <ellipse cx="60" cy="74" rx="31" ry="29" fill="#7C4DFF"/>
+   <ellipse cx="36.5" cy="77" rx="5" ry="3" fill="#FF6FA5"/><ellipse cx="83.5" cy="77" rx="5" ry="3" fill="#FF6FA5"/>
+   <circle class="eyeL" cx="50" cy="65" r="5.4" fill="#fff"/><circle class="eyeR" cx="70" cy="65" r="5.4" fill="#fff"/>
+   <ellipse cx="60" cy="84" rx="18" ry="13" fill="#fff"/><ellipse cx="60" cy="78.5" rx="5.2" ry="4.6" fill="#7C4DFF"/>
+  </g>
+ </svg>
+</div><div class="meta"><b>3 · Bob + spinner ring</b><small>verification, uploads, payment</small></div></div>
+
+<!-- 4 -->
+<div class="card"><div class="stage v4">
+ <div style="display:flex;flex-direction:column;align-items:center;gap:16px">
+  <svg class="cat" width="74" height="74" viewBox="0 0 120 120">
+   <path d="M28 31 L47 69 L61 49 Z" fill="#7C4DFF" stroke="#7C4DFF" stroke-width="6" stroke-linejoin="round"/>
+   <path d="M92 31 L73 69 L59 49 Z" fill="#7C4DFF" stroke="#7C4DFF" stroke-width="6" stroke-linejoin="round"/>
+   <ellipse cx="60" cy="74" rx="31" ry="29" fill="#7C4DFF"/>
+   <ellipse cx="36.5" cy="77" rx="5" ry="3" fill="#FF6FA5"/><ellipse cx="83.5" cy="77" rx="5" ry="3" fill="#FF6FA5"/>
+   <circle class="eyeL" cx="50" cy="65" r="5.4" fill="#fff"/><circle class="eyeR" cx="70" cy="65" r="5.4" fill="#fff"/>
+   <ellipse cx="60" cy="84" rx="18" ry="13" fill="#fff"/><ellipse cx="60" cy="78.5" rx="5.2" ry="4.6" fill="#7C4DFF"/>
+  </svg>
+  <div class="bar"><b></b></div>
+ </div>
+</div><div class="meta"><b>4 · Bob + shimmer bar</b><small>good above a skeleton grid</small></div></div>
+
+<!-- 5 -->
+<div class="card"><div class="stage v5">
+ <svg width="120" height="120" viewBox="0 0 130 130" style="overflow:visible">
+  <path class="tail" d="M96 96 q22 -6 20 -28" fill="none" stroke="#7C4DFF" stroke-width="7" stroke-linecap="round"/>
+  <g class="cat" style="transform-origin:60px 74px">
+   <path d="M28 31 L47 69 L61 49 Z" fill="#7C4DFF" stroke="#7C4DFF" stroke-width="6" stroke-linejoin="round"/>
+   <path d="M92 31 L73 69 L59 49 Z" fill="#7C4DFF" stroke="#7C4DFF" stroke-width="6" stroke-linejoin="round"/>
+   <ellipse cx="60" cy="74" rx="31" ry="29" fill="#7C4DFF"/>
+   <ellipse cx="36.5" cy="77" rx="5" ry="3" fill="#FF6FA5"/><ellipse cx="83.5" cy="77" rx="5" ry="3" fill="#FF6FA5"/>
+   <circle class="eyeL" cx="50" cy="65" r="5.4" fill="#fff"/><circle class="eyeR" cx="70" cy="65" r="5.4" fill="#fff"/>
+   <ellipse cx="60" cy="84" rx="18" ry="13" fill="#fff"/><ellipse cx="60" cy="78.5" rx="5.2" ry="4.6" fill="#7C4DFF"/>
+  </g>
+ </svg>
+</div><div class="meta"><b>5 · Squash + tail wag</b><small>most characterful</small></div></div>
+
+<!-- 6 -->
+<div class="card dk"><div class="stage v6">
+ <div style="display:flex;flex-direction:column;align-items:center;gap:13px">
+  <svg width="150" height="136" viewBox="0 0 150 136" style="overflow:visible">
+   <g transform="translate(15,6)">
+    <circle class="ring" cx="60" cy="74" r="44" fill="none" stroke="#9B72FF" stroke-width="3"/>
+    <circle class="ring" cx="60" cy="74" r="44" fill="none" stroke="#9B72FF" stroke-width="3"/>
+    <g class="cat">
+     <path d="M28 31 L47 69 L61 49 Z" fill="#9B72FF" stroke="#9B72FF" stroke-width="6" stroke-linejoin="round"/>
+     <path d="M92 31 L73 69 L59 49 Z" fill="#9B72FF" stroke="#9B72FF" stroke-width="6" stroke-linejoin="round"/>
+     <ellipse cx="60" cy="74" rx="31" ry="29" fill="#9B72FF"/>
+     <ellipse cx="36.5" cy="77" rx="5" ry="3" fill="#FF87B5"/><ellipse cx="83.5" cy="77" rx="5" ry="3" fill="#FF87B5"/>
+     <circle cx="50" cy="65" r="5.4" fill="#131019"/><circle cx="70" cy="65" r="5.4" fill="#131019"/>
+     <ellipse cx="60" cy="84" rx="18" ry="13" fill="#131019"/><ellipse cx="60" cy="78.5" rx="5.2" ry="4.6" fill="#9B72FF"/>
+    </g>
+   </g>
+  </svg>
+  <div style="display:flex;gap:8px">
+   <span class="dot" style="width:9px;height:9px;border-radius:50%;background:#9B72FF"></span>
+   <span class="dot" style="width:9px;height:9px;border-radius:50%;background:#FF87B5"></span>
+   <span class="dot" style="width:9px;height:9px;border-radius:50%;background:#9B72FF"></span>
+  </div>
+ </div>
+</div><div class="meta"><b>6 · Dark mode</b><small>rings + dots, same speed</small></div></div>
+
+</div>
+
+<div class="note">
+<b>What changed vs the slow version</b>
+Bob is now <code>0.8s</code> (was 2.2s) and the blink <code>1.4s</code> (was 2.8s) — roughly 3× faster, so the eye registers it as activity immediately. Every version also adds a second moving element (dots, rings, spinner or bar), because a single looping object reads as decoration while two out-of-sync ones read as <i>work in progress</i>.<br><br>
+<b>For Ramana</b>
+Bob = <code>AnimationController(duration: 800ms)</code> on repeat/reverse with <code>Curves.easeInOut</code>, offset ±8px. Dots = 3 controllers with 140ms stagger. Rings = scale 0.4→1.45 with opacity 0.6→0, 420ms stagger. Add the caption text (“finding people near you…”) — words remove all doubt that something is loading.<br><br>
+<b>Rule of thumb</b>
+If a loader runs longer than ~3 seconds, swap it for a skeleton grid (grey placeholder cards). Skeletons feel faster than any spinner because the layout appears instantly.
+</div>
+</body>
+</html>

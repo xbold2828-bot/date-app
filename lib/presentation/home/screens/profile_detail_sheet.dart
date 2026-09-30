@@ -234,67 +234,76 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
     final async = ref.watch(publicProfileProvider(widget.userId));
     final profile = async.valueOrNull;
 
-    // Live presence wins over whatever the feed said when it was fetched, so an
-    // open profile lights up the moment the socket reports them online. This is
-    // the seam a fuller real-time profile feed plugs into later: broaden the
-    // payload, and the rest of this screen already reads from providers.
     final isOnline = ref.watch(presenceProvider)[widget.userId] ??
         profile?.isOnline ??
         widget.seed.isOnline;
 
     const radius = BorderRadius.vertical(top: Radius.circular(26));
 
-    return Container(
-      height: MediaQuery.sizeOf(context).height * kSheetHeightFraction,
-      decoration: BoxDecoration(
-        color: AppColors.panel,
-        borderRadius: radius,
-      ),
-      // Clipped so the photo can run all the way to the sheet's top edge and
-      // still take its rounded corners. There was a grab handle up here on a
-      // strip of panel; it cost 17px of empty page above every photo, and the
-      // sheet is draggable and has a close button with or without it.
-      child: ClipRRect(
-        borderRadius: radius,
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    PhotoCarousel(
-                      photos: _photos(profile),
-                      fallbackInitial: _name,
-                      colorIndex: widget.seed.colorIndex,
-                      onClose: () => Navigator.pop(context),
-                    ),
-                    ProfileInfoSection(
-                      profile: profile,
-                      seed: widget.seed,
-                      isOnline: isOnline,
-                      failedToLoad: async.hasError,
-                      onRetry: () =>
-                          ref.invalidate(publicProfileProvider(widget.userId)),
-                      tagLabels:
-                      ref.watch(tagLabelsProvider).valueOrNull ?? const {},
-                    ),
-                  ],
+    final media = MediaQuery.of(context);
+    final keyboard = media.viewInsets.bottom;
+
+    // Normal height, but never taller than the space left above the keyboard
+    // (and below the status bar), so the action bar can't be pushed off screen.
+    final available = media.size.height - keyboard - media.padding.top;
+    final sheetHeight = (media.size.height * kSheetHeightFraction)
+        .clamp(0.0, available)
+        .toDouble();
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeOut,
+      // Lifts the whole sheet above the keyboard.
+      padding: EdgeInsets.only(bottom: keyboard),
+      child: Container(
+        height: sheetHeight,
+        decoration: BoxDecoration(
+          color: AppColors.panel,
+          borderRadius: radius,
+        ),
+        child: ClipRRect(
+          borderRadius: radius,
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                  ScrollViewKeyboardDismissBehavior.onDrag,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      PhotoCarousel(
+                        photos: _photos(profile),
+                        fallbackInitial: _name,
+                        colorIndex: widget.seed.colorIndex,
+                        onClose: () => Navigator.pop(context),
+                      ),
+                      ProfileInfoSection(
+                        profile: profile,
+                        seed: widget.seed,
+                        isOnline: isOnline,
+                        failedToLoad: async.hasError,
+                        onRetry: () =>
+                            ref.invalidate(publicProfileProvider(widget.userId)),
+                        tagLabels:
+                        ref.watch(tagLabelsProvider).valueOrNull ?? const {},
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            ProfileActionBar(
-              controller: _openerController,
-              isSending: _isSending,
-              liked: _liked,
-              isMatch: profile?.isMatch ?? false,
-              // No longer terminal: tapping a filled heart now unlikes.
-              likeEnabled: !_likeInFlight,
-              name: _name,
-              onLike: _onLike,
-              onSend: _sendOpener,
-            ),
-          ],
+              ProfileActionBar(
+                controller: _openerController,
+                isSending: _isSending,
+                liked: _liked,
+                isMatch: profile?.isMatch ?? false,
+                likeEnabled: !_likeInFlight,
+                name: _name,
+                onLike: _onLike,
+                onSend: _sendOpener,
+              ),
+            ],
+          ),
         ),
       ),
     );

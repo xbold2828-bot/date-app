@@ -25,50 +25,81 @@ class _BannerAdWidgetState extends ConsumerState<BannerAdWidget> {
   BannerAd? _ad;
   bool _loaded = false;
 
+  bool get _isPremium => ref.read(isUserHavePremiumProvider);
+
   @override
   void initState() {
     super.initState();
-    if (widget.visible) _loadAd();
+    if (widget.visible && !_isPremium) _loadAd();
   }
 
   @override
   void didUpdateWidget(covariant BannerAdWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (widget.visible && _ad == null) {
-      _loadAd();
-    } else if (!widget.visible && _ad != null) {
-      _disposeAd();
-    } else if (widget.visible && oldWidget.size != widget.size) {
-      _disposeAd();
-      _loadAd();
-    }
+    // A different size needs a different ad.
+    if (oldWidget.size != widget.size) _releaseAd();
+
+    // When hidden, we keep the loaded ad and just stop drawing it.
+    // This avoids creating and destroying the native view on every tab tap.
+    if (widget.visible && _ad == null && !_isPremium) _loadAd();
   }
 
   @override
   void dispose() {
-    _ad?.dispose();
+    _disposeLater(_ad);
+    _ad = null;
     super.dispose();
   }
 
   void _loadAd() {
     _ad = AdHelper.createBannerAd(
       size: widget.size,
-      onLoaded: (_) {
-        if (mounted) setState(() => _loaded = true);
+      onLoaded: (ad) {
+        // Ignore callbacks from an ad we already replaced or released.
+        if (!mounted || !identical(ad, _ad)) return;
+        setState(() => _loaded = true);
       },
-      onFailedToLoad: (_, _) => _disposeAd(),
+      onFailedToLoad: (ad, _) {
+        // AdHelper already disposed this ad. Only clear our reference.
+        if (!mounted || !identical(ad, _ad)) return;
+        setState(() {
+          _ad = null;
+          _loaded = false;
+        });
+      },
     );
   }
 
-  void _disposeAd() {
-    _ad?.dispose();
+  /// Remove the ad from the screen FIRST, then destroy it a moment later.
+  /// Disposing while the AdWidget is still on screen is what crashes the
+  /// native platform view.
+  void _releaseAd() {
+    final ad = _ad;
     _ad = null;
-    if (mounted) setState(() => _loaded = false);
+    _loaded = false;
+    if (mounted) setState(() {});
+    _disposeLater(ad);
+  }
+
+  void _disposeLater(BannerAd? ad) {
+    if (ad == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(const Duration(milliseconds: 300), ad.dispose);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    // Premium can change while the app is running.
+    ref.listen(isUserHavePremiumProvider, (_, next) {
+      if (next) {
+        _releaseAd();
+      } else if (widget.visible && _ad == null) {
+        _loadAd();
+      }
+    });
+
     final isPremium = ref.watch(isUserHavePremiumProvider);
     final ad = _ad;
 
@@ -79,7 +110,7 @@ class _BannerAdWidgetState extends ConsumerState<BannerAdWidget> {
     final box = SizedBox(
       width: ad.size.width.toDouble(),
       height: ad.size.height.toDouble(),
-      child: AdWidget(ad: ad),
+      child: AdWidget(key: ObjectKey(ad), ad: ad),
     );
 
     if (widget.margin == null) return box;

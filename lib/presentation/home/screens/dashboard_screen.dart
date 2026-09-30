@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:dating_app/core/constants/app_constants.dart';
 import 'package:dating_app/core/constants/app_string.dart';
+import 'package:dating_app/core/extensions/global_back_extension.dart';
 import 'package:dating_app/core/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -156,38 +157,36 @@ class _HomeScreenState extends ConsumerState<DashboardScreen>
     ref.watch(chatRealtimeProvider);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
+      value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
+        statusBarIconBrightness: AppColors.isDark ? Brightness.light : Brightness.dark, // Android
+        statusBarBrightness: AppColors.isDark ? Brightness.dark : Brightness.light, // iOS
       ),
       child: MatchCelebrationHost(
         child: Scaffold(
           backgroundColor: AppColors.background,
           body: SafeArea(
             bottom: false,
-            child: Column(
+            child: Stack(
               children: [
-                Expanded(
-                  child: Stack(
-                    children: [
-                      Positioned.fill(child: _body()),
-                      Align(
-                        alignment: Alignment.bottomCenter,
-                        child: BannerAdWidget(visible: _showsBannerAd(_current)),
-                      ),
-                    ],
-                  ),
-                ),
-                _BottomNav(
-                  current: _current,
-                  unread: ref.watch(unreadCountProvider).valueOrNull ?? 0,
-                  onSelect: (tab) => setState(() => _current = tab),
+                Positioned.fill(child: _body()),
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: BannerAdWidget(visible: _showsBannerAd(_current)),
                 ),
               ],
             ),
           ),
-        ),
+          bottomNavigationBar: SafeArea(
+            top: false,
+            minimum: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: _BottomNav(
+              current: _current,
+              unread: ref.watch(unreadCountProvider).valueOrNull ?? 0,
+              onSelect: (tab) => setState(() => _current = tab),
+            ),
+          ),
+        )
       ),
     );
   }
@@ -225,80 +224,71 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.panel,
-        border: Border(
-          top: BorderSide(color: AppColors.inputBorder, width: 1),
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        height: 56,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color:  AppColors.isDark ? AppColors.greyColor.withValues(alpha: 0.5) : AppColors.whiteColor,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
-      ),
-      padding: EdgeInsets.fromLTRB(
-        8,
-        10,
-        8,
-        12 + MediaQuery.paddingOf(context).bottom,
-      ),
-      child: Row(
-        children: _Tab.values.map((tab) {
-          final isActive = tab == current;
-          final badge = tab == _Tab.chats ? unread : 0;
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: _Tab.values.map((tab) {
+            final isActive = tab == current;
+            final badge = tab == _Tab.chats ? unread : 0;
 
-          return Expanded(
-            child: Semantics(
+            return Semantics(
               button: true,
               selected: isActive,
               label: badge > 0 ? '${tab.label}, $badge unread' : tab.label,
               excludeSemantics: true,
               child: InkWell(
                 onTap: () => onSelect(tab),
-                borderRadius: BorderRadius.circular(12),
+                customBorder: const CircleBorder(),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                  padding: const EdgeInsets.all(4),
+                  child: Stack(
+                    clipBehavior: Clip.none,
                     children: [
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Icon(
-                            tab.icon,
-                            size: 22,
-                            color: isActive
-                                ? AppColors.primary
-                                : AppColors.iconMuted,
-                          ),
-                          if (badge > 0)
-                            Positioned(
-                              top: -3,
-                              right: -6,
-                              child: _Badge(count: badge),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        tab.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTextStyles.caption.copyWith(
-                          fontSize: 11,
-                          color: isActive
-                              ? AppColors.primary
-                              : AppColors.textGrey,
-                          fontWeight:
-                          isActive ? FontWeight.w700 : FontWeight.w500,
-                          fontVariations: [
-                            FontVariation('wght', isActive ? 700 : 500),
-                          ],
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOut,
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color:
+                          isActive ? AppColors.primary : Colors.transparent,
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(
+                          tab.icon,
+                          size: 22,
+                          color: isActive ? Colors.white : AppColors.textDark,
                         ),
                       ),
+                      if (badge > 0)
+                        Positioned(
+                          top: -2,
+                          right: -2,
+                          child: _Badge(count: badge),
+                        ),
                     ],
                   ),
                 ),
               ),
-            ),
-          );
-        }).toList(),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
@@ -318,7 +308,7 @@ class _Badge extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.primary,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.panel, width: 2),
+        border: Border.all(color: Colors.white, width: 2),
       ),
       child: Center(
         child: Text(
@@ -393,7 +383,7 @@ class _RadarTab extends ConsumerWidget {
           ),
         ],
       ),
-    );
+    ).withGlobalBackHandler(context);
   }
 
   Widget _grid(

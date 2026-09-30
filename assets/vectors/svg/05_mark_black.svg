@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Cozune</title>
+  <path d="M28 31 L47 69 L61 49 Z" fill="#141428" stroke="#141428" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M92 31 L73 69 L59 49 Z" fill="#141428" stroke="#141428" stroke-width="6" stroke-linejoin="round"/>
+  <ellipse cx="60" cy="74" rx="31" ry="29" fill="#141428"/>
+  <ellipse cx="36.5" cy="77" rx="5" ry="3" fill="#CFCAD8"/>
+  <ellipse cx="83.5" cy="77" rx="5" ry="3" fill="#CFCAD8"/>
+  <circle cx="50" cy="65" r="5.4" fill="#FFFFFF"/>
+  <circle cx="70" cy="65" r="5.4" fill="#FFFFFF"/>
+  <ellipse cx="60" cy="84" rx="18" ry="13" fill="#FFFFFF"/>
+  <ellipse cx="60" cy="78.5" rx="5.2" ry="4.6" fill="#141428"/>
+  <path d="M60 83 v5" stroke="#141428" stroke-width="3" stroke-linecap="round"/>
+  <path d="M60 88 q-6.5 5.5 -11 0.5" fill="none" stroke="#141428" stroke-width="3" stroke-linecap="round"/>
+  <path d="M60 88 q6.5 5.5 11 0.5" fill="none" stroke="#141428" stroke-width="3" stroke-linecap="round"/>
+</svg>

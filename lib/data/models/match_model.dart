@@ -1,3 +1,6 @@
+
+import '../../core/utils/json_parse_utils.dart';
+
 /// A privacy-safe person card used by "liked you" and "favorites".
 class LikeCard {
   final String id;
@@ -33,17 +36,21 @@ class LikeCard {
     this.locked = false,
   });
 
+  static const _tag = 'LikeCard';
+
   factory LikeCard.fromJson(Map<String, dynamic> json) => LikeCard(
-        id: json['id'] as String? ?? '',
-        displayName: json['displayName'] as String?,
-        age: (json['age'] as num?)?.toInt(),
-        primaryPhotoUrl: json['primaryPhotoUrl'] as String?,
-        isOnline: json['isOnline'] as bool? ?? false,
-        isVerified: json['isVerified'] as bool? ?? false,
-        distanceMeters: json['distanceMeters'] as num?,
-        lastActiveAt: DateTime.tryParse(json['lastActiveAt'] as String? ?? ''),
-        locked: json['locked'] as bool? ?? false,
-      );
+    id: json.safeString('id', tag: _tag),
+    displayName: json.safeStringNullable('displayName', tag: _tag),
+    age: json.safeIntNullable('age', tag: _tag),
+    primaryPhotoUrl: json.safeStringNullable('primaryPhotoUrl', tag: _tag),
+    isOnline: json.safeBool('isOnline', tag: _tag),
+    isVerified: json.safeBool('isVerified', tag: _tag),
+    distanceMeters: json.safeNumNullable('distanceMeters', tag: _tag),
+    lastActiveAt: DateTime.tryParse(
+      json.safeString('lastActiveAt', tag: _tag),
+    ),
+    locked: json.safeBool('locked', tag: _tag),
+  );
 
   static List<LikeCard> listFrom(dynamic items) =>
       ((items as List?) ?? const [])
@@ -75,17 +82,19 @@ class LikeResult {
     this.match,
   });
 
+  static const _tag = 'LikeResult';
+
   factory LikeResult.fromJson(Map<String, dynamic> json) => LikeResult(
-        liked: json['liked'] as bool? ?? false,
-        type: json['type'] as String? ?? 'like',
-        isMatch: json['isMatch'] as bool? ?? false,
-        alreadyReacted: json['alreadyReacted'] as bool? ?? false,
-        match: json['match'] == null
-            ? null
-            : LikeCard.fromJson(
-                Map<String, dynamic>.from(json['match'] as Map),
-              ),
-      );
+    liked: json.safeBool('liked', tag: _tag),
+    type: json.safeString('type', fallback: 'like', tag: _tag),
+    isMatch: json.safeBool('isMatch', tag: _tag),
+    alreadyReacted: json.safeBool('alreadyReacted', tag: _tag),
+    match: json['match'] == null
+        ? null
+        : LikeCard.fromJson(
+      Map<String, dynamic>.from(json['match'] as Map),
+    ),
+  );
 }
 
 /// `GET /likes/mutual` — a match.
@@ -106,11 +115,55 @@ class MutualCard {
     this.conversationId,
   });
 
+  static const _tag = 'MutualCard';
+
   factory MutualCard.fromJson(Map<String, dynamic> json) => MutualCard(
-        user: LikeCard.fromJson(json),
-        matchedAt: DateTime.tryParse(json['matchedAt'] as String? ?? ''),
-        conversationId: json['conversationId'] as String?,
+    user: LikeCard.fromJson(json),
+    matchedAt: DateTime.tryParse(json.safeString('matchedAt', tag: _tag)),
+    conversationId: json.safeStringNullable('conversationId', tag: _tag),
+  );
+}
+
+/// The `unlocks` block on `GET /likes/liked-you` — everything the CTA needs to
+/// say something concrete ("Unlock for 1 credit — you have 46") instead of a
+/// generic prompt. Absent or zeroed-out once nothing is locked.
+class LikedYouUnlockInfo {
+  /// How many free reveals this viewer gets, ever (not per day).
+  final int freeTotal;
+
+  /// How many of those free reveals have already been spent.
+  final int freeUsed;
+
+  /// Free reveals still available before credits are needed.
+  final int freeRemaining;
+
+  /// Ad-credits required to unlock the next locked card.
+  final int creditCost;
+
+  /// This viewer's current ad-credit balance.
+  final int creditBalance;
+
+  const LikedYouUnlockInfo({
+    this.freeTotal = 0,
+    this.freeUsed = 0,
+    this.freeRemaining = 0,
+    this.creditCost = 0,
+    this.creditBalance = 0,
+  });
+
+  static const _tag = 'LikedYouUnlockInfo';
+
+  factory LikedYouUnlockInfo.fromJson(Map<String, dynamic> json) =>
+      LikedYouUnlockInfo(
+        freeTotal: json.safeInt('freeTotal', tag: _tag),
+        freeUsed: json.safeInt('freeUsed', tag: _tag),
+        freeRemaining: json.safeInt('freeRemaining', tag: _tag),
+        creditCost: json.safeInt('creditCost', tag: _tag),
+        creditBalance: json.safeInt('creditBalance', tag: _tag),
       );
+
+  /// Whether this viewer's balance covers the next unlock right now.
+  bool get canAffordUnlock => creditBalance >= creditCost;
 }
 
 /// `GET /likes/liked-you` — the freemium grid of people who liked me.
@@ -136,6 +189,10 @@ class LikedYouPage {
   /// number on the "unlock" CTA.
   final int lockedCount;
 
+  /// Credit/free-reveal accounting for the unlock CTA. Null on a fully
+  /// unlocked page — there's nothing left to spend.
+  final LikedYouUnlockInfo? unlocks;
+
   final List<LikeCard> items;
 
   const LikedYouPage({
@@ -146,19 +203,32 @@ class LikedYouPage {
     required this.limit,
     this.freeVisible = 0,
     this.lockedCount = 0,
+    this.unlocks,
     required this.items,
   });
 
+  static const _tag = 'LikedYouPage';
+
   factory LikedYouPage.fromJson(Map<String, dynamic> json) => LikedYouPage(
-        total: (json['total'] as num?)?.toInt() ?? 0,
-        locked: json['locked'] as bool? ?? false,
-        source: json['source'] as String?,
-        page: (json['page'] as num?)?.toInt() ?? 1,
-        limit: (json['limit'] as num?)?.toInt() ?? 20,
-        freeVisible: (json['freeVisible'] as num?)?.toInt() ?? 0,
-        lockedCount: (json['lockedCount'] as num?)?.toInt() ?? 0,
-        items: LikeCard.listFrom(json['items']),
-      );
+    total: json.safeInt('total', tag: _tag),
+    locked: json.safeBool('locked', tag: _tag),
+    source: json.safeStringNullable('source', tag: _tag),
+    page: json.safeInt('page', fallback: 1, tag: _tag),
+    limit: json.safeInt('limit', fallback: 20, tag: _tag),
+    freeVisible: json.safeInt('freeVisible', tag: _tag),
+    lockedCount: json.safeInt('lockedCount', tag: _tag),
+    unlocks: json['unlocks'] == null
+        ? null
+        : LikedYouUnlockInfo.fromJson(
+      Map<String, dynamic>.from(json['unlocks'] as Map),
+    ),
+    items: json.safeList<LikeCard>(
+      'items',
+      itemParser: (item) =>
+          LikeCard.fromJson(Map<String, dynamic>.from(item as Map)),
+      tag: _tag,
+    ),
+  );
 
   /// True when there is nobody here at all — as opposed to people the viewer
   /// simply has not unlocked, which is not an empty state.

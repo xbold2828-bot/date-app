@@ -18,6 +18,7 @@ class CommonDialog extends StatelessWidget {
   final IconData? iconData;
   final String? vectorLogo;
   final String? imageLogo;
+  final Color? iconVectorColor;
 
   const CommonDialog({
     super.key,
@@ -29,6 +30,8 @@ class CommonDialog extends StatelessWidget {
     this.iconData,
     this.vectorLogo,
     this.imageLogo,
+    this.iconVectorColor
+
   });
 
   @override
@@ -43,28 +46,27 @@ class CommonDialog extends StatelessWidget {
         children: [
           spacerH(15),
 
-          if (vectorLogo != null) ...[
+          if(vectorLogo!=null)...[
             CircleAvatar(
               backgroundColor: colorScheme.primary,
               radius: 40.r,
-              child: Center(child: SvgPicture.asset(vectorLogo!)),
-            ),
+              child: Center(child: SvgPicture.asset(vectorLogo!,colorFilter: iconVectorColor!=null? ColorFilter.mode(iconVectorColor!, BlendMode.srcIn):null),),
+            )
           ],
 
-          if (iconData != null) ...[
+          if(iconData!=null)...[
             CircleAvatar(
               backgroundColor: colorScheme.primary,
               radius: 40.r,
-              child: Center(child: Icon(iconData)),
-            ),
+              child: Center(child: Icon(iconData,color: iconVectorColor,)),
+            )
           ],
 
-          if (imageLogo != null) ...[
+          if(imageLogo!=null)...[
             CircleAvatar(
-              backgroundColor: colorScheme.primary,
               radius: 40.r,
-              child: Center(child: SvgPicture.asset(imageLogo!)),
-            ),
+              child: Center(child: staticImage(url: imageLogo!)),
+            )
           ],
 
           spacerH(20),
@@ -89,28 +91,30 @@ class CommonDialog extends StatelessWidget {
 
           Row(
             children: [
-              if (isShowTwoButtons)
+              if(isShowTwoButtons)
                 Expanded(
                   child: CommonOutlinedButton(
-                    height: 44,
-                    text: "Cancel",
-                    onClick: () {
-                      context.pop();
-                    },
+                      height: 44,
+                      text: "Cancel",
+                      onClick: (){
+                        context.pop();
+                      }
                   ),
                 ),
 
-              if (isShowTwoButtons) spacerW(10),
+              if(isShowTwoButtons)
+                spacerW(10),
 
               Expanded(
                 child: CommonButton(
-                  height: 44,
-                  bgColor: colorScheme.primary,
-                  text: buttonText,
-                  onClick: () {
-                    context.pop(true);
-                    onTap();
-                  },
+                    height: 44,
+                    bgColor: colorScheme.primary,
+                    text: buttonText,
+                    onClick: () {
+                      context.pop(true);
+                      onTap();
+                    }
+
                 ),
               ),
             ],

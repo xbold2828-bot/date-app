@@ -1,10 +1,5 @@
 import 'env.dart';
 
-/// REST endpoint paths and client timeouts.
-///
-/// All paths are relative to [baseUrl] (which already contains `/api/v1`).
-/// Success responses are wrapped by the backend in `{ success, data, ... }`;
-/// the [EnvelopeInterceptor] unwraps that so callers receive `data` directly.
 abstract final class ApiConstants {
 
   static final String baseUrl = Env.apiBaseUrl;
@@ -70,12 +65,42 @@ abstract final class ApiConstants {
   static String verificationComplete(String sessionId) =>
       '/verification/session/$sessionId/complete';
 
-  // ── Premium subscription ────────────────────────────────────────────────
+  // ── Premium subscription (LEGACY — superseded by the Payments section
+  // below, which is backed by RevenueCat via `publicKeys`/`appUserId` in
+  // `/payments/config`). Kept here only in case other screens still call it;
+  // PremiumScreen no longer uses these. ───────────────────────────────────
   static const String subscriptionPlans = '/subscription/plans';
   static const String subscriptionMe = '/subscription/me';
   static const String subscriptionCheckout = '/subscription/checkout';
   static const String subscriptionRestore = '/subscription/restore';
   static const String subscriptionCancel = '/subscription/cancel';
+
+  // ── Payments (RevenueCat-backed) ────────────────────────────────────────
+  /// `GET` — plans, perks, RevenueCat `appUserId`/`offeringId`/`publicKeys`.
+  /// Call this to render the paywall and to configure the RevenueCat SDK.
+  static const String paymentsConfig = '/payments/config';
+
+  /// `GET` — my current entitlement as last known to the backend. Call this
+  /// on paywall open so an already-premium user sees their plan/expiry
+  /// instead of the purchase flow.
+  static const String paymentsSubscription = '/payments/subscription';
+
+  /// `POST` — re-checks RevenueCat right after a purchase completes, so the
+  /// app doesn't have to wait on RevenueCat's webhook to reflect the change.
+  static const String paymentsSync = '/payments/sync';
+
+  /// `POST` — replays past purchases through RevenueCat.
+  static const String paymentsRestore = '/payments/restore';
+
+  /// `GET` — paginated list of past renewals/purchases.
+  static const String paymentsHistory = '/payments/history';
+
+  /// `GET` — store management link (cancel/change plan on Play/App Store).
+  static const String paymentsManage = '/payments/manage';
+
+  // ── Premium subscription ────────────────────────────────────────────────
+  // (See "Payments" above — this section is retained only for endpoints that
+  // don't yet have a Payments equivalent.)
 
   // ── Discovery / Entitlements ────────────────────────────────────────────
   static const String discoveryNearby = '/discovery/nearby';
@@ -166,10 +191,6 @@ abstract final class ApiConstants {
   static String conversation(String conversationId) =>
       '/messaging/conversations/$conversationId';
 
-
-  // Add these inside your existing ApiConstants class, alongside
-// discoveryNearby / discoveryNearbyCount / entitlementsMe.
-
   /// `GET /notifications` — paginated, date-grouped notification feed.
   static const String notifications = '/notifications';
 
@@ -181,13 +202,8 @@ abstract final class ApiConstants {
   /// Returns `data: null`, so the repository call resolves to `void`.
   static const String notificationsReadAll = '/notifications/read-all';
 
-
-
-
 }
 
-/// Socket.io namespaces and event names (see backend presence/messaging
-/// gateways). Payload shapes are documented on the socket services.
 abstract final class SocketConstants {
 
   static const String presenceNamespace = '/presence';
@@ -213,55 +229,4 @@ abstract final class SocketConstants {
   static const String matchNew = 'match:new';
 }
 
-/// Keys inside an FCM push's `data` map.
-///
-/// A wire contract with the backend (`notifications.constants.ts`), and one
-/// that cannot be changed in lockstep: a build already on somebody's phone
-/// keeps reading the old keys for as long as they decline to update. Treat
-/// these as append-only.
-class PushDataKeys {
-  PushDataKeys._();
 
-  /// `normal` | `dataOnly`. The first thing the helper branches on.
-  static const String fcmType = 'fcm_type';
-
-  /// A [PushNotificationType] value.
-  static const String type = 'type';
-
-  /// A [PushAction] value — where the tap should land.
-  static const String action = 'action';
-
-  /// Android channel, echoed so a foreground push lands in the same channel as
-  /// the background one.
-  static const String channelId = 'channel_id';
-
-  /// De-duplicates a socket event and a push describing the same thing.
-  static const String notificationId = 'notification_id';
-
-  static const String sentAt = 'sent_at';
-  static const String conversationId = 'conversationId';
-  static const String userId = 'userId';
-  static const String messageId = 'messageId';
-  static const String url = 'url';
-}
-
-/// `data.type` values.
-class PushNotificationType {
-  PushNotificationType._();
-
-  static const String chatMessage = 'chat.message';
-  static const String matchNew = 'match.new';
-  static const String likeReceived = 'like.received';
-  static const String systemAnnouncement = 'system.announcement';
-}
-
-/// `data.action` values — what the tap handler should do.
-abstract final class PushAction {
-
-  static const String openConversation = 'open_conversation';
-  static const String openMatches = 'open_matches';
-  static const String openLikes = 'open_likes';
-  static const String openProfile = 'open_profile';
-  static const String openUrl = 'open_url';
-  static const String none = 'none';
-}

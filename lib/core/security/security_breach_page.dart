@@ -159,10 +159,10 @@ class _SecurityBreachPageState extends State<SecurityBreachPage>
         .toList();
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
+      value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
+        statusBarIconBrightness: AppColors.isDark ? Brightness.light : Brightness.dark, // Android
+        statusBarBrightness: AppColors.isDark ? Brightness.dark : Brightness.light, // iOS
       ),
       child: Scaffold(
         backgroundColor: const Color(0xFFF4F6FA),

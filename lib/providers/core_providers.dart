@@ -1,3 +1,4 @@
+import 'package:dating_app/data/repositories/payments_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -68,6 +69,10 @@ final verificationRepositoryProvider = Provider<VerificationRepository>(
 
 final subscriptionRepositoryProvider = Provider<SubscriptionRepository>(
   (ref) => SubscriptionRepository(ref.watch(apiClientProvider)),
+);
+
+final paymentRepositoryProvider = Provider<PaymentsRepository>(
+        (ref) => PaymentsRepository(ref.watch(apiClientProvider)),
 );
 
 final adsRepositoryProvider = Provider<AdsRepository>(

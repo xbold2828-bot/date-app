@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../../core/constants/static_assets/app_icons.dart';
 import '../../../../../core/extensions/global_back_extension.dart';
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/utils/utils.dart';
 import '../../../../../shared/widgets/app_text.dart';
 import '../../../../../shared/widgets/buttons/common_button.dart';
@@ -50,10 +51,10 @@ class _MaintenanceScreenState extends State<MaintenanceScreen>
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
+      value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark, // Android
-        statusBarBrightness: Brightness.light, // iOS
+        statusBarIconBrightness: AppColors.isDark ? Brightness.light : Brightness.dark, // Android
+        statusBarBrightness: AppColors.isDark ? Brightness.dark : Brightness.light, // iOS
       ),
       child: Scaffold(
         backgroundColor: const Color(0xFFF4F6FA),
