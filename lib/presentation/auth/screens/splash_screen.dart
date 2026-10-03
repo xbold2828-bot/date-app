@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:dating_app/core/constants/static_assets/app_vectors.dart';
-import 'package:dating_app/core/utils/utils.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pub_semver/pub_semver.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/app_string.dart';
 import '../../../core/logger/app_logger.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
@@ -22,6 +22,7 @@ import '../../../data/services/auth_service.dart';
 import '../../../providers/notification_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../common/force_update_maintenance/presentation/pages/maintenance_screen.dart';
+import '../../common/widgets/system_state.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key, this.skipStartupChecks = false});
@@ -218,9 +219,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       AppLogger.d("Raw Firebase JSON Config received: $rawJsonConfig");
 
       bool isMaintenanceMode = false;
-      String customTitle = "We're upgrading our systems";
-      String customMessage =
-          "Our platform is currently undergoing scheduled maintenance. We'll be back online shortly!";
+      String customTitle = AppString.maintenanceTitleDefault;
+      String customMessage = AppString.maintenanceMessageDefault;
 
       if (rawJsonConfig.isNotEmpty) {
         final Map<String, dynamic> parsedConfig = jsonDecode(rawJsonConfig);
@@ -253,7 +253,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   if (mounted) context.go(AppRoutes.splash);
                 } else {
                   AppSnackBar.showWarningSnackBar(
-                    message: "Current App is in Maintenance Mode!",
+                    message: AppString.maintenanceStillActive,
                   );
                 }
               },
@@ -296,6 +296,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 }
 
+/// The launch could not finish — usually no connection to the backend.
+///
+/// Same frame as the other screens that stop the app. The technical message
+/// stays, small and last: it is what anyone testing a build needs to report,
+/// and it no longer stands in for the explanation.
 class _ErrorRetry extends StatelessWidget {
   const _ErrorRetry({required this.message, required this.onRetry});
 
@@ -304,68 +309,30 @@ class _ErrorRetry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.cloud_off, size: 48, color: AppColors.textGrey),
-              spacerH(16),
-              Text(
-                "Couldn't reach cozune",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
-              ),
-              spacerH(8),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: AppColors.textGrey),
-              ),
-              spacerH(24),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: onRetry,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: Text(
-                    'Retry',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.onAccent,
-                    ),
-                  ),
-                ),
-              ),
-              spacerH(12),
-              TextButton(
-                onPressed: () async {
-                  await AuthService().signOut();
-                  if (context.mounted) context.go(AppRoutes.login);
-                },
-                child: Text(
-                  'Sign out',
-                  style: TextStyle(color: AppColors.textGrey),
-                ),
-              ),
-            ],
+    return SystemStateLayout(
+      icon: Icons.cloud_off_rounded,
+      title: AppString.splashErrorTitle,
+      message: 'Check your connection and try again. If it keeps happening, '
+          'signing out and back in usually clears it.',
+      actionLabel: 'Try again',
+      onAction: onRetry,
+      secondaryLabel: 'Sign out',
+      onSecondary: () async {
+        await AuthService().signOut();
+        if (context.mounted) context.go(AppRoutes.login);
+      },
+      children: [
+        Text(
+          message,
+          maxLines: 4,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 12,
+            height: 1.45,
+            color: AppColors.iconMuted,
           ),
         ),
-      ),
+      ],
     );
   }
 }

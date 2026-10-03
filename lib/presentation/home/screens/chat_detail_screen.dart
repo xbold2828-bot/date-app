@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dating_app/core/extensions/padding_extension.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
@@ -20,6 +21,7 @@ import '../../common/widgets/widgets.dart';
 import '../models/profile_seed.dart';
 import '../widgets/chat_actions_menu.dart';
 import '../widgets/message_limit_paywall.dart';
+import '../widgets/send_failure.dart';
 import './profile_detail_sheet.dart';
 
 class ChatDetailScreen extends ConsumerStatefulWidget {
@@ -33,6 +35,10 @@ class ChatDetailScreen extends ConsumerStatefulWidget {
 
   final ChatOtherUser? otherUser;
 
+  /// Text to start the composer with — an opener picked on the match screen.
+  /// Typed in, never sent: the person still decides whether it goes.
+  final String? initialDraft;
+
   const ChatDetailScreen({
     super.key,
     required this.conversationId,
@@ -42,6 +48,7 @@ class ChatDetailScreen extends ConsumerStatefulWidget {
     this.photoUrl,
     this.colorIndex = 0,
     this.otherUser,
+    this.initialDraft,
   });
 
   @override
@@ -57,6 +64,16 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
   bool _isTyping = false;
   bool _sending = false;
 
+  /// The last refusal, pinned above the composer until it times out or is
+  /// tapped away. See [SendFailureNotice] for why this is not a snackbar.
+  SendFailure? _failure;
+  int _failureSerial = 0;
+  Timer? _failureTimer;
+
+  /// The server said the New Energy allowance is spent. Cleared the moment
+  /// their reply arrives — that reply is what lifts the cap server-side too.
+  bool _awaitingReply = false;
+
   StateController<String?>? _activeClaim;
 
   String? _convId;
@@ -67,6 +84,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
   void initState() {
     super.initState();
     _convId = widget.conversationId;
+    final draft = widget.initialDraft;
+    if (draft != null && draft.isNotEmpty) {
+      _messageController.value = TextEditingValue(
+        text: draft,
+        selection: TextSelection.collapsed(offset: draft.length),
+      );
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _onOpen());
   }
 
@@ -89,6 +113,12 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
       if (!_isLive(incoming.conversationId)) return;
       ref.read(messagesProvider(convId).notifier).addIncoming(incoming.message);
       ref.read(chatActionsProvider).markRead(convId);
+      if (!incoming.message.fromMe && _awaitingReply) {
+        setState(() {
+          _awaitingReply = false;
+          if (_failure?.kind == SendFailureKind.awaitingReply) _failure = null;
+        });
+      }
       _scrollToBottom();
     }));
     _subs.add(chat.updates.listen((update) {
@@ -142,6 +172,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
     _subs.clear();
     _releaseActiveClaim();
     _typingTimer?.cancel();
+    _failureTimer?.cancel();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -170,16 +201,48 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
       //   showRadiusToast(context, 'Message sent', tone: ToastTone.success);
       // }
     } on EntitlementRequiredException catch (gate) {
-      _messageController.text = text;
+      // Out of new conversations for today. The draft goes back in the box so
+      // accepting the offer is one tap back to what they wrote.
+      _restoreDraft(text);
       if (mounted) showMessageLimitPaywall(context, gate: gate);
     } on AppException catch (e) {
-      _messageController.text = text;
+      _restoreDraft(text);
       if (mounted) {
-        showRadiusToast(context, e.message, tone: ToastTone.error);
+        final failure = SendFailure.from(e, name: widget.userName);
+        if (failure.kind == SendFailureKind.awaitingReply) {
+          _awaitingReply = true;
+        }
+        _showFailure(failure);
       }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  /// Puts a refused message back where it was typed, caret at the end, so the
+  /// person can reword it rather than retype it.
+  void _restoreDraft(String text) {
+    _messageController.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+
+  void _showFailure(SendFailure failure) {
+    sendFailureHaptic();
+    _failureTimer?.cancel();
+    setState(() {
+      _failure = failure;
+      _failureSerial++;
+    });
+    // Long enough to read two lines; the cap notice also lives on in the
+    // composer, so nothing is lost when this one goes.
+    _failureTimer = Timer(const Duration(milliseconds: 5200), _dismissFailure);
+  }
+
+  void _dismissFailure() {
+    _failureTimer?.cancel();
+    if (mounted && _failure != null) setState(() => _failure = null);
   }
 
   void _onInputChanged(String _) {
@@ -223,22 +286,40 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
           children: [
             _buildTopBar(),
             Expanded(
-              child: convId == null
-                  ? _EmptyThread(name: widget.userName)
-                  : ref.watch(messagesProvider(convId)).when(
-                loading: () => Center(
-                  child: CircularProgressIndicator(
-                    color: AppColors.primary,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: convId == null
+                        ? _EmptyThread(name: widget.userName)
+                        : ref.watch(messagesProvider(convId)).when(
+                      loading: () => Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      error: (err, _) => Center(
+                        child: Text(
+                          "Couldn't load messages.\n$err",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: AppColors.textGrey),
+                        ),
+                      ),
+                      data: (messages) => _buildMessageList(messages),
+                    ),
                   ),
-                ),
-                error: (err, _) => Center(
-                  child: Text(
-                    "Couldn't load messages.\n$err",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.textGrey),
+                  // Floats over the bottom of the thread, just above the
+                  // composer it is about.
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    bottom: 12,
+                    child: SendFailureSlot(
+                      failure: _failure,
+                      serial: _failureSerial,
+                      onDismiss: _dismissFailure,
+                    ),
                   ),
-                ),
-                data: (messages) => _buildMessageList(messages),
+                ],
               ),
             ),
             if (_isTyping) _buildTypingIndicator(),
@@ -423,34 +504,60 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
         ),
       );
     }
+    // A day label wherever the calendar day changes, the way every
+    // messenger groups a thread. It used to be one "TODAY" over the whole
+    // conversation, whatever day the messages were from.
+    final items = <Object>[];
+    DateTime? lastDay;
+    for (final message in messages) {
+      final at = message.sentAt?.toLocal();
+      if (at != null) {
+        final day = DateTime(at.year, at.month, at.day);
+        if (day != lastDay) {
+          items.add(day);
+          lastDay = day;
+        }
+      }
+      items.add(message);
+    }
+
     return ListView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: messages.length + 1,
+      itemCount: items.length,
       itemBuilder: (_, index) {
-        if (index == 0) return _buildDateHeader('TODAY');
-        return _buildMessageBubble(messages[index - 1]);
+        final item = items[index];
+        if (item is DateTime) return _buildDateHeader(_dayLabel(item));
+        return _buildMessageBubble(item as Message);
       },
     );
   }
 
+  /// "Today", "Yesterday", a weekday within the last week, then a date.
+  String _dayLabel(DateTime day) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final daysAgo = today.difference(day).inDays;
+    if (daysAgo <= 0) return 'Today';
+    if (daysAgo == 1) return 'Yesterday';
+    if (daysAgo < 7) return DateFormat('EEEE').format(day);
+    if (day.year == now.year) return DateFormat('d MMMM').format(day);
+    return DateFormat('d MMMM y').format(day);
+  }
+
   Widget _buildDateHeader(String label) {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 16),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.inputBorder),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textGrey,
-            letterSpacing: 1,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Center(
+        child: Semantics(
+          header: true,
+          child: Text(
+            label,
+            style: AppTextStyles.caption.copyWith(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              fontVariations: const [FontVariation('wght', 600)],
+            ),
           ),
         ),
       ),
@@ -632,43 +739,15 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
     final convId = _convId;
     if (convId == null) return;
 
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.panel,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          'Delete this message?',
-          style: AppTextStyles.title.copyWith(fontSize: 18),
-        ),
-        content: Text(
-          'It disappears for both of you. ${widget.userName} will see that a '
-              'message was deleted, in the place it was.',
-          style: AppTextStyles.bodyMuted,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(
-              'Cancel',
-              style: AppTextStyles.bodyStrong
-                  .copyWith(color: AppColors.textGrey),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(
-              'Delete',
-              style: AppTextStyles.bodyStrong.copyWith(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
+    final ok = await showRadiusConfirm(
+      context,
+      title: 'Delete this message?',
+      message: 'It disappears for both of you. ${widget.userName} will see '
+          'that a message was deleted, in the place it was.',
+      confirmLabel: 'Delete',
+      destructive: true,
     );
-    if (ok != true || !mounted) return;
+    if (!ok || !mounted) return;
 
     try {
       await ref.read(chatActionsProvider).deleteMessage(convId, msg.id);
@@ -714,6 +793,16 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           const BannerAdWidget().paddingOnly(bottom: 10.h),
+          // The cap outlives the notice: once it has been hit, the composer
+          // says so in place until their reply lifts it.
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: _awaitingReply
+                ? _AwaitingReplyStrip(name: widget.userName)
+                : const SizedBox(width: double.infinity),
+          ),
           Row(
             children: [
               Expanded(
@@ -732,7 +821,14 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
                     decoration: InputDecoration(
                       hintText: 'Say something nice...',
                       hintStyle: TextStyle(color: AppColors.textGrey, fontSize: 14),
+                      // Every state, not just `border`: the theme's enabled
+                      // and focused outlines otherwise draw a second ring
+                      // inside the pill this sits in.
                       border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      disabledBorder: InputBorder.none,
+                      filled: false,
                       contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     ),
@@ -928,6 +1024,10 @@ class _EditMessageSheetState extends State<_EditMessageSheet> {
                 style: AppTextStyles.body,
                 decoration: const InputDecoration(
                   border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  filled: false,
                   counterText: '',
                 ),
               ),
@@ -941,6 +1041,43 @@ class _EditMessageSheetState extends State<_EditMessageSheet> {
             const SizedBox(height: 6),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The New Energy cap, stated where the next message would be typed.
+class _AwaitingReplyStrip extends StatelessWidget {
+  const _AwaitingReplyStrip({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final who = name.trim().isEmpty ? 'them' : name.trim();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+      child: Row(
+        children: [
+          Icon(
+            Icons.hourglass_bottom_rounded,
+            size: 15,
+            color: AppColors.primaryInk,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Your move is made — waiting for $who to reply.',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.textDark,
+                fontWeight: FontWeight.w600,
+                fontVariations: const [FontVariation('wght', 600)],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

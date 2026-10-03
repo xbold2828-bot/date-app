@@ -88,7 +88,9 @@ class AppText extends StatelessWidget {
         fontWeight: fontWeight,
         fontStyle: fontStyle,
         color: color,
-        fontFamily: fontFamily ?? 'Fraunces',
+        // DM Sans unless asked: the serif is for headlines, and defaulting to
+        // it set every legacy button and paragraph in display type.
+        fontFamily: fontFamily ?? 'DM Sans',
         letterSpacing: letterSpacing,
         wordSpacing: wordSpacing,
         height: height,

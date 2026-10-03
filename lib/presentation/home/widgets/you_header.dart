@@ -1,116 +1,52 @@
-import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/router/app_router.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/onboarding_maps.dart';
 import '../../../data/models/user_model.dart';
+import '../../../providers/location_sharing_provider.dart';
 import '../../common/widgets/widgets.dart';
-import 'live_location_line.dart';
 
-class YouHeader extends StatelessWidget {
-  const YouHeader({
-    super.key,
-    required this.me,
-    required this.avatarUrl,
-    this.isCurrentUser = true,
-  });
+/// The profile tab's top row: whose profile this is, and the way into
+/// settings. Everything that used to be a card further down the page — dark
+/// mode, blocked accounts, sign out — lives behind [onMenu] now.
+class YouTopBar extends StatelessWidget {
+  const YouTopBar({super.key, required this.me, required this.onMenu});
 
   final MeUser me;
-  final String? avatarUrl;
-  final bool isCurrentUser;
+  final VoidCallback onMenu;
 
   @override
   Widget build(BuildContext context) {
-    final isPremium = me.premium.isActive;
-    final isVerified = me.verified;
-
-    return Center(
-      child: Column(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 8, 4),
+      child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: isPremium
-                  ? LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppColors.premium,
-                  AppColors.premium.withValues(alpha: 0.55),
-                ],
-              )
-                  : null,
-              border: !isPremium
-                  ? Border.all(
-                color: isVerified ? AppColors.ok : AppColors.inputBorder,
-                width: 2,
-              )
-                  : null,
-              boxShadow: isPremium
-                  ? [
-                BoxShadow(
-                  color: AppColors.premium.withValues(alpha: 0.35),
-                  blurRadius: 16,
-                  spreadRadius: 1,
-                ),
-              ]
-                  : null,
-            ),
-            child: PremiumAvatar(
-              isPremium: isPremium,
-              isCurrentUser: isCurrentUser,
-              ringColor: isVerified ? AppColors.ok : AppColors.inputBorder,
-              child: avatarUrl != null
-                  ? CachedNetworkImage(
-                imageUrl: avatarUrl!,
-                fit: BoxFit.cover,
-                placeholder: (_, _) => Container(
-                  color: AppColors.inputBorder.withValues(alpha: 0.3),
-                  child: const Center(
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                ),
-                errorWidget: (_, _, _) => const Icon(
-                  Icons.person,
-                  size: 40,
-                  color: AppColors.onImage,
-                ),
-              )
-                  : const Icon(Icons.person, size: 40, color: AppColors.onImage),
+          Expanded(
+            child: NameWithTick(
+              name: me.displayName ?? 'You',
+              isVerified: me.verified,
+              style: AppTextStyles.title.copyWith(fontSize: 23),
+              tickSize: 19,
             ),
           ),
-
-          const SizedBox(height: 14),
-
-          NameWithTick(
-            name: me.age != null
-                ? '${me.displayName ?? 'You'}, ${me.age}'
-                : (me.displayName ?? 'You'),
-            isVerified: isVerified,
-            style: AppTextStyles.title.copyWith(
-              fontWeight: FontWeight.w700,
-              fontVariations: const [FontVariation('wght', 700)],
+          Semantics(
+            button: true,
+            label: 'Settings',
+            excludeSemantics: true,
+            child: IconButton(
+              onPressed: onMenu,
+              icon: Icon(
+                Icons.menu_rounded,
+                size: 27,
+                color: AppColors.textDark,
+              ),
+              tooltip: 'Settings',
             ),
-            tickSize: 19,
-            mainAxisAlignment: MainAxisAlignment.center,
-          ),
-
-          if (isPremium && isCurrentUser) ...[
-            const SizedBox(height: 10),
-            const _PremiumPill(),
-          ],
-
-          const SizedBox(height: 10),
-
-          LiveLocationLine(
-            city: me.location?.city,
-            anchorLatitude: me.location?.latitude,
-            anchorLongitude: me.location?.longitude,
           ),
         ],
       ),
@@ -118,48 +54,311 @@ class YouHeader extends StatelessWidget {
   }
 }
 
-class _PremiumPill extends StatelessWidget {
-  const _PremiumPill();
+/// Photo on the left, the three numbers on the right — the profile header
+/// everyone already knows how to read.
+class YouProfileHeader extends StatelessWidget {
+  const YouProfileHeader({
+    super.key,
+    required this.me,
+    required this.avatarUrl,
+    required this.visits,
+    required this.likes,
+    required this.friends,
+  });
+
+  final MeUser me;
+  final String? avatarUrl;
+
+  /// Each null renders as a dash — "we could not load this" is not "zero".
+  final int? visits;
+  final int? likes;
+  final int? friends;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [
-            AppColors.premium.withValues(alpha: 0.18),
-            AppColors.premiumTint,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.premium.withValues(alpha: 0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.premium.withValues(alpha: 0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+    final isPremium = me.premium.isActive;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 6, 16, 0),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.workspace_premium, size: 14, color: AppColors.premium),
+          PremiumAvatar(
+            size: 84,
+            isPremium: isPremium,
+            isCurrentUser: true,
+            ringColor: me.verified ? AppColors.ok : AppColors.inputBorder,
+            child: avatarUrl != null
+                ? CachedNetworkImage(
+                    imageUrl: avatarUrl!,
+                    fit: BoxFit.cover,
+                    placeholder: (_, _) =>
+                        ColoredBox(color: AppColors.inputBorder),
+                    errorWidget: (_, _, _) => _Monogram(name: me.displayName),
+                  )
+                : _Monogram(name: me.displayName),
+          ),
           const SizedBox(width: 6),
-          Text(
-            'PREMIUM',
-            style: AppTextStyles.caption.copyWith(
-              fontSize: 11,
-              color: AppColors.premiumInk,
-              letterSpacing: 1.2,
-              fontWeight: FontWeight.w700,
-              fontVariations: const [FontVariation('wght', 700)],
+          Expanded(
+            child: Row(
+              children: [
+                _Stat(value: visits, label: 'Visits'),
+                _Stat(value: likes, label: 'Likes'),
+                _Stat(value: friends, label: 'Friends'),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _Monogram extends StatelessWidget {
+  const _Monogram({this.name});
+
+  final String? name;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = (name ?? '').trim();
+    return DecoratedBox(
+      decoration: BoxDecoration(gradient: avatarGradient(3)),
+      child: Center(
+        child: n.isEmpty
+            ? const Icon(Icons.person, size: 38, color: AppColors.onImage)
+            : Text(n[0].toUpperCase(), style: AppTextStyles.avatarInitial(34)),
+      ),
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat({required this.value, required this.label});
+
+  final int? value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final count = value;
+    return Expanded(
+      child: Semantics(
+        label: count == null
+            ? '$label unavailable'
+            : '$count ${label.toLowerCase()}',
+        excludeSemantics: true,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                count == null ? '—' : compactCount(count),
+                maxLines: 1,
+                style: AppTextStyles.stat(21).copyWith(
+                  color: count == null
+                      ? AppColors.textGrey
+                      : AppColors.textDark,
+                ),
+              ),
+            ),
+            const SizedBox(height: 1),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.caption.copyWith(
+                fontSize: 13,
+                color: AppColors.textDark,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Who you are in one line, then your bio and your three words.
+class YouIdentity extends StatelessWidget {
+  const YouIdentity({
+    super.key,
+    required this.me,
+    required this.tagLabels,
+    required this.onWriteBio,
+  });
+
+  final MeUser me;
+  final Map<String, String> tagLabels;
+  final VoidCallback onWriteBio;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = me.profile;
+    final facts = [
+      if (me.age != null) '${me.age}',
+      if (p.intent.isNotEmpty) intentLabel(p.intent.first),
+      if (p.relationshipStatus != null &&
+          p.relationshipStatus != 'prefer_not_to_say')
+        relationshipStatusLabel(p.relationshipStatus!),
+      if ((me.location?.city ?? '').isNotEmpty) me.location!.city!,
+    ];
+    final bio = (p.bio ?? '').trim();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (facts.isNotEmpty)
+            Text(
+              facts.join(' · '),
+              style: AppTextStyles.bodyStrong.copyWith(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w700,
+                fontVariations: const [FontVariation('wght', 700)],
+              ),
+            ),
+          const SizedBox(height: 4),
+          if (bio.isNotEmpty)
+            Text(bio, style: AppTextStyles.body.copyWith(height: 1.5))
+          else
+            Semantics(
+              button: true,
+              label: 'Write a bio',
+              excludeSemantics: true,
+              child: InkWell(
+                onTap: onWriteBio,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Text(
+                    'Add a bio — say something worth replying to.',
+                    style: AppTextStyles.body.copyWith(
+                      color: AppColors.primaryInk,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (p.personalityTags.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final vibe in p.personalityTags)
+                  TagPill(
+                    label: tagLabels[vibe] ?? humanizeSlug(vibe),
+                    tone: TagTone.neutral,
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The two buttons under the header: edit, and where you stand on the map.
+class YouActions extends ConsumerWidget {
+  const YouActions({super.key, required this.me, required this.onEdit});
+
+  final MeUser me;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sharing =
+        ref.watch(locationSharingProvider).valueOrNull ?? me.locationSharing;
+    final on = sharing.isSharingWithAnyone;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Row(
+        children: [
+          Expanded(
+            child: TonalButton(label: 'Edit profile', onTap: onEdit),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TonalButton(
+              label: on ? 'Location · On' : 'Location · Off',
+              semanticLabel: _locationLabel(sharing),
+              leading: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: on ? AppColors.ok : AppColors.iconMuted,
+                ),
+              ),
+              onTap: () => context.push(AppRoutes.locationSharing),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _locationLabel(LocationSharing s) => s.isSharingWithAnyone
+      ? 'Live location is on. Choose who can see you'
+      : 'Live location is off. Choose who can see you';
+}
+
+/// A flat, neutral button for secondary actions on the profile — quieter than
+/// the app's primary blue, so "Edit profile" never competes with the things
+/// that actually move you forward.
+class TonalButton extends StatelessWidget {
+  const TonalButton({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.leading,
+    this.semanticLabel,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final Widget? leading;
+  final String? semanticLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: semanticLabel ?? label,
+      excludeSemantics: true,
+      child: Material(
+        color: AppColors.inputBorder,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 40),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (leading != null) ...[leading!, const SizedBox(width: 7)],
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.bodyStrong.copyWith(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      fontVariations: const [FontVariation('wght', 700)],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

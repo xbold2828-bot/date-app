@@ -1,8 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:dating_app/core/constants/app_string.dart';
-import 'package:dating_app/core/utils/utils.dart';
-import 'package:dating_app/shared/widgets/buttons/common_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,13 +8,12 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
-import '../../../core/extensions/global_back_extension.dart';
-import '../../../core/extensions/unfocus_on_tap_extension.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/media_model.dart';
 import '../../../providers/core_providers.dart';
 import '../../../providers/profile_provider.dart';
+import '../../common/widgets/widgets.dart';
 import '../widgets/onboarding_widgets.dart';
 
 class _PickedPhoto {
@@ -26,6 +23,7 @@ class _PickedPhoto {
   final String contentType;
 }
 
+/// Step 6 — up to five photos, the first one the cover.
 class BasicsScreen4 extends ConsumerStatefulWidget {
   const BasicsScreen4({super.key});
 
@@ -51,6 +49,9 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
     return 'image/jpeg';
   }
 
+  /// Picks into [index] — empty or not. Tapping a photo that is already there
+  /// swaps it; removing is its own, smaller control, so a stray tap can never
+  /// throw a photo away (it used to).
   Future<void> _pickPhoto(int index) async {
     try {
       final file = await _picker.pickImage(
@@ -69,8 +70,13 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
         );
       });
     } catch (_) {
-      if (mounted) _showSnack(AppString.galleryError);
+      _toast(AppString.galleryError, tone: ToastTone.error);
     }
+  }
+
+  void _pickIntoFirstEmpty() {
+    final index = _photos.indexWhere((p) => p == null);
+    if (index >= 0) _pickPhoto(index);
   }
 
   void _removePhoto(int index) => setState(() => _photos[index] = null);
@@ -114,17 +120,20 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
 
       if (!mounted) return;
       if (stepError != null && uploaded == 0) {
-        _showSnack(AppString.photoStepError(stepError));
+        _toast(AppString.photoStepError(stepError), tone: ToastTone.error);
       } else if (rejected > 0 && uploaded == 0) {
-        _showSnack(rejectionMessage ?? AppString.photosRejectedDefault);
+        _toast(
+          rejectionMessage ?? AppString.photosRejectedDefault,
+          tone: ToastTone.error,
+        );
       } else if (rejected > 0) {
-        _showSnack(
+        _toast(
           AppString.photosPartialRejected(uploaded, picked.length, rejected),
         );
       } else if (picked.isNotEmpty && uploaded == 0) {
-        _showSnack(AppString.photosUploadFailed);
+        _toast(AppString.photosUploadFailed, tone: ToastTone.error);
       } else if (firstFailure != null) {
-        _showSnack(AppString.photosPartialFailed(uploaded, picked.length));
+        _toast(AppString.photosPartialFailed(uploaded, picked.length));
       }
 
       context.push(AppRoutes.location);
@@ -133,132 +142,37 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
     }
   }
 
-  void _showSnack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  void _toast(String msg, {ToastTone tone = ToastTone.neutral}) {
+    if (mounted) showRadiusToast(context, msg, tone: tone);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            OnboardingHeader(
-              step: 6,
-              label: AppString.sectionIdentity,
-              trailing: _isLoading
-                  ? null
-                  : GestureDetector(
-                onTap: _onContinue,
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    AppString.skip,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: AppColors.textGrey,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            spacerH(20),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(AppString.photosTitle, style: AppTextStyles.display),
-                    spacerH(6),
-                    Text(
-                      AppString.photosSubtitle,
-                      style: TextStyle(fontSize: 13, color: AppColors.textGrey),
-                    ),
-                    spacerH(24),
-                    _photoGrid(),
-                    spacerH(20),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: AppColors.primary.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.block, size: 16, color: AppColors.primary),
-                          spacerW(10),
-                          Expanded(
-                            child: Text(
-                              AppString.photoGuidelines,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    spacerH(24),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.lightbulb_outline,
-                          size: 16,
-                          color: AppColors.textGrey,
-                        ),
-                        spacerW(6),
-                        Expanded(
-                          child: Text(
-                            AppString.photoTipsTitle,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textDark,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    spacerH(14),
-                    _tipCard(
-                      icon: Icons.wb_sunny_outlined,
-                      title: AppString.tipLightingTitle,
-                      subtitle: AppString.tipLightingBody,
-                    ),
-                    spacerH(10),
-                    _tipCard(
-                      icon: Icons.remove_red_eye_outlined,
-                      title: AppString.tipEyesTitle,
-                      subtitle: AppString.tipEyesBody,
-                    ),
-                    spacerH(32),
-                    CommonButton(
-                      text: _hasAnyPhoto
-                          ? AppString.continueText
-                          : AppString.continueWithoutPhotos,
-                      isLoading: _isLoading,
-                      onClick: _onContinue,
-                    ),
-                    spacerH(40),
-                  ],
-                ),
-              ),
-            ),
-          ],
+    return OnboardingScaffold(
+      step: 6,
+      section: AppString.sectionIdentity,
+      title: AppString.photosTitle,
+      subtitle: AppString.photosSubtitle,
+      actionLabel: _hasAnyPhoto
+          ? AppString.continueText
+          : AppString.photosAddFirst,
+      onAction: _hasAnyPhoto ? _onContinue : _pickIntoFirstEmpty,
+      isLoading: _isLoading,
+      secondaryLabel: _hasAnyPhoto ? null : AppString.photosSkipForNow,
+      onSecondary: _hasAnyPhoto ? null : _onContinue,
+      children: [
+        _photoGrid(),
+        const SizedBox(height: 24),
+        const FactLine(
+          icon: Icons.wb_sunny_outlined,
+          text: AppString.photosTipLine,
         ),
-      ),
-    ).unfocusOnTap().withGlobalBackHandler(context);
+        const FactLine(
+          icon: Icons.shield_outlined,
+          text: AppString.photoGuidelines,
+        ),
+      ],
+    );
   }
 
   Widget _photoGrid() {
@@ -321,146 +235,147 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
 
   Widget _photoTile({required int index, bool isPrimary = false}) {
     final photo = _photos[index];
+    final radius = BorderRadius.circular(isPrimary ? 22 : 16);
 
-    return GestureDetector(
-      key: BasicsScreen4.photoSlotKey(index),
-      onTap: () => photo != null ? _removePhoto(index) : _pickPhoto(index),
-      child: Container(
-        decoration: BoxDecoration(
+    if (photo == null) {
+      return Semantics(
+        button: true,
+        label: isPrimary ? 'Add your cover photo' : 'Add photo ${index + 1}',
+        excludeSemantics: true,
+        child: Material(
+          key: BasicsScreen4.photoSlotKey(index),
           color: AppColors.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: photo != null ? AppColors.primary : AppColors.inputBorder,
-            width: photo != null ? 1.5 : 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: radius,
+            side: BorderSide(color: AppColors.inputBorder, width: 1.5),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => _pickPhoto(index),
+            child: Center(
+              child: isPrimary
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.add_rounded,
+                            size: 26,
+                            color: AppColors.onAccent,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          AppString.photoPrimaryTile,
+                          style: AppTextStyles.bodyStrong.copyWith(
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Icon(
+                      Icons.add_rounded,
+                      size: 24,
+                      color: AppColors.iconMuted,
+                    ),
+            ),
           ),
         ),
-        child: photo == null
-            ? Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (isPrimary) ...[
-              Icon(
-                Icons.add_a_photo_outlined,
-                size: 28,
-                color: AppColors.textGrey,
-              ),
-              spacerH(8),
-              Text(
-                AppString.photoPrimaryTile,
-                style: TextStyle(fontSize: 12, color: AppColors.textGrey),
-              ),
-            ] else
-              Icon(
-                Icons.add,
-                size: 22,
-                color: AppColors.primary.withValues(alpha: 0.6),
-              ),
-          ],
-        )
-            : Stack(
-          fit: StackFit.expand,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(11),
-              child: Image.memory(
+      );
+    }
+
+    return Semantics(
+      button: true,
+      label: isPrimary
+          ? 'Cover photo. Tap to replace'
+          : 'Photo ${index + 1}. Tap to replace',
+      child: Material(
+        key: BasicsScreen4.photoSlotKey(index),
+        color: AppColors.inputBorder,
+        shape: RoundedRectangleBorder(borderRadius: radius),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _pickPhoto(index),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.memory(
                 photo.bytes,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  color: AppColors.primary.withValues(alpha: 0.12),
+                gaplessPlayback: true,
+                errorBuilder: (_, _, _) => Center(
                   child: Icon(
                     Icons.broken_image_outlined,
                     color: AppColors.textGrey,
                   ),
                 ),
               ),
-            ),
-            Positioned(
-              top: 6,
-              right: 6,
-              child: GestureDetector(
-                onTap: () => _removePhoto(index),
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.6),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.close,
-                    size: 14,
-                    color: AppColors.onImage,
-                  ),
-                ),
-              ),
-            ),
-            if (index == 0)
               Positioned(
-                bottom: 6,
-                left: 6,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Text(
-                    AppString.photoPrimaryBadge,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: AppColors.onImage,
-                      fontWeight: FontWeight.w600,
+                top: 6,
+                right: 6,
+                child: Semantics(
+                  button: true,
+                  label: 'Remove photo',
+                  excludeSemantics: true,
+                  child: GestureDetector(
+                    onTap: () => _removePhoto(index),
+                    behavior: HitTestBehavior.opaque,
+                    // A 36px target around a 26px mark.
+                    child: SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: Center(
+                        child: Container(
+                          width: 26,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.55),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            size: 15,
+                            color: AppColors.onImage,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _tipCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.inputBorder),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18, color: AppColors.primary),
-          spacerW(12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
+              if (isPrimary)
+                Positioned(
+                  left: 10,
+                  bottom: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      AppString.photoPrimaryBadge,
+                      style: AppTextStyles.caption.copyWith(
+                        fontSize: 11.5,
+                        color: AppColors.onImage,
+                        fontWeight: FontWeight.w700,
+                        fontVariations: const [FontVariation('wght', 700)],
+                      ),
+                    ),
                   ),
                 ),
-                spacerH(3),
-                Text(
-                  subtitle,
-                  style: TextStyle(fontSize: 12, color: AppColors.primary),
-                ),
-              ],
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

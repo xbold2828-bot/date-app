@@ -14,6 +14,7 @@ export 'profile_metrics_row.dart';
 export 'radar_mark.dart';
 export 'radius_button.dart';
 export 'radius_chip.dart';
+export 'radius_dialog.dart';
 export 'radius_option_tile.dart';
 export 'radius_sheet.dart';
 export 'radius_surfaces.dart';

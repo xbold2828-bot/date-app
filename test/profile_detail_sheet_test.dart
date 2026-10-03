@@ -171,7 +171,7 @@ void main() {
         tagLabels: const {'night_owl': 'Night owl', 'slow_burn': 'Slow burn'},
       );
 
-      expect(find.text('AVA, 27'), findsOneWidget);
+      expect(find.text('Ava, 27'), findsOneWidget);
       expect(find.text('Here for the good coffee.'), findsOneWidget);
 
       // Enum slugs resolved through the label maps.
@@ -216,9 +216,9 @@ void main() {
     testWidgets('hides sections the person left empty', (tester) async {
       await _pump(tester, profile: _profile());
 
-      expect(find.text('HERE FOR'), findsNothing);
-      expect(find.text('SITUATION'), findsNothing);
-      expect(find.text('INTERESTS & VIBES'), findsNothing);
+      expect(find.text('Here for'), findsNothing);
+      expect(find.text('Situation'), findsNothing);
+      expect(find.text('Interests & vibes'), findsNothing);
     });
 
     testWidgets('explains a locked desires section instead of hiding it',

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -112,7 +113,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
 
     return [
       for (final plan in _fallbackPlans)
-            () {
+        () {
           final priced = catalogue.plans.where((p) => p.plan == plan.id);
           if (priced.isEmpty) return plan;
           final option = priced.first;
@@ -124,7 +125,6 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
     ];
   }
 
-
   /// Buy the selected plan.
   ///
   /// The backend's sandbox payment provider confirms inline and returns no
@@ -135,8 +135,9 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
     if (_isLoading) return;
     setState(() => _isLoading = true);
     try {
-      final result =
-      await ref.read(subscriptionActionsProvider).checkout(_selectedPlan);
+      final result = await ref
+          .read(subscriptionActionsProvider)
+          .checkout(_selectedPlan);
 
       if (!mounted) return;
       if (result.isConfirmed) {
@@ -180,7 +181,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
     // to agree with the cards about what the selected plan costs.
     final plans = _plans;
     final current = plans.firstWhere(
-          (p) => p.id == _selectedPlan,
+      (p) => p.id == _selectedPlan,
       orElse: () => plans.first,
     );
 
@@ -200,42 +201,29 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
                 children: [
-                  Text('cozune Premium', style: AppTextStyles.eyebrow),
-                  const SizedBox(height: 10),
-                  Text(
-                    'See everyone.\nFilter everything.',
-                    style: AppTextStyles.display,
-                  ),
-                  const SizedBox(height: 22),
-
-                  ..._benefits.map(
-                        (b) => TickRow(
-                      child: Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(
-                              text: b.claim,
-                              style: AppTextStyles.bodyStrong,
-                            ),
-                            TextSpan(
-                              text: ' — ${b.detail}',
-                              style: AppTextStyles.bodyMuted,
-                            ),
-                          ],
-                        ),
-                      ),
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      'See everyone.\nFilter everything.',
+                      style: AppTextStyles.question,
                     ),
                   ),
+                  const SizedBox(height: 24),
 
-                  const SizedBox(height: 20),
+                  for (final b in _benefits) _BenefitRow(benefit: b),
+
+                  const SizedBox(height: 22),
 
                   ...plans.map(
-                        (plan) => Padding(
+                    (plan) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: _PlanCard(
                         plan: plan,
                         selected: plan.id == _selectedPlan,
-                        onTap: () => setState(() => _selectedPlan = plan.id),
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          setState(() => _selectedPlan = plan.id);
+                        },
                       ),
                     ),
                   ),
@@ -258,7 +246,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                       child: Text(
                         _isRestoring ? 'Restoring…' : 'Restore purchase',
                         style: AppTextStyles.bodyStrong.copyWith(
-                          color: AppColors.primary,
+                          color: AppColors.textGrey,
                         ),
                       ),
                     ),
@@ -266,9 +254,9 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                   const SizedBox(height: 6),
                   Text(
                     'Billed through the App Store or Play Store. Cancel any '
-                        'time from your store account.',
+                    'time from your store account.',
                     textAlign: TextAlign.center,
-                    style: AppTextStyles.caption.copyWith(fontSize: 11.5),
+                    style: AppTextStyles.caption.copyWith(fontSize: 12),
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -281,7 +269,56 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   }
 }
 
-/// A plan, priced. Selection changes fill, border and the radio mark together
+/// One thing Premium gets you: the claim, and under it the plain fact behind
+/// it. A check in premium ink — the same purple as the button that buys it.
+class _BenefitRow extends StatelessWidget {
+  const _BenefitRow({required this.benefit});
+
+  final _Benefit benefit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(
+              Icons.check_rounded,
+              size: 20,
+              color: AppColors.premiumInk,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  benefit.claim,
+                  style: AppTextStyles.bodyStrong.copyWith(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w600,
+                    fontVariations: const [FontVariation('wght', 600)],
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  benefit.detail,
+                  style: AppTextStyles.bodyMuted.copyWith(fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A plan, priced. Selection changes the border and the radio mark together
 /// — never the border alone.
 class _PlanCard extends StatelessWidget {
   const _PlanCard({
@@ -301,6 +338,7 @@ class _PlanCard extends StatelessWidget {
       subtitle: plan.sublabel,
       selected: selected,
       onTap: onTap,
+      accent: AppColors.premium,
       // Both currencies, one under the other. The dollar figure keeps the
       // display face it has always had; the rupee price sits beneath it in
       // caption type, because it is the same price said again rather than a
@@ -311,9 +349,8 @@ class _PlanCard extends StatelessWidget {
         children: [
           Text(
             plan.price,
-            style: AppTextStyles.title.copyWith(
-              fontSize: 22,
-              color: selected ? AppColors.primaryInk : AppColors.textDark,
+            style: AppTextStyles.stat(22).copyWith(
+              color: selected ? AppColors.premiumInk : AppColors.textDark,
             ),
           ),
           if (plan.priceInr != null)
@@ -337,17 +374,17 @@ class _PlanCard extends StatelessWidget {
           top: -4,
           right: 16,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
             decoration: BoxDecoration(
               color: AppColors.premium,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.background, width: 2),
             ),
             child: Text(
-              'BEST VALUE',
+              'Best value',
               style: AppTextStyles.caption.copyWith(
-                fontSize: 10,
+                fontSize: 11.5,
                 color: AppColors.onAccent,
-                letterSpacing: 0.6,
                 fontWeight: FontWeight.w700,
                 fontVariations: const [FontVariation('wght', 700)],
               ),
@@ -358,7 +395,6 @@ class _PlanCard extends StatelessWidget {
     );
   }
 }
-
 
 // import 'package:flutter/material.dart';
 // import 'package:flutter_riverpod/flutter_riverpod.dart';

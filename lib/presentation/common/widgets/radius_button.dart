@@ -102,9 +102,8 @@ class RadiusButton extends StatelessWidget {
       child: Opacity(
         opacity: enabled ? 1 : 0.55,
         child: Material(
-          // The premium variant is a gradient, which no Material colour can
-          // express — so the decoration lives on the Ink below and Material
-          // itself stays transparent.
+          // The fill lives on the Ink below, so the splash paints over it;
+          // Material itself stays transparent.
           color: Colors.transparent,
           child: Ink(
             decoration: _decoration(enabled),
@@ -148,12 +147,10 @@ class RadiusButton extends StatelessWidget {
           borderRadius: radius,
           border: Border.all(color: AppColors.inputBorder, width: 1.5),
         ),
+      // Solid, like primary. The purple is what says "this costs money";
+      // a sheen across it only said "template".
       RadiusButtonKind.premium => BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppColors.premium, AppColors.premiumDeep],
-          ),
+          color: AppColors.premium,
           borderRadius: radius,
         ),
     };

@@ -16,9 +16,13 @@ class LiveLocationLine extends ConsumerStatefulWidget {
     this.city,
     this.anchorLatitude,
     this.anchorLongitude,
+    this.alignment = CrossAxisAlignment.center,
   });
 
   final String? city;
+
+  /// Centred under a centred header; start-aligned in a list.
+  final CrossAxisAlignment alignment;
 
   final double? anchorLatitude;
   final double? anchorLongitude;
@@ -130,10 +134,13 @@ class _LiveLocationLineState extends ConsumerState<LiveLocationLine> {
 
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: widget.alignment,
       children: [
         if (city != null && city.isNotEmpty)
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: widget.alignment == CrossAxisAlignment.start
+                ? MainAxisAlignment.start
+                : MainAxisAlignment.center,
             children: [
               Icon(
                 Icons.location_on_outlined,
@@ -181,6 +188,7 @@ class _LiveLocationLineState extends ConsumerState<LiveLocationLine> {
         final drift = _drift(fix);
         return Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: widget.alignment,
           children: [
             Text(
               _coordinates(fix),

@@ -34,10 +34,7 @@ class Wordmark extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          staticImage(
-            h: 30.h,
-            url: AppIcons.roundedLauncherIconNoBg,
-          ),
+          staticImage(h: 30.h, url: AppIcons.roundedLauncherIconNoBg),
           spacerW(5),
           Text.rich(
             TextSpan(
@@ -56,16 +53,40 @@ class Wordmark extends StatelessWidget {
   }
 }
 
-/// Top chrome for every onboarding screen: back, wordmark, step counter and
-/// progress track.
+/// Whether there is a page behind this one, asked of whichever navigator the
+/// screen actually lives in.
 ///
-/// One widget so all ten steps read identically — and so the progress track
-/// can never disagree with the step number.
+/// The funnel runs under go_router, but one step (the live check) is pushed
+/// imperatively and tests pump screens under a bare [MaterialApp]. Asking
+/// `GoRouter.of` there throws; asking the nearest navigator never does.
+bool routeCanPop(BuildContext context) {
+  final router = GoRouter.maybeOf(context);
+  if (router != null && router.canPop()) return true;
+  return Navigator.maybeOf(context)?.canPop() ?? false;
+}
+
+/// Pops through the same navigator [routeCanPop] consulted — the router when
+/// there is one (exactly what `context.pop()` did before), the plain navigator
+/// otherwise.
+void routePop(BuildContext context) {
+  final router = GoRouter.maybeOf(context);
+  if (router != null && router.canPop()) {
+    router.pop();
+    return;
+  }
+  Navigator.maybeOf(context)?.maybePop();
+}
+
+/// Top chrome for every onboarding step: a row of story-style segments, one
+/// per step, and under it the way back and where you are.
 ///
-/// The back button is shown only when there is something to go back to:
-/// either a custom [onBack] was supplied, or go_router has a page to pop
-/// ([BuildContext.canPop]). When it is hidden, the gap after it is removed
-/// too, so the wordmark sits flush with the left edge.
+/// Segments rather than a percentage bar because eight short, separate pieces
+/// say "eight quick questions" — the honest promise of this funnel — where one
+/// long bar inching along says "form". The current step's segment fills as the
+/// screen arrives, which is the only motion on it.
+///
+/// [label] names the section for screen readers only. On screen it was an
+/// uppercase caption competing with the question for the first glance.
 class StepHeader extends StatelessWidget {
   final bool isShowBackButton;
   const StepHeader({
@@ -73,72 +94,80 @@ class StepHeader extends StatelessWidget {
     required this.step,
     required this.label,
     this.onBack,
-    this.isShowBackButton=true,
-
+    this.isShowBackButton = true,
     this.trailing,
   });
 
   /// 1-based position in the canonical funnel.
   final int step;
 
-  /// The section name shown opposite the counter, e.g. "IDENTITY".
+  /// The section name, e.g. "Identity". Announced, not drawn.
   final String label;
 
-  /// Overrides the default `context.pop()` behaviour.
+  /// Overrides the default pop.
   final VoidCallback? onBack;
+
+  /// Sits at the right end of the row — "Skip", usually.
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
-    final canPop = onBack != null || context.canPop();
-    final progress = (step / kOnboardingStepCount).clamp(0.0, 1.0);
+    final showBack =
+        isShowBackButton && (onBack != null || routeCanPop(context));
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 16, 22, 0),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
       child: Column(
         children: [
-          Row(
-            children: [
-              if (canPop && isShowBackButton) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: StepSegments(
+              step: step,
+              total: kOnboardingStepCount,
+              section: label,
+            ),
+          ),
+          const SizedBox(height: 4),
+          SizedBox(
+            height: 48,
+            child: Row(
+              children: [
                 SizedBox(
-                  width: 38,
-                  height: 38,
-                  child: BackButton(onTap: onBack ?? () => context.pop()),
+                  width: 72,
+                  child: showBack
+                      ? Align(
+                          alignment: Alignment.centerLeft,
+                          child: BackChevron(
+                            onTap: onBack ?? () => routePop(context),
+                          ),
+                        )
+                      : null,
                 ),
-                spacerW(12),
+                Expanded(
+                  child: ExcludeSemantics(
+                    child: Text(
+                      '$step of $kOnboardingStepCount',
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.caption.copyWith(
+                        fontSize: 13,
+                        color: AppColors.textGrey,
+                        fontWeight: FontWeight.w600,
+                        fontVariations: const [FontVariation('wght', 600)],
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 72,
+                  child: trailing == null
+                      ? null
+                      : Align(
+                          alignment: Alignment.centerRight,
+                          child: trailing,
+                        ),
+                ),
               ],
-              const Expanded(child: Wordmark(size: 17)),
-              SizedBox(width: 38, child: trailing),
-            ],
-          ),
-          spacerH(14),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'STEP $step OF $kOnboardingStepCount',
-                style: AppTextStyles.label.copyWith(color: AppColors.primary),
-              ),
-              Text(label.toUpperCase(), style: AppTextStyles.label),
-            ],
-          ),
-          spacerH(8),
-          Semantics(
-            label: 'Step $step of $kOnboardingStepCount',
-            value: '${(progress * 100).round()} percent',
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: progress),
-                duration: const Duration(milliseconds: 400),
-                curve: Curves.easeOut,
-                builder: (context, value, _) => LinearProgressIndicator(
-                  value: value,
-                  minHeight: 3,
-                  backgroundColor: AppColors.inputBorder,
-                  valueColor: AlwaysStoppedAnimation(AppColors.primary),
-                ),
-              ),
             ),
           ),
         ],
@@ -147,7 +176,129 @@ class StepHeader extends StatelessWidget {
   }
 }
 
-/// The square back affordance used across onboarding and detail screens.
+/// [total] thin segments; those before [step] full, the current one filling
+/// in as it arrives, the rest waiting.
+class StepSegments extends StatelessWidget {
+  const StepSegments({
+    super.key,
+    required this.step,
+    required this.total,
+    this.section,
+  });
+
+  final int step;
+  final int total;
+  final String? section;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final current = step.clamp(1, total);
+
+    return Semantics(
+      label:
+          'Step $current of $total'
+          '${section == null || section!.isEmpty ? '' : ', ${_sentenceCase(section!)}'}',
+      excludeSemantics: true,
+      child: Row(
+        children: [
+          for (var i = 0; i < total; i++) ...[
+            if (i > 0) const SizedBox(width: 4),
+            Expanded(
+              child: _Segment(
+                fill: i < current - 1 ? 1 : (i == current - 1 ? null : 0),
+                animate: !reduceMotion,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static String _sentenceCase(String s) {
+    final lower = s.toLowerCase();
+    return lower[0].toUpperCase() + lower.substring(1);
+  }
+}
+
+class _Segment extends StatelessWidget {
+  const _Segment({required this.fill, required this.animate});
+
+  /// 0 or 1 for settled segments; null for the one filling in now.
+  final double? fill;
+  final bool animate;
+
+  static const _easeOut = Cubic(0.23, 1, 0.32, 1);
+
+  @override
+  Widget build(BuildContext context) {
+    Widget bar(double value) => ClipRRect(
+      borderRadius: BorderRadius.circular(2),
+      child: SizedBox(
+        height: 3.5,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ColoredBox(color: AppColors.inputBorder),
+            FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: value,
+              child: ColoredBox(color: AppColors.primary),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final settled = fill;
+    if (settled != null) return bar(settled);
+    if (!animate) return bar(1);
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 560),
+      curve: _easeOut,
+      builder: (context, value, _) => bar(value),
+    );
+  }
+}
+
+/// A plain back arrow with a full-size touch target — no box around it. The
+/// boxed square it replaces was the loudest thing in the header.
+class BackChevron extends StatelessWidget {
+  const BackChevron({super.key, required this.onTap, this.color});
+
+  final VoidCallback onTap;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Go back',
+      excludeSemantics: true,
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: Icon(
+              Icons.arrow_back_rounded,
+              size: 24,
+              color: color ?? AppColors.textDark,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The square back affordance used across detail screens.
 class BackButton extends StatelessWidget {
   const BackButton({super.key, required this.onTap});
 
@@ -170,11 +321,7 @@ class BackButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.inputBorder),
             ),
-            child: Icon(
-              Icons.arrow_back,
-              size: 19,
-              color: AppColors.textDark,
-            ),
+            child: Icon(Icons.arrow_back, size: 19, color: AppColors.textDark),
           ),
         ),
       ),
@@ -192,13 +339,13 @@ class RadiusBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canPop = onTap != null || context.canPop();
+    final canPop = onTap != null || routeCanPop(context);
     if (!canPop) return const SizedBox.shrink();
 
     return SizedBox(
       width: 38,
       height: 38,
-      child: BackButton(onTap: onTap ?? () => context.pop()),
+      child: BackButton(onTap: onTap ?? () => routePop(context)),
     );
   }
 }

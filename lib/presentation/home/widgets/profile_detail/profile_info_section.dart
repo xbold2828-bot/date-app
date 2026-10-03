@@ -59,7 +59,7 @@ class ProfileInfoSection extends StatelessWidget {
         (band != null && band.isNotEmpty ? '$band away' : null);
 
     final place = [
-      if (distance != null) distance.toUpperCase(),
+      ?distance,
       if (profile?.city != null && profile!.city!.isNotEmpty) profile!.city!,
     ].join(' · ');
 
@@ -73,12 +73,10 @@ class ProfileInfoSection extends StatelessWidget {
           // profile this is. Only for people the backend actually marked
           // verified: a badge everyone gets is a badge that says nothing.
           NameWithTick(
-            name: age != null
-                ? '${name.toUpperCase()}, $age'
-                : name.toUpperCase(),
+            name: age != null ? '$name, $age' : name,
             isVerified: profile?.isVerified ?? false,
-            style: AppTextStyles.title,
-            tickSize: 21,
+            style: AppTextStyles.title.copyWith(fontSize: 26),
+            tickSize: 22,
             maxLines: 2,
           ),
 
@@ -106,12 +104,7 @@ class ProfileInfoSection extends StatelessWidget {
                     place,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.caption.copyWith(
-                      fontSize: 11.5,
-                      letterSpacing: 0.5,
-                      fontWeight: FontWeight.w700,
-                      fontVariations: const [FontVariation('wght', 700)],
-                    ),
+                    style: AppTextStyles.caption.copyWith(fontSize: 13.5),
                   ),
                 ),
               ],

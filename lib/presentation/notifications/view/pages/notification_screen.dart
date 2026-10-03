@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/constants/app_text_styles.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../common/widgets/radius_button.dart';
 import '../../models/notification_model.dart';
 import '../../viewmodel/providers/notification_provider/notification_provider.dart';
 import '../../viewmodel/providers/notification_provider/notification_state.dart';
@@ -53,18 +56,24 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final state = ref.watch(notificationListNotifierProvider);
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       // REMOVED: the manual "Mark all read" TextButton — the notifier now
       // marks everything read automatically right after a successful list
       // fetch (see notification_provider.dart), so a separate button here
       // would just be a redundant, confusing no-op most of the time.
-      appBar: AppBar(title: const Text('Notifications')),
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        title: Text('Notifications', style: AppTextStyles.title),
+      ),
       body: _buildBody(state),
     );
   }
 
   Widget _buildBody(NotificationListState state) {
     if (state.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
 
     if (state.error != null && !state.hasData) {
@@ -80,20 +89,27 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
 
     return RefreshIndicator(
+      color: AppColors.primary,
+      backgroundColor: AppColors.card,
       onRefresh: () =>
           ref.read(notificationListNotifierProvider.notifier).refresh(),
       child: ListView.builder(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.only(top: 4, bottom: 24),
         // Each group renders as: 1 date header + N items, plus a trailing
         // loader row when a next page is being fetched.
         itemCount: state.groups.length + (state.isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
           if (index >= state.groups.length) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primary,
+                ),
+              ),
             );
           }
           return _NotificationGroupSection(group: state.groups[index]);
@@ -114,16 +130,17 @@ class _NotificationGroupSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text(
-            // The server's "date" bucket is a UTC-derived value. Convert
-            // to the device's local day before comparing against
-            // "today"/"yesterday", or a notification created late at night
-            // UTC can land under the wrong header on the user's phone.
-            _formatGroupDate(group.date.orNullLocal),
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: Colors.grey,
-              fontWeight: FontWeight.w600,
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+          child: Semantics(
+            header: true,
+            child: Text(
+              // The server's "date" bucket is a UTC-derived value. Convert
+              // to the device's local day before comparing against
+              // "today"/"yesterday", or a notification created late at
+              // night UTC can land under the wrong header on the user's
+              // phone.
+              _formatGroupDate(group.date.orNullLocal),
+              style: AppTextStyles.label,
             ),
           ),
         ),
@@ -156,54 +173,129 @@ class _NotificationTile extends StatelessWidget {
     // place so nothing downstream accidentally reads the raw UTC value.
     final localTime = item.time.orNullLocal;
 
-    return Container(
-      color: item.isRead ? null : Theme.of(context).primaryColor.withValues(alpha:0.05),
-      child: ListTile(
-        leading: _iconFor(item.type),
-        title: Text(
-          item.title,
-          style: TextStyle(
-            fontWeight: item.isRead ? FontWeight.normal : FontWeight.w700,
-          ),
+    final unread = !item.isRead;
+
+    return Semantics(
+      label: [
+        if (unread) 'New',
+        item.title,
+        item.message,
+        if (localTime != null) DateFormat('h:mm a').format(localTime),
+      ].join('. '),
+      excludeSemantics: true,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _TypeMark(type: item.type),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.bodyStrong.copyWith(
+                      fontSize: 15,
+                      fontWeight: unread ? FontWeight.w700 : FontWeight.w500,
+                      fontVariations: [
+                        FontVariation('wght', unread ? 700 : 500),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    item.message,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.bodyMuted.copyWith(
+                      fontSize: 14,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (localTime != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      DateFormat('h:mm a').format(localTime),
+                      style: AppTextStyles.caption.copyWith(
+                        fontSize: 12,
+                        color: unread ? AppColors.primaryInk : null,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                if (unread) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
         ),
-        subtitle: Text(
-          item.message,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: localTime != null
-            ? Text(
-          DateFormat('h:mm a').format(localTime),
-          style: Theme.of(context).textTheme.bodySmall,
-        )
-            : null,
       ),
     );
   }
+}
 
-  Icon _iconFor(NotificationType type) {
-    switch (type) {
-      case NotificationType.match:
-        return const Icon(Icons.favorite, color: Colors.pink);
-      case NotificationType.message:
-        return const Icon(Icons.chat_bubble, color: Colors.blue);
-      case NotificationType.like:
-        return const Icon(Icons.thumb_up, color: Colors.purple);
-      case NotificationType.superLike:
-        return const Icon(Icons.star, color: Colors.amber);
-      case NotificationType.profileView:
-        return const Icon(Icons.visibility, color: Colors.teal);
-      case NotificationType.verification:
-        return const Icon(Icons.verified, color: Colors.green);
-      case NotificationType.promo:
-        return const Icon(Icons.local_offer, color: Colors.orange);
-      case NotificationType.matchExpiring:
-        return const Icon(Icons.hourglass_bottom, color: Colors.redAccent);
-      case NotificationType.safety:
-        return const Icon(Icons.shield, color: Colors.indigo);
-      case NotificationType.unknown:
-        return const Icon(Icons.notifications, color: Colors.grey);
-    }
+/// What kind of notification this is, as one ink glyph on a quiet disc. One
+/// colour for all of them: a list of nine hues read as a toy box, and the
+/// title already says what happened.
+class _TypeMark extends StatelessWidget {
+  const _TypeMark({required this.type});
+
+  final NotificationType type;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = switch (type) {
+      NotificationType.match => Icons.favorite_rounded,
+      NotificationType.message => Icons.chat_bubble_outline_rounded,
+      NotificationType.like => Icons.favorite_border_rounded,
+      NotificationType.superLike => Icons.star_border_rounded,
+      NotificationType.profileView => Icons.visibility_outlined,
+      NotificationType.verification => Icons.verified_outlined,
+      NotificationType.promo => Icons.local_offer_outlined,
+      NotificationType.matchExpiring => Icons.hourglass_bottom_rounded,
+      NotificationType.safety => Icons.shield_outlined,
+      NotificationType.unknown => Icons.notifications_none_rounded,
+    };
+    // A mutual like is the one worth the accent.
+    final accent = type == NotificationType.match;
+
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: accent ? AppColors.primaryTint : AppColors.card,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: accent ? AppColors.primarySoft : AppColors.inputBorder,
+        ),
+      ),
+      child: Icon(
+        icon,
+        size: 20,
+        color: accent ? AppColors.primary : AppColors.textDark,
+      ),
+    );
   }
 }
 
@@ -217,15 +309,28 @@ class _ErrorView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, size: 40, color: Colors.grey),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
+            Text(
+              "Couldn't load your notifications",
+              textAlign: TextAlign.center,
+              style: AppTextStyles.title.copyWith(fontSize: 18),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.caption.copyWith(fontSize: 13.5),
+            ),
+            const SizedBox(height: 20),
+            RadiusButton(
+              label: 'Try again',
+              kind: RadiusButtonKind.ghost,
+              expand: false,
+              onPressed: onRetry,
+            ),
           ],
         ),
       ),
@@ -238,15 +343,29 @@ class _EmptyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(24),
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.notifications_none, size: 48, color: Colors.grey),
-            SizedBox(height: 12),
-            Text('You have no notifications yet.'),
+            Icon(
+              Icons.notifications_none_rounded,
+              size: 34,
+              color: AppColors.iconMuted,
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Nothing yet',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.title.copyWith(fontSize: 18),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Likes, mutual likes and messages show up here.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.caption.copyWith(fontSize: 13.5),
+            ),
           ],
         ),
       ),

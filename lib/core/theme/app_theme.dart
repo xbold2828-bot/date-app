@@ -252,8 +252,13 @@ class AppTheme {
           bodyMedium: AppTextStyles.body.copyWith(color: p.textDark),
           bodySmall: AppTextStyles.caption.copyWith(color: p.textGrey),
           labelLarge: AppTextStyles.button.copyWith(color: p.textDark),
-          labelMedium: AppTextStyles.label.copyWith(color: p.textGrey),
-          labelSmall: AppTextStyles.label.copyWith(color: p.textGrey),
+          // Material's small label slots (badges, picker captions) want a
+          // caption, not the group heading that `label` now is.
+          labelMedium: AppTextStyles.caption.copyWith(color: p.textGrey),
+          labelSmall: AppTextStyles.caption.copyWith(
+            fontSize: 11.5,
+            color: p.textGrey,
+          ),
         );
   }
 }

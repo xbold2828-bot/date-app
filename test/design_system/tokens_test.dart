@@ -200,7 +200,6 @@ void main() {
         AppTextStyles.bodyMuted,
         AppTextStyles.button,
         AppTextStyles.caption,
-        AppTextStyles.eyebrow,
         AppTextStyles.label,
         AppTextStyles.chip,
         AppTextStyles.chipSelected,
@@ -220,7 +219,6 @@ void main() {
         'body': AppTextStyles.body,
         'button': AppTextStyles.button,
         'caption': AppTextStyles.caption,
-        'eyebrow': AppTextStyles.eyebrow,
         'label': AppTextStyles.label,
         'chip': AppTextStyles.chip,
       };

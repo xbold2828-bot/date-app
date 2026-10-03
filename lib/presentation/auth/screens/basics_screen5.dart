@@ -1,20 +1,19 @@
 import 'package:dating_app/core/constants/app_string.dart';
-import 'package:dating_app/core/utils/utils.dart';
-import 'package:dating_app/shared/widgets/buttons/common_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
-import '../../../core/extensions/global_back_extension.dart';
-import '../../../core/extensions/unfocus_on_tap_extension.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../providers/core_providers.dart';
 import '../../../providers/location_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../common/widgets/widgets.dart';
+import '../widgets/onboarding_widgets.dart';
 
+/// Step 7 — location, the one permission the product cannot work without.
 class BasicsScreen5 extends ConsumerStatefulWidget {
   const BasicsScreen5({super.key});
 
@@ -29,102 +28,93 @@ class _BasicsScreen5State extends ConsumerState<BasicsScreen5> {
     setState(() => _isLoading = true);
     try {
       final position = await ref.read(locationServiceProvider).current();
-      final me = await ref.read(onboardingRepositoryProvider).updateLocation(
-        latitude: position.latitude,
-        longitude: position.longitude,
-      );
+      final me = await ref
+          .read(onboardingRepositoryProvider)
+          .updateLocation(
+            latitude: position.latitude,
+            longitude: position.longitude,
+          );
       ref.read(meProvider.notifier).setMe(me);
 
       if (mounted) context.push(AppRoutes.agreement);
     } on AppException catch (e) {
-      _showSnack(e.message);
+      _toast(e.message);
     } catch (_) {
-      _showSnack(AppString.locationError);
+      _toast(AppString.locationError);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _showSnack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  void _toast(String msg) {
+    if (mounted) showRadiusToast(context, msg, tone: ToastTone.error);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            const StepHeader(step: 7, label: AppString.sectionLocation),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    spacerH(40),
-                    const Center(child: RadarMark(size: 132, animate: true)),
-                    spacerH(40),
-                    Text(AppString.locationTitle, style: AppTextStyles.display),
-                    spacerH(8),
-                    Text(
-                      AppString.locationBody,
-                      style: TextStyle(fontSize: 13, color: AppColors.textGrey),
-                    ),
-                    spacerH(28),
-                    _note(
-                      icon: Icons.shield_outlined,
-                      text: AppString.locationNoteBand,
-                    ),
-                    spacerH(10),
-                    _note(
-                      icon: Icons.tune,
-                      text: AppString.locationNoteSettings,
-                    ),
-                    spacerH(36),
-                    CommonButton(
-                      iconData: Icons.near_me,
-                      text: AppString.allowLocation,
-                      isLoading: _isLoading,
-                      onClick: _onAllow,
-                    ),
-                    spacerH(40),
-                  ],
-                ),
-              ),
-            ),
-          ],
+    return OnboardingScaffold(
+      step: 7,
+      section: AppString.sectionLocation,
+      title: AppString.locationTitle,
+      subtitle: AppString.locationBody,
+      actionLabel: AppString.allowLocation,
+      onAction: _onAllow,
+      isLoading: _isLoading,
+      children: const [
+        _RadarLegend(),
+        SizedBox(height: 30),
+        FactLine(icon: Icons.shield_outlined, text: AppString.locationNoteBand),
+        FactLine(
+          icon: Icons.tune_rounded,
+          text: AppString.locationNoteSettings,
         ),
-      ),
-    ).unfocusOnTap().withGlobalBackHandler(context);
+      ],
+    );
   }
+}
 
-  Widget _note({required IconData icon, required String text}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 16, color: AppColors.primary),
-          spacerW(10),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.primary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+/// The radar with its four rings named underneath — the privacy promise drawn
+/// rather than described: people are placed in a ring, not on a point.
+class _RadarLegend extends StatelessWidget {
+  const _RadarLegend();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const Center(child: RadarMark(size: 168, animate: true)),
+        const SizedBox(height: 18),
+        ExcludeSemantics(
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final ring in DistanceRing.values)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: AppColors.inputBorder),
+                  ),
+                  child: Text(
+                    ring.wireValue,
+                    style: AppTextStyles.caption.copyWith(
+                      fontSize: 12,
+                      color: AppColors.textDark,
+                      fontWeight: FontWeight.w600,
+                      fontVariations: const [FontVariation('wght', 600)],
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

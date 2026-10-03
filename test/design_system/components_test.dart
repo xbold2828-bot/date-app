@@ -1,3 +1,4 @@
+import 'package:dating_app/core/constants/app_constants.dart';
 import 'package:dating_app/core/theme/app_colors.dart';
 import 'package:dating_app/core/theme/app_theme.dart';
 import 'package:dating_app/presentation/common/widgets/widgets.dart';
@@ -350,19 +351,44 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('STEP 5 OF 10'), findsOneWidget);
-      expect(find.text('LIVE CHECK'), findsOneWidget);
-
-      final bar = tester.widget<LinearProgressIndicator>(
-        find.byType(LinearProgressIndicator),
+      expect(find.text('5 of $kOnboardingStepCount'), findsOneWidget);
+      // The section is announced, not drawn as a caption on screen.
+      expect(
+        find.bySemanticsLabel('Step 5 of $kOnboardingStepCount, Live check'),
+        findsOneWidget,
       );
-      expect(bar.value, closeTo(0.5, 0.001));
+      expect(find.text('LIVE CHECK'), findsNothing);
+    });
+
+    testWidgets('one segment per step, filled up to the current one',
+        (tester) async {
+      await tester.pumpWidget(host(
+        const SizedBox(
+          width: 390,
+          child: StepSegments(step: 3, total: 8),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final fills = tester
+          .widgetList<FractionallySizedBox>(find.byType(FractionallySizedBox))
+          .map((f) => f.widthFactor)
+          .toList();
+      expect(fills, [1, 1, 1, 0, 0, 0, 0, 0]);
+    });
+
+    testWidgets('offers no way back when there is nowhere to go',
+        (tester) async {
+      await tester.pumpWidget(host(
+        const SizedBox(width: 390, child: StepHeader(step: 1, label: 'Me')),
+      ));
+      expect(find.bySemanticsLabel('Go back'), findsNothing);
     });
 
     testWidgets('the wordmark is one semantic unit', (tester) async {
       await tester.pumpWidget(host(const Wordmark()));
       // "cozune" and its oxblood period must not be read as two things.
-      expect(find.bySemanticsLabel('cozune'), findsOneWidget);
+      expect(find.bySemanticsLabel(AppConstants.appName), findsOneWidget);
     });
   });
 

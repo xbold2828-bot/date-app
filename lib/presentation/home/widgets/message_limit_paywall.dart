@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
@@ -59,48 +60,63 @@ class _MessageLimitSheetState extends ConsumerState<_MessageLimitSheet> {
     }
   }
 
+  /// The free allocation is counted per UTC day on the server, so "tomorrow"
+  /// is wrong for anyone east or west of Greenwich. This is that boundary on
+  /// the person's own clock.
+  static String _resetTime(BuildContext context) {
+    final now = DateTime.now().toUtc();
+    final reset = DateTime.utc(now.year, now.month, now.day + 1).toLocal();
+    final use24h = MediaQuery.alwaysUse24HourFormatOf(context);
+    return DateFormat(use24h ? 'HH:mm' : 'h:mm a').format(reset);
+  }
+
   @override
   Widget build(BuildContext context) {
+    // The 402 says *that* the allowance is spent, not how big it was; the
+    // entitlements snapshot knows the number. Until it arrives the copy simply
+    // leaves the number out rather than guessing one.
+    final limit = ref
+        .watch(entitlementsProvider)
+        .valueOrNull
+        ?.conversations
+        ?.limit;
+    final known = limit != null && limit > 0;
+    final creditsOnly = widget.gate.reason == 'INSUFFICIENT_CREDITS';
+
+    final title = creditsOnly
+        ? 'New chats need credits'
+        : known
+        ? "That's your $limit new chats for today"
+        : "That's today's new chats";
+
+    final body = creditsOnly
+        ? 'Starting a conversation costs ${widget.gate.cost} '
+              '${widget.gate.cost == 1 ? 'credit' : 'credits'}. Replying to '
+              'people who already wrote to you is always free.'
+        : known
+        ? 'Free accounts can start $limit new conversations a day. '
+              'Replying to people who already wrote to you is always free.'
+        : 'Free accounts get a few new conversations a day. Replying to '
+              'people who already wrote to you is always free.';
+
     return RadiusSheet(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 4),
-          Center(
-            child: Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: AppColors.primaryTint,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.mark_email_read_outlined,
-                color: AppColors.primary,
-                size: 26,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
+          if (known && !creditsOnly) ...[
+            _SpentOpeners(count: limit),
+            const SizedBox(height: 18),
+          ],
           Text(
-            "That's today's messages",
-            textAlign: TextAlign.center,
-            style: AppTextStyles.title.copyWith(fontSize: 20),
+            title,
+            style: AppTextStyles.title.copyWith(fontSize: 23, height: 1.2),
           ),
           const SizedBox(height: 8),
-          Text(
-            // Server copy first — it knows the real numbers. The fallback still
-            // has to be true, so it says what the limit actually covers.
-            widget.gate.message.isNotEmpty
-                ? widget.gate.message
-                : 'You have used your free openers for today. Replying to '
-                    'people who wrote to you is always free.',
-            textAlign: TextAlign.center,
-            style: AppTextStyles.bodyMuted,
-          ),
-          const SizedBox(height: 20),
+          Text(body, style: AppTextStyles.bodyMuted),
+          const SizedBox(height: 22),
           RadiusButton(
-            label: 'Unlock with Premium',
+            label: 'Unlimited new chats with Premium',
             kind: RadiusButtonKind.premium,
             onPressed: () {
               Navigator.pop(context);
@@ -112,18 +128,67 @@ class _MessageLimitSheetState extends ConsumerState<_MessageLimitSheet> {
           ),
           const SizedBox(height: 10),
           RadiusButton(
-            label: _watching ? 'Loading' : 'Watch an ad to keep going',
+            // No number here on purpose: an ad mints credits, and how many
+            // openers those buy is server configuration the client cannot see.
+            label: _watching ? 'Loading' : 'Watch a short ad to keep going',
             kind: RadiusButtonKind.ghost,
             isLoading: _watching,
             onPressed: _watchAd,
           ),
           const SizedBox(height: 14),
           Text(
-            'Your openers reset tomorrow.',
+            'New chats reset at ${_resetTime(context)}.',
             textAlign: TextAlign.center,
             style: AppTextStyles.caption,
           ),
           const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+}
+
+/// The day's openers as spent tickets — a row of struck-through slots, one per
+/// conversation the free tier allows. It says "used up" before a word is read.
+class _SpentOpeners extends StatelessWidget {
+  const _SpentOpeners({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    // Never more slots than fit comfortably on a phone; a retuned limit of
+    // twenty would otherwise draw twenty.
+    final shown = count.clamp(1, 6);
+    return Semantics(
+      label: 'All $count new chats used today',
+      excludeSemantics: true,
+      child: Row(
+        children: [
+          for (var i = 0; i < shown; i++) ...[
+            if (i > 0) const SizedBox(width: 6),
+            Container(
+              width: 34,
+              height: 26,
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.check_rounded,
+                size: 16,
+                color: AppColors.onAccent,
+              ),
+            ),
+          ],
+          const SizedBox(width: 10),
+          Text(
+            '$count / $count',
+            style: AppTextStyles.bodyStrong.copyWith(
+              color: AppColors.primaryInk,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
         ],
       ),
     );

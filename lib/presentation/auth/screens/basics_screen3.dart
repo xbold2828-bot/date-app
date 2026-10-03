@@ -1,15 +1,12 @@
 import 'package:dating_app/core/constants/app_string.dart';
-import 'package:dating_app/core/utils/utils.dart';
-import 'package:dating_app/shared/widgets/buttons/common_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/selection_limits.dart';
 import '../../../core/constants/tag_categories.dart';
 import '../../../core/errors/app_exceptions.dart';
-import '../../../core/extensions/global_back_extension.dart';
-import '../../../core/extensions/unfocus_on_tap_extension.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/tag_model.dart';
@@ -19,6 +16,8 @@ import '../../../providers/profile_provider.dart';
 import '../../common/widgets/widgets.dart';
 import '../widgets/onboarding_widgets.dart';
 
+/// Step 5 — the private preferences, each group on its own allowance, and the
+/// hard no's, which are never capped.
 class BasicsScreen3 extends ConsumerStatefulWidget {
   const BasicsScreen3({super.key});
 
@@ -70,16 +69,14 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
 
       if (mounted) context.push(AppRoutes.photos);
     } on AppException catch (e) {
-      _showSnack(e.message);
+      _toast(e.message, tone: ToastTone.error);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _showSnack(String msg) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(msg)));
+  void _toast(String msg, {ToastTone tone = ToastTone.neutral}) {
+    if (mounted) showRadiusToast(context, msg, tone: tone);
   }
 
   @override
@@ -91,62 +88,37 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
     final catalogue = tags.valueOrNull;
     if (me != null && catalogue != null) _restorePreferences(me, catalogue);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            const OnboardingHeader(step: 5, label: AppString.sectionYourVibe),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    spacerH(24),
-                    Text(AppString.vibeTitle, style: AppTextStyles.display),
-                    spacerH(6),
-                    Text(AppString.vibeSubtitle, style: AppTextStyles.caption),
-                    spacerH(20),
-                    tags.when(
-                      loading: () => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 32),
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                      error: (err, _) => _CatalogueError(
-                        onRetry: () => ref.invalidate(tagsByCategoryProvider),
-                      ),
-                      data: (grouped) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (final category in TagCategories.preferences)
-                            if ((grouped[category] ?? const <Tag>[]).isNotEmpty)
-                              _preferenceSection(category, grouped[category]!),
-                          _hardNosCard(
-                            grouped[TagCategories.hardNo] ?? const [],
-                          ),
-                        ],
-                      ),
-                    ),
-                    spacerH(32),
-                    CommonButton(
-                      text: AppString.continueText,
-                      isLoading: _isLoading,
-                      onClick: _onSave,
-                    ),
-                    spacerH(40),
-                  ],
-                ),
-              ),
+    return OnboardingScaffold(
+      step: 5,
+      section: AppString.sectionYourVibe,
+      title: AppString.vibeTitle,
+      subtitle: AppString.vibeSubtitle,
+      actionLabel: AppString.continueText,
+      onAction: _onSave,
+      isLoading: _isLoading,
+      children: [
+        tags.when(
+          loading: () => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 32),
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
             ),
-          ],
+          ),
+          error: (err, _) => _CatalogueError(
+            onRetry: () => ref.invalidate(tagsByCategoryProvider),
+          ),
+          data: (grouped) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final category in TagCategories.preferences)
+                if ((grouped[category] ?? const <Tag>[]).isNotEmpty)
+                  _preferenceSection(category, grouped[category]!),
+              _hardNos(grouped[TagCategories.hardNo] ?? const []),
+            ],
+          ),
         ),
-      ),
-    ).unfocusOnTap().withGlobalBackHandler(context);
+      ],
+    );
   }
 
   Widget _preferenceSection(String category, List<Tag> tags) {
@@ -156,20 +128,14 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
     final chosen = _selectedPreferences.intersection(slugs);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 28),
+      padding: const EdgeInsets.only(bottom: 34),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(child: OnboardingSectionLabel(title)),
-              SelectionCounter(count: chosen.length, max: max),
-            ],
-          ),
-          spacerH(4),
-          Text(selectionHint(max), style: AppTextStyles.caption),
-          spacerH(12),
-          LimitedTagChipGroup(
+          // The "0 / 3" counter states the allowance; a "Pick up to 3" line
+          // under every heading said it twice.
+          GroupHeading(title: title, count: chosen.length, max: max),
+          LimitedChoicePills(
             tags: tags,
             selected: chosen,
             max: max,
@@ -179,49 +145,50 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
                 ...next,
               };
             }),
-            onLimitReached: () => _showSnack(sectionLimitMessage(title, max)),
+            onLimitReached: () => _toast(sectionLimitMessage(title, max)),
           ),
         ],
       ),
     );
   }
 
-  Widget _hardNosCard(List<Tag> hardNoTags) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+  /// Boundaries rather than preferences: never capped, and the only answers
+  /// on this screen that can be made public.
+  Widget _hardNos(List<Tag> hardNoTags) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Divider(color: AppColors.inputBorder, height: 1, thickness: 1),
+        const SizedBox(height: 28),
+        const GroupHeading(
+          title: AppString.hardNos,
+          hint: AppString.hardNosHint,
+        ),
+        LimitedChoicePills(
+          tags: hardNoTags,
+          selected: _selectedHardNos,
+          max: SelectionLimits.hardNos,
+          onChanged: (next) => setState(() => _selectedHardNos = next),
+          onLimitReached: () {},
+        ),
+        const SizedBox(height: 14),
+        MergeSemantics(
+          child: Row(
             children: [
-              const Expanded(child: OnboardingSectionLabel(AppString.hardNos)),
+              Expanded(
+                child: Text(
+                  AppString.showHardNosOnProfile,
+                  style: AppTextStyles.bodyStrong.copyWith(fontSize: 15),
+                ),
+              ),
               Switch(
                 value: _showHardNosOnProfile,
                 onChanged: (v) => setState(() => _showHardNosOnProfile = v),
               ),
-              Flexible(
-                child: Text(
-                  AppString.showOnProfile,
-                  style: TextStyle(fontSize: 12, color: AppColors.textDark),
-                ),
-              ),
             ],
           ),
-          spacerH(14),
-          LimitedTagChipGroup(
-            tags: hardNoTags,
-            selected: _selectedHardNos,
-            max: SelectionLimits.hardNos,
-            onChanged: (next) => setState(() => _selectedHardNos = next),
-            onLimitReached: () {},
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -238,13 +205,15 @@ class _CatalogueError extends StatelessWidget {
       children: [
         Text(
           AppString.catalogueError,
-          style: TextStyle(fontSize: 13, color: AppColors.textGrey),
+          style: AppTextStyles.caption.copyWith(fontSize: 13),
         ),
         TextButton(
           onPressed: onRetry,
           child: Text(
             AppString.retry,
-            style: TextStyle(color: AppColors.primary),
+            style: AppTextStyles.bodyStrong.copyWith(
+              color: AppColors.primaryInk,
+            ),
           ),
         ),
       ],

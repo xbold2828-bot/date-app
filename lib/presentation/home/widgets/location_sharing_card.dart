@@ -78,11 +78,9 @@ class LocationSharingCard extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'LIVE LOCATION',
-                          style: AppTextStyles.label.copyWith(
-                            fontSize: 10,
-                            letterSpacing: 1.2,
-                            fontWeight: FontWeight.w800,
+                          'Live location',
+                          style: AppTextStyles.caption.copyWith(
+                            fontWeight: FontWeight.w700,
                             color: on ? AppColors.primary : AppColors.textGrey,
                           ),
                         ),

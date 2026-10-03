@@ -23,29 +23,12 @@ Future<void> showPremiumFilterPrompt(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryTint,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.lock_outline,
-                    size: 19,
-                    color: AppColors.primary,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    '$filterName is a Premium filter',
-                    style: AppTextStyles.title.copyWith(fontSize: 19),
-                  ),
-                ),
-              ],
+            Semantics(
+              header: true,
+              child: Text(
+                '$filterName is a Premium filter',
+                style: AppTextStyles.title,
+              ),
             ),
             const SizedBox(height: 12),
             // Says what stays free, not just what costs. Someone who declines
@@ -53,9 +36,9 @@ Future<void> showPremiumFilterPrompt(
             Text(
               'Premium narrows the circle down to who is around right now. '
               'Distance, who you see, age and intent stay free.',
-              style: AppTextStyles.bodyMuted,
+              style: AppTextStyles.bodyMuted.copyWith(fontSize: 15),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 24),
             RadiusButton(
               label: 'See Premium',
               kind: RadiusButtonKind.premium,

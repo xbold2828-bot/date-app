@@ -31,6 +31,7 @@ import '../../notifications/viewmodel/providers/notification_provider/notificati
 import '../models/like_quota_model.dart';
 import '../providers/like_quota_provider/like_quota_provider.dart';
 import '../widgets/discovery_filter_sheet.dart';
+import '../widgets/likes_meter.dart';
 import '../widgets/match_celebration.dart';
 import '../widgets/premium_filter_prompt.dart';
 import './chat_detail_screen.dart';
@@ -177,14 +178,10 @@ class _HomeScreenState extends ConsumerState<DashboardScreen>
               ],
             ),
           ),
-          bottomNavigationBar: SafeArea(
-            top: false,
-            minimum: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: _BottomNav(
-              current: _current,
-              unread: ref.watch(unreadCountProvider).valueOrNull ?? 0,
-              onSelect: (tab) => setState(() => _current = tab),
-            ),
+          bottomNavigationBar: _BottomNav(
+            current: _current,
+            unread: ref.watch(unreadCountProvider).valueOrNull ?? 0,
+            onSelect: (tab) => setState(() => _current = tab),
           ),
         )
       ),
@@ -211,6 +208,13 @@ class _HomeScreenState extends ConsumerState<DashboardScreen>
 // Bottom navigation
 // ============================================================================
 
+/// The tab bar: flat, edge to edge, a hairline on top. Each tab is its icon
+/// alone — outlined at rest, filled and in accent blue when it is the one
+/// you are on.
+///
+/// It used to float as a shadowed pill with a solid blue disc behind the
+/// current tab. That disc was the loudest thing on every screen, and it was
+/// loudest about the one thing you already knew: where you are.
 class _BottomNav extends StatelessWidget {
   const _BottomNav({
     required this.current,
@@ -224,70 +228,92 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        height: 56,
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        decoration: BoxDecoration(
-          color:  AppColors.isDark ? AppColors.greyColor.withValues(alpha: 0.5) : AppColors.whiteColor,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 18,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: _Tab.values.map((tab) {
-            final isActive = tab == current;
-            final badge = tab == _Tab.chats ? unread : 0;
-
-            return Semantics(
-              button: true,
-              selected: isActive,
-              label: badge > 0 ? '${tab.label}, $badge unread' : tab.label,
-              excludeSemantics: true,
-              child: InkWell(
-                onTap: () => onSelect(tab),
-                customBorder: const CircleBorder(),
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        curve: Curves.easeOut,
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color:
-                          isActive ? AppColors.primary : Colors.transparent,
-                          shape: BoxShape.circle,
-                        ),
-                        alignment: Alignment.center,
-                        child: Icon(
-                          tab.icon,
-                          size: 22,
-                          color: isActive ? Colors.white : AppColors.textDark,
-                        ),
-                      ),
-                      if (badge > 0)
-                        Positioned(
-                          top: -2,
-                          right: -2,
-                          child: _Badge(count: badge),
-                        ),
-                    ],
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.panel,
+        border: Border(top: BorderSide(color: AppColors.inputBorder)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 58,
+          child: Row(
+            children: [
+              for (final tab in _Tab.values)
+                Expanded(
+                  child: _NavItem(
+                    tab: tab,
+                    active: tab == current,
+                    badge: tab == _Tab.chats ? unread : 0,
+                    onTap: () {
+                      if (tab != current) HapticFeedback.selectionClick();
+                      onSelect(tab);
+                    },
                   ),
                 ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.tab,
+    required this.active,
+    required this.badge,
+    required this.onTap,
+  });
+
+  final _Tab tab;
+  final bool active;
+  final int badge;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+
+    return Semantics(
+      button: true,
+      selected: active,
+      label: badge > 0 ? '${tab.label}, $badge unread' : tab.label,
+      excludeSemantics: true,
+      child: InkResponse(
+        onTap: onTap,
+        radius: 28,
+        highlightShape: BoxShape.circle,
+        child: Center(
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              AnimatedSwitcher(
+                duration: Duration(milliseconds: reduceMotion ? 0 : 160),
+                switchInCurve: const Cubic(0.23, 1, 0.32, 1),
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: ScaleTransition(
+                    scale: Tween<double>(begin: 0.9, end: 1).animate(animation),
+                    child: child,
+                  ),
+                ),
+                child: Icon(
+                  active ? tab.activeIcon : tab.icon,
+                  key: ValueKey(active),
+                  size: 26,
+                  color: active ? AppColors.primary : AppColors.textDark,
+                ),
               ),
-            );
-          }).toList(),
+              if (badge > 0)
+                Positioned(
+                  top: -4,
+                  right: -8,
+                  child: _Badge(count: badge),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -303,18 +329,20 @@ class _Badge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: count > 9 ? 4 : 0),
-      constraints: const BoxConstraints(minWidth: 16),
-      height: 16,
+      constraints: const BoxConstraints(minWidth: 19),
+      height: 19,
       decoration: BoxDecoration(
         color: AppColors.primary,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white, width: 2),
+        borderRadius: BorderRadius.circular(10),
+        // The ring is the bar's own colour, so the count reads as sitting on
+        // top of the icon rather than merging into it.
+        border: Border.all(color: AppColors.panel, width: 2),
       ),
       child: Center(
         child: Text(
           count > 9 ? '9+' : '$count',
           style: AppTextStyles.caption.copyWith(
-            fontSize: 9,
+            fontSize: 10,
             height: 1,
             color: AppColors.onAccent,
             fontWeight: FontWeight.w700,
@@ -551,14 +579,13 @@ class RadarHeader extends ConsumerWidget {
           ),
           const SizedBox(width: 10),
 
-          _LikesChip(
-            remaining: quota.remaining,
-            unlimited: quota.unlimited,
-            onTap: () {
-              AppLogger.d("Navigating to likes...");
-              context.push(AppRoutes.notifications);
-            },
+          // Likes left today, as a heart that drains — and a tap that explains
+          // the allowance. It used to open notifications.
+          LikesMeter(
+            quota: quota,
+            onTap: () => showLikesTodaySheet(context),
           ),
+          const SizedBox(width: 4),
           IconButton(
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -611,65 +638,6 @@ class RadarHeader extends ConsumerWidget {
           ),
           const _FilterButton(),
         ],
-      ),
-    );
-  }
-}
-
-class _LikesChip extends StatelessWidget {
-  const _LikesChip({
-    required this.remaining,
-    required this.unlimited,
-    required this.onTap,
-  });
-
-  final int remaining;
-  final bool unlimited;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final display = remaining > 99 ? '99+' : '$remaining';
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 30.h,
-        padding: EdgeInsets.symmetric(horizontal: 10.w),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFF5F6D), Color(0xFFFF9A44)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20.r),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFFF5F6D).withValues(alpha: 0.35),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.favorite, size: 16.r, color: Colors.white),
-            spacerW(5),
-            if (unlimited)
-              Icon(Icons.all_inclusive, size: 16.r, color: Colors.white)
-            else
-              Text(
-                display,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  height: 1,
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }
@@ -921,14 +889,18 @@ const List<MapEntry<String, String?>> _filters = [
 ];
 
 enum _Tab {
-  radar(Icons.radar, 'Radar'),
-  likes(Icons.favorite_border, 'Likes'),
-  explore(Icons.explore_outlined, 'Explore'),
-  chats(Icons.forum_outlined, 'Chats'),
-  you(Icons.person_outline, 'You');
+  radar(Icons.radar_rounded, Icons.radar_rounded, 'Radar'),
+  likes(Icons.favorite_border_rounded, Icons.favorite_rounded, 'Likes'),
+  explore(Icons.explore_outlined, Icons.explore_rounded, 'Explore'),
+  chats(Icons.forum_outlined, Icons.forum_rounded, 'Chats'),
+  you(Icons.person_outline_rounded, Icons.person_rounded, 'You');
 
-  const _Tab(this.icon, this.label);
+  const _Tab(this.icon, this.activeIcon, this.label);
 
   final IconData icon;
+
+  /// The filled form, for the tab you are on. Radar has no filled glyph, so
+  /// colour alone carries it there.
+  final IconData activeIcon;
   final String label;
 }

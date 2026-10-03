@@ -99,3 +99,73 @@ final List<TextInputFormatter> numberInputFormatters = [
 final List<TextInputFormatter> noSpaceInputFormatters = [
   FilteringTextInputFormatter.deny(RegExp(r'\s')),
 ];
+
+/// Keeps digits only, at most the sum of [groups], and shows them spaced in
+/// those groups — `[5, 5]` turns 9876543210 into "98765 43210".
+///
+/// A grouped number is one a person can check against the one in their head;
+/// ten digits in a row is not. Read the value back with [digitsOf], never as
+/// the raw text.
+class DigitGroupsFormatter extends TextInputFormatter {
+  DigitGroupsFormatter(this.groups);
+
+  final List<int> groups;
+
+  int get maxDigits => groups.fold(0, (sum, g) => sum + g);
+
+  /// The digits in [text], without the spacing this formatter adds.
+  static String digitsOf(String text) => text.replaceAll(RegExp(r'\D'), '');
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final raw = newValue.text;
+    final cursor = newValue.selection.baseOffset < 0
+        ? raw.length
+        : newValue.selection.baseOffset.clamp(0, raw.length);
+
+    final digits = StringBuffer();
+    var digitsBeforeCursor = 0;
+    for (var i = 0; i < raw.length; i++) {
+      final c = raw.codeUnitAt(i);
+      if (c < 0x30 || c > 0x39 || digits.length >= maxDigits) continue;
+      digits.writeCharCode(c);
+      if (i < cursor) digitsBeforeCursor++;
+    }
+    var value = digits.toString();
+
+    // Backspace over one of our spaces removes nothing a person can see, so
+    // treat it as deleting the digit before it — otherwise the cursor just
+    // bounces back over the space and the key appears dead.
+    final deletedOnlySpacing = newValue.text.length < oldValue.text.length &&
+        value == digitsOf(oldValue.text);
+    if (deletedOnlySpacing && digitsBeforeCursor > 0) {
+      value = value.substring(0, digitsBeforeCursor - 1) +
+          value.substring(digitsBeforeCursor);
+      digitsBeforeCursor--;
+    }
+
+    final out = StringBuffer();
+    var offset = 0;
+    var group = 0;
+    var inGroup = 0;
+    for (var i = 0; i < value.length; i++) {
+      if (group < groups.length - 1 && inGroup == groups[group]) {
+        out.write(' ');
+        group++;
+        inGroup = 0;
+      }
+      out.write(value[i]);
+      inGroup++;
+      if (i + 1 == digitsBeforeCursor) offset = out.length;
+    }
+
+    final text = out.toString();
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: offset.clamp(0, text.length)),
+    );
+  }
+}

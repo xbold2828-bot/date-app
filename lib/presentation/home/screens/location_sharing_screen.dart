@@ -51,21 +51,16 @@ class _LocationSharingScreenState extends ConsumerState<LocationSharingScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.card,
+        backgroundColor: AppColors.background,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        shape: Border(
-          bottom: BorderSide(color: AppColors.inputBorder, width: 1),
-        ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: AppColors.textDark),
+          tooltip: 'Back',
+          icon: Icon(Icons.arrow_back_rounded, color: AppColors.textDark),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'Location sharing',
-          style: AppTextStyles.title.copyWith(fontSize: 18),
-        ),
+        title: Text('Location sharing', style: AppTextStyles.title),
       ),
       body: SafeArea(
         child: async.when(
@@ -107,81 +102,91 @@ class _Body extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(locationSharingProvider.notifier);
 
+    final selectedLive =
+        sharing.enabled && sharing.audience == LocationAudience.selected;
+
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
       children: [
         _MasterToggle(
           enabled: sharing.enabled,
           onChanged: (value) =>
               _apply(context, () => notifier.setEnabled(value)),
         ),
-        const SizedBox(height: 24),
 
-        Text('WHO CAN SEE MY LOCATION', style: AppTextStyles.label),
-        const SizedBox(height: 10),
+        const SectionLabel('Who can see me on the map'),
 
-        RadiusOptionTile(
-          title: 'Everyone',
-          subtitle: 'Anyone who has messaged you, replied or not',
-          selected: sharing.enabled &&
-              sharing.audience == LocationAudience.everyone,
-          onTap: () => _apply(
-            context,
-            () => notifier.setAudience(LocationAudience.everyone),
-          ),
-        ),
-        const SizedBox(height: 10),
-
-        RadiusOptionTile(
-          title: 'All friends',
-          subtitle: "Everyone you're vibing with",
-          selected:
-              sharing.enabled && sharing.audience == LocationAudience.friends,
-          onTap: () => _apply(
-            context,
-            () => notifier.setAudience(LocationAudience.friends),
-          ),
-        ),
-        const SizedBox(height: 10),
-
-        RadiusOptionTile(
-          title: 'Selected friends',
-          subtitle: 'Only the people you pick',
-          selected:
-              sharing.enabled && sharing.audience == LocationAudience.selected,
-          onTap: () => _openPicker(context, ref),
-        ),
-
-        // The chosen people, folded under the tile they belong to. Shown only
-        // once that tile is live: a list of names under an unselected option
-        // reads as though it were in force.
-        if (sharing.enabled && sharing.audience == LocationAudience.selected)
-          Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: _SelectedFriends(
-              allowedUserIds: sharing.allowedUserIds,
-              onManage: () => _openPicker(context, ref),
+        RadiusOptionGroup(
+          children: [
+            RadiusOptionTile(
+              inGroup: true,
+              title: 'Everyone',
+              subtitle: 'Anyone who has messaged you, replied or not',
+              selected:
+                  sharing.enabled &&
+                  sharing.audience == LocationAudience.everyone,
+              onTap: () => _apply(
+                context,
+                () => notifier.setAudience(LocationAudience.everyone),
+              ),
             ),
-          ),
-        const SizedBox(height: 10),
-
-        RadiusOptionTile(
-          title: 'No one',
-          subtitle: 'Turn off location sharing',
-          selected: !sharing.enabled,
-          onTap: () => _apply(context, () => notifier.setEnabled(false)),
+            RadiusOptionTile(
+              inGroup: true,
+              title: 'All friends',
+              subtitle: "Everyone you're vibing with",
+              selected:
+                  sharing.enabled &&
+                  sharing.audience == LocationAudience.friends,
+              onTap: () => _apply(
+                context,
+                () => notifier.setAudience(LocationAudience.friends),
+              ),
+            ),
+            // The chosen people ride inside the same row as their option, so
+            // they read as part of it. Shown only once that option is live: a
+            // list of names under an unselected option reads as though it
+            // were in force.
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                RadiusOptionTile(
+                  inGroup: true,
+                  title: 'Selected friends',
+                  subtitle: 'Only the people you pick',
+                  selected: selectedLive,
+                  onTap: () => _openPicker(context, ref),
+                ),
+                if (selectedLive)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(52, 0, 10, 12),
+                    child: _SelectedFriends(
+                      allowedUserIds: sharing.allowedUserIds,
+                      onManage: () => _openPicker(context, ref),
+                    ),
+                  ),
+              ],
+            ),
+            RadiusOptionTile(
+              inGroup: true,
+              title: 'No one',
+              subtitle: 'Turn off location sharing',
+              selected: !sharing.enabled,
+              onTap: () => _apply(context, () => notifier.setEnabled(false)),
+            ),
+          ],
         ),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         _StateLine(sharing: sharing),
-        const SizedBox(height: 12),
+        const SizedBox(height: 22),
 
         // The honest bit. A privacy screen that let "no one" imply an
         // invisibility the product does not deliver would be worse than no
         // screen at all.
         const NoticeBox(
           icon: Icons.shield_outlined,
-          text: 'Your pin is never your exact spot — people see a rough area '
+          text:
+              'Your pin is never your exact spot — people see a rough area '
               'a few hundred metres across, and never an address. This '
               'controls the map only: Radar still tells people nearby roughly '
               'how far away you are, which is how cozune finds anyone at all.',
@@ -194,18 +199,16 @@ class _Body extends ConsumerWidget {
     final chosen = await Navigator.push<List<String>>(
       context,
       MaterialPageRoute(
-        builder: (_) => LocationAudienceScreen(
-          initialSelection: sharing.allowedUserIds,
-        ),
+        builder: (_) =>
+            LocationAudienceScreen(initialSelection: sharing.allowedUserIds),
       ),
     );
     if (chosen == null || !context.mounted) return;
 
     await _apply(
       context,
-      () => ref
-          .read(locationSharingProvider.notifier)
-          .setAllowedFriends(chosen),
+      () =>
+          ref.read(locationSharingProvider.notifier).setAllowedFriends(chosen),
     );
   }
 }
@@ -219,24 +222,10 @@ class _MasterToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RadiusCard(
-      tinted: enabled,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: enabled ? AppColors.primary : AppColors.background,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              enabled ? Icons.near_me : Icons.near_me_disabled_outlined,
-              size: 20,
-              color: enabled ? AppColors.onAccent : AppColors.iconMuted,
-            ),
-          ),
-          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,14 +233,18 @@ class _MasterToggle extends StatelessWidget {
               children: [
                 Text(
                   'Share live location',
-                  style: AppTextStyles.bodyStrong.copyWith(fontSize: 15.5),
+                  style: AppTextStyles.bodyStrong.copyWith(
+                    fontSize: 16.5,
+                    fontWeight: FontWeight.w600,
+                    fontVariations: const [FontVariation('wght', 600)],
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   enabled
                       ? 'On — people you choose can see you'
                       : 'Off — nobody can see you on the map',
-                  style: AppTextStyles.caption,
+                  style: AppTextStyles.caption.copyWith(fontSize: 13.5),
                 ),
               ],
             ),
@@ -282,7 +275,10 @@ class _MasterToggle extends StatelessWidget {
 
 /// Faces of the people currently named, and the way back into the picker.
 class _SelectedFriends extends ConsumerWidget {
-  const _SelectedFriends({required this.allowedUserIds, required this.onManage});
+  const _SelectedFriends({
+    required this.allowedUserIds,
+    required this.onManage,
+  });
 
   final List<String> allowedUserIds;
   final VoidCallback onManage;
@@ -325,8 +321,7 @@ class _SelectedFriends extends ConsumerWidget {
               height: 30,
               child: Stack(
                 children: [
-                  for (final (index, friend)
-                      in chosen.take(_maxFaces).indexed)
+                  for (final (index, friend) in chosen.take(_maxFaces).indexed)
                     Positioned(
                       left: index * 20.0,
                       child: _Face(friend: friend, colorIndex: index),
@@ -368,11 +363,11 @@ class _ManageRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(18, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
       decoration: BoxDecoration(
-        color: AppColors.primaryTint,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.primarySoft, width: 1.5),
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.inputBorder),
       ),
       child: Row(
         children: [
@@ -413,9 +408,10 @@ class _Face extends StatelessWidget {
       height: 30,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: AppColors.primaryTint, width: 2),
-        gradient:
-            friend.primaryPhotoUrl == null ? avatarGradient(colorIndex) : null,
+        border: Border.all(color: AppColors.background, width: 2),
+        gradient: friend.primaryPhotoUrl == null
+            ? avatarGradient(colorIndex)
+            : null,
         image: friend.primaryPhotoUrl != null
             ? DecorationImage(
                 image: NetworkImage(friend.primaryPhotoUrl!),

@@ -147,7 +147,7 @@ class _ChatActionsSheetState extends ConsumerState<_ChatActionsSheet> {
       title: 'Block ${widget.userName}?',
       body: 'They will not be able to message you, and you will not see each '
           'other anywhere in cozune. Anything they send from now on will not '
-          'reach you.\n\nYou can undo this in You → Blocked accounts.',
+          'reach you.\n\nYou can undo this in Settings → Blocked accounts.',
       confirmLabel: 'Block',
     );
     if (!ok) return;
@@ -164,6 +164,7 @@ class _ChatActionsSheetState extends ConsumerState<_ChatActionsSheet> {
       body: 'You will be able to see and message each other again. Anything '
           'they sent while blocked stays undelivered.',
       confirmLabel: 'Unblock',
+      destructive: false,
     );
     if (!ok) return;
     await _run(
@@ -192,41 +193,15 @@ class _ChatActionsSheetState extends ConsumerState<_ChatActionsSheet> {
     required String title,
     required String body,
     required String confirmLabel,
-  }) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.panel,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: Text(title, style: AppTextStyles.title.copyWith(fontSize: 18)),
-        content: Text(body, style: AppTextStyles.bodyMuted),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(
-              'Cancel',
-              style: AppTextStyles.bodyStrong.copyWith(
-                color: AppColors.textGrey,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(
-              confirmLabel,
-              style: AppTextStyles.bodyStrong.copyWith(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-    return ok ?? false;
-  }
+    bool destructive = true,
+  }) =>
+      showRadiusConfirm(
+        context,
+        title: title,
+        message: body,
+        confirmLabel: confirmLabel,
+        destructive: destructive,
+      );
 
   @override
   Widget build(BuildContext context) {

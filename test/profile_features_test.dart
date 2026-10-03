@@ -221,9 +221,9 @@ void main() {
         ),
       ));
 
-      expect(find.text('FRIENDS'), findsNothing);
+      expect(find.text('Friends'), findsNothing);
       expect(find.text('—'), findsNothing);
-      expect(find.text('VISITS'), findsOneWidget);
+      expect(find.text('Visits'), findsOneWidget);
     });
   });
 }

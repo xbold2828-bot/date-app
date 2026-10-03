@@ -62,47 +62,54 @@ abstract final class AppString {
   static const String contactAdminDesc = "I am having an issue with...";
   static const String deleteAccountDesc = "I am deleting Account because...";
 
-  static const String forceUpdateTitle = "Update Required";
+  static const String forceUpdateTitle = "Time for an update.";
   static const String forceUpdateSubTitle =
-      "A new version of the app is available. Please update to continue using the app.";
-  static const String whatsNew = "What's New";
-  static const String updateNow = "Update Now";
+      "This version of cozune has been retired. Update from the store to "
+      "keep going — your profile and chats will be right where you left them.";
+  static const String updateNow = "Update cozune";
 
   // ---------- PREMIUM / WATCH-AD PAYWALL ----------
-  static const String buyPremium = "Buy Premium";
-  static const String watchAd = "Watch Ad";
+  // Sentence case, and each one says what the choice gets you rather than
+  // naming the product twice. The ad is always "short" because it is, and
+  // because "watch an ad" alone sounds like a chore with no end.
+  static const String buyPremium = "Get Premium";
+  static const String watchAd = "Watch a short ad";
 
-  static const String outOfLikesTitle = "You're Out of Likes";
+  static const String outOfLikesTitle = "You're out of likes for today";
   static const String outOfLikesDescription =
-      "Go Premium for unlimited likes, or watch a quick ad to keep swiping.";
+      "Premium never runs out. Or watch a short ad for a few more right now.";
 
-  static const String discoveryLimitTitle = "Want to See More People?";
+  static const String discoveryLimitTitle = "That's your radar for today";
   static const String discoveryLimitDescription =
-      "You've seen all 30 profiles for today. Go Premium for unlimited discovery, or watch a quick ad to unlock more.";
+      "Premium shows everyone nearby with no daily cap. Or watch a short ad "
+      "to see more now.";
 
-  static const String seeWhoLikedYouTitle = "Someone Likes You";
+  static const String seeWhoLikedYouTitle = "Someone likes you";
   static const String seeWhoLikedYouDescription =
-      "Unlock Premium to see who it is instantly, or watch an ad to reveal one now.";
+      "Premium shows you every name. Or watch a short ad to reveal this one.";
 
-  static const String rewindTitle = "Want a Do-Over?";
+  static const String rewindTitle = "Want a do-over?";
   static const String rewindDescription =
-      "Rewind your last swipe with Premium, or watch a short ad to undo it now.";
+      "Premium lets you take back your last pass. Or watch a short ad to undo "
+      "it now.";
 
-  static const String boostTitle = "Get Seen First";
+  static const String boostTitle = "Get seen first";
   static const String boostDescription =
-      "Boost your profile with Premium, or watch an ad for a free boost.";
+      "Premium puts you at the front of the radar. Or watch a short ad for one "
+      "boost.";
 
-  static const String matchLimitTitle = "You've Hit Today's Limit";
+  static const String matchLimitTitle = "That's today's limit";
   static const String matchLimitDescription =
-      "Go Premium for unlimited matches, or watch an ad to unlock a few more.";
+      "Premium has no daily limit. Or watch a short ad for a few more.";
 
-  static const String genericPaywallTitle = "Unlock This Feature";
+  static const String genericPaywallTitle = "This one's for Premium";
   static const String genericPaywallDescription =
-      "Upgrade to Premium for full access, or watch a short ad to continue.";
+      "Get Premium for all of it, or watch a short ad to keep going.";
 
-  static const String mutualChatPaywallTitle = "Unlock Mutual Chat";
+  static const String mutualChatPaywallTitle = "Open this chat";
   static const String mutualChatPaywallDescription =
-      "Upgrade to Premium to chat with your mutual matches instantly, or watch a short ad to unlock this chat.";
+      "Premium opens every mutual chat right away. Or watch a short ad to open "
+      "this one.";
 
   // ---------- ONBOARDING: SECTION LABELS ----------
   static const String sectionIdentity = 'IDENTITY';
@@ -111,9 +118,16 @@ abstract final class AppString {
   static const String sectionAgreement = 'AGREEMENT';
 
   // ---------- ONBOARDING: AGE ----------
-  static const String ageTitle = 'How old are you?';
+  // The break is deliberate: left to wrap, "list." lands alone on line two.
+  static const String ageTitle = "Let's get you\non the list.";
   static const String ageSubtitle =
-      'Cozune is for adults only. Please share your birth date.';
+      'Your first name and your birthday. cozune is for adults only.';
+  static const String ageNameLabel = 'First name';
+  static const String ageNameHint = 'Your name';
+  static const String ageBirthdayHeading = 'Birthday';
+  static const String ageHintName = 'Add your first name to continue';
+  static const String ageHintDob = 'Add your birthday to continue';
+  static const String ageHintInvalid = 'Check your birthday';
   static const String displayNameCaps = 'DISPLAY NAME';
   static const String displayNameHint = 'How should we call you?';
   static const String dayLabel = 'DAY';
@@ -137,7 +151,16 @@ abstract final class AppString {
       'required.';
 
   // ---------- ONBOARDING: BASICS ----------
-  static const String basicsTitle = 'The Basics';
+  static const String basicsTitle = 'A little about you.';
+  static const String basicsSubtitle =
+      "This is what people see first. Gender can't be changed later, so pick "
+      'the one that fits.';
+  static const String basicsNameLabel = 'Name on your profile';
+  static const String basicsGenderHeading = "I'm a";
+  static const String basicsPronounsHeading = 'Pronouns';
+  static const String basicsBioHeading = 'Bio';
+  static const String optionalHint = 'Optional';
+  static const String basicsHintGender = 'Pick how you identify to continue';
   static const String displayNameLabel = 'Display name';
   static const String basicsNameTooShort =
       'Please enter a display name of at least 2 characters';
@@ -145,7 +168,7 @@ abstract final class AppString {
   static const String iAmA = 'I am a';
   static const String pronounsLabel = 'Pronouns';
   static const String bioLabel = 'Bio';
-  static const String bioHint = 'Seeking genuine connections...';
+  static const String bioHint = 'Something worth replying to';
   static const String pricingNote =
       'cozune is free for women & non-binary/trans-women; men subscribe to '
       'message.';
@@ -164,22 +187,26 @@ abstract final class AppString {
   static const String pronounOther = 'Other';
 
   // ---------- ONBOARDING: INTENT & ATMOSPHERE ----------
-  static const String intentTitle = 'Define your cozune.';
+  static const String intentTitle = 'What are you\nout for?';
   static const String currentIntent = 'Current Intent';
-  static const String intentSubtitle = 'What are you looking for today?';
-  static const String yourAtmosphere = 'Your Atmosphere';
+  static const String intentSubtitle =
+      'Pick one. You can change it whenever your plans do.';
+  static const String yourAtmosphere = 'In three words';
   static const String atmosphereSubtitle =
-      'Select the qualities that describe you.';
+      'How your friends would describe you. Optional, and shown on your '
+      'profile.';
   static const String intentSelectError = 'Please select what you are here for';
+  static const String intentHint = "Pick what you're out for to continue";
   static const String vibesNoun = 'vibes';
   static const String tagsUnavailable =
       "Couldn't load the options. You can continue and add these later.";
 
   // ---------- ONBOARDING: STATUS ----------
-  static const String statusTitle = 'My situation.';
+  static const String statusTitle = "What's your situation?";
   static const String statusSubtitle =
       'Honesty up front saves everyone time. Pick the one that fits.';
   static const String statusPickError = 'Please pick the option that fits you';
+  static const String statusHint = 'Pick the one that fits to continue';
   static const String statusSingle = 'Single';
   static const String statusSingleBlurb = 'Unattached and looking.';
   static const String statusSeeing = 'Seeing someone';
@@ -193,21 +220,28 @@ abstract final class AppString {
   static const String statusPrivateBlurb = 'Keep this off my profile.';
 
   // ---------- ONBOARDING: PREFERENCES ----------
-  static const String vibeTitle = 'Define your vibe.';
+  static const String vibeTitle = 'Your kind of night.';
   static const String vibeSubtitle =
-      'Answer as many of these as you like — each one has its own allowance, '
-      'and they all stay private until you match with someone.';
+      'Answer as many as you like. They all stay private until you match '
+      'with someone.';
   static const String hardNos = "Hard no's";
+  static const String hardNosHint = 'Pick as many as you need';
   static const String showOnProfile = 'Show on profile';
+  static const String showHardNosOnProfile = 'Show these on my profile';
   static const String catalogueError =
       "Couldn't load the tag options. You can continue and set these later.";
 
   // ---------- ONBOARDING: PHOTOS ----------
-  static const String photosTitle = 'Show yourself';
+  static const String photosTitle = 'Show your face.';
   static const String photosSubtitle =
-      'Upload up to 5 photos. You can always add more later.';
-  static const String photoPrimaryTile = 'Primary Photo';
-  static const String photoPrimaryBadge = 'Primary';
+      'Up to 5 photos. The first one is your cover — you can change them '
+      'any time.';
+  static const String photoPrimaryTile = 'Cover photo';
+  static const String photoPrimaryBadge = 'Cover';
+  static const String photosAddFirst = 'Add a photo';
+  static const String photosSkipForNow = 'Skip for now';
+  static const String photosTipLine =
+      'Daylight, your face, your eyes. Sunglasses slow verification down.';
   static const String photoGuidelines =
       'Keep photos clear and respectful — no nudity.';
   static const String photoTipsTitle = 'Tips for a better match';
@@ -240,7 +274,7 @@ abstract final class AppString {
       'Uploaded $uploaded of $total photos.';
 
   // ---------- ONBOARDING: LOCATION ----------
-  static const String locationTitle = 'Turn on location';
+  static const String locationTitle = "See who's close by.";
   static const String locationBody =
       'cozune uses your location to connect you with people physically near '
       'you right now. Without it there is nobody to show you.';
@@ -275,9 +309,10 @@ abstract final class AppString {
       'Data is encrypted and automatically deleted after verification.';
 
   // ---------- ONBOARDING: AGREEMENT ----------
-  static const String agreementTitle = 'The vibe agreement';
+  static const String agreementTitle = 'House rules.';
   static const String agreementSubtitle =
       'One tap each. All four are required.';
+  static const String agreementHint = 'Agree to all four to get in';
   static const String agreementAdult = "I'm 18 or older";
   static const String agreementRespectful = "I'll be respectful";
   static const String agreementNoHarassment = 'No harassment';
@@ -343,12 +378,12 @@ abstract final class AppString {
 
   // ---------- SPLASH ----------
   static const String splashErrorTitle = "Couldn't reach cozune";
-  static const String maintenanceTitleDefault = "We're upgrading our systems";
+  static const String maintenanceTitleDefault = "We'll be right back";
   static const String maintenanceMessageDefault =
-      "Our platform is currently undergoing scheduled maintenance. We'll be "
-      'back online shortly!';
+      "We're doing some work on cozune. It won't take long — check again in "
+      'a few minutes.';
   static const String maintenanceStillActive =
-      'Current App is in Maintenance Mode!';
+      'Still working on it. Try again in a few minutes.';
   static const String splashLoadingPreparing = 'Preparing Your Experience...';
   static const String splashLoadingAlmostReady = 'Almost Ready...';
 }

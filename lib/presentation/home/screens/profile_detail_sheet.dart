@@ -16,6 +16,7 @@ import '../models/profile_seed.dart';
 import '../providers/like_quota_provider/like_quota_provider.dart';
 import '../providers/match_provider/match_provider.dart';
 import '../widgets/message_limit_paywall.dart';
+import '../widgets/send_failure.dart';
 import '../widgets/profile_detail/action_bar.dart';
 import '../widgets/profile_detail/photo_carousel.dart';
 import '../widgets/profile_detail/profile_info_section.dart';
@@ -91,7 +92,13 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
       // to what they already wrote.
       if (mounted) showMessageLimitPaywall(context, gate: gate);
     } on AppException catch (e) {
-      _toast(e.message, tone: ToastTone.error);
+      // Same sentences as the chat thread: moderation and the New Energy cap
+      // each say what happened and what to do, and the draft stays put.
+      sendFailureHaptic();
+      _toast(
+        SendFailure.from(e, name: _name).toastText,
+        tone: ToastTone.error,
+      );
     } finally {
       if (mounted) setState(() => _isSending = false);
     }

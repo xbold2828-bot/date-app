@@ -29,7 +29,7 @@ extension AppTextExtension on BuildContext {
       fontWeight: fontWeight ,
       fontStyle: fontStyle,
       color: color ?? theme.colorScheme.onSurface,
-      fontFamily: fontFamily ?? 'Fraunces',
+      fontFamily: fontFamily ?? 'DM Sans',
       letterSpacing: letterSpacing,
       wordSpacing: wordSpacing,
       height: height,

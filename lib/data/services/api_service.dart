@@ -32,9 +32,16 @@ class ApiClient {
       ..sendTimeout = ApiConstants.sendTimeout
       ..headers['content-type'] = 'application/json; charset=utf-8'
       ..responseType = ResponseType.json
-    // We want to inspect every status code ourselves (via ErrorInterceptor)
-    // rather than have Dio throw before we've had a chance to log/map it.
-      ..validateStatus = (_) => true;
+    // Only a 2xx is a success. Everything else has to become a DioException,
+    // because that is the only path into the interceptors' `onError` — the
+    // logging line, the 401 refresh in AuthInterceptor, and ErrorInterceptor,
+    // which turns the backend envelope into a typed AppException. Accepting
+    // every status here (as this once did) handed 4xx bodies to the
+    // repositories as if they were payloads: a refused message parsed into an
+    // empty "sent" result, so moderation, the New Energy cap and the daily
+    // opener paywall all failed silently.
+      ..validateStatus = (status) =>
+          status != null && status >= 200 && status < 300;
 
     _dio.interceptors.addAll([
       // Logging goes first so it captures the request exactly as sent and

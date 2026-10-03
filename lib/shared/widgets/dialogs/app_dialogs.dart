@@ -7,7 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/ads/rewarded/rewarded_unlock_type.dart';
 import '../../../core/constants/app_string.dart';
-import '../../../core/constants/static_assets/app_vectors.dart';
+import '../../../core/theme/app_colors.dart';
 import 'all_dialogs/common_dialog.dart';
 import 'all_dialogs/premium_or_ad_dialog.dart';
 import 'all_dialogs/reason_dialog.dart';
@@ -16,30 +16,25 @@ abstract final class AppDialogs {
   static Future<bool?> commonDialog({
     required BuildContext context,
     required String headingText,
-    required String descriptionText,
     required String buttonText,
+    String? descriptionText,
     VoidCallback? onTap,
-    IconData? iconData,
-    String? vectorLogo,
-    String? imageLogo,
-    Color? iconVectorColor,
-    bool dismissible = false,
+    bool dismissible = true,
     bool isShowTwoButtons = false,
+    bool destructive = false,
   }) {
     return showDialog<bool>(
       context: context,
       barrierDismissible: dismissible,
+      barrierColor: AppColors.scrim,
       builder: (context) {
         return CommonDialog(
-          iconVectorColor: iconVectorColor,
           isShowTwoButtons: isShowTwoButtons,
           headingText: headingText,
           descriptionText: descriptionText,
           buttonText: buttonText,
+          destructive: destructive,
           onTap: onTap ?? () {},
-          vectorLogo: vectorLogo,
-          imageLogo: imageLogo,
-          iconData: iconData,
         );
       },
     );
@@ -50,28 +45,26 @@ abstract final class AppDialogs {
     required String headingText,
     required String descriptionText,
     required String buttonText,
-    String hintText = 'Type your reason here...',
-    IconData? iconData,
+    String hintText = 'What happened?',
     bool dismissible = false,
   }) {
     return showDialog<String>(
       context: context,
       barrierDismissible: dismissible,
+      barrierColor: AppColors.scrim,
       builder: (context) {
         return ReasonDialog(
           headingText: headingText,
           descriptionText: descriptionText,
           buttonText: buttonText,
           hintText: hintText,
-          iconData: iconData,
         );
       },
     );
   }
 
-  /// The "buy Premium OR watch an ad" paywall dialog — heading, description,
-  /// both button labels, both callbacks, and the badge icon are all
-  /// dynamic, plus a close (✕) icon in the top corner.
+  /// The "Get Premium, or watch a short ad" choice — heading, description,
+  /// both labels and both callbacks are the caller's; "Not now" closes it.
   static Future<void> premiumOrAdDialog({
     required BuildContext context,
     required RewardedUnlockType unlockType,
@@ -82,8 +75,6 @@ abstract final class AppDialogs {
     VoidCallback? onAdEarned,
     String buyButtonText = AppString.buyPremium,
     String watchAdButtonText = AppString.watchAd,
-    IconData? iconData,
-    String? vectorAsset,
     bool dismissible = false,
   }) async {
     // Premium users skip the paywall entirely — treat it as an
@@ -96,6 +87,7 @@ abstract final class AppDialogs {
     await showDialog<void>(
       context: context,
       barrierDismissible: dismissible,
+      barrierColor: AppColors.scrim,
       builder: (context) {
         return PremiumOrAdDialog(
           headingText: headingText,
@@ -105,8 +97,6 @@ abstract final class AppDialogs {
           onAdEarned: onAdEarned,
           buyButtonText: buyButtonText,
           watchAdButtonText: watchAdButtonText,
-          iconData: iconData,
-          vectorAsset: vectorAsset,
           dismissible: dismissible,
         );
       },
@@ -117,10 +107,8 @@ abstract final class AppDialogs {
     return commonDialog(
       context: context,
       isShowTwoButtons: true,
-      vectorLogo: AppVectors.exit,
-      headingText: "Exit",
-      descriptionText: "Are you sure you want to exit?",
-      buttonText: "Confirm",
+      headingText: 'Leave cozune?',
+      buttonText: 'Leave',
       onTap: () {
         SystemNavigator.pop();
       },

@@ -1,7 +1,9 @@
 import 'package:dating_app/core/router/app_router.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../core/extensions/global_back_extension.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
@@ -25,8 +27,10 @@ class ChatsScreen extends ConsumerStatefulWidget {
 
 class _RequestsScreenState extends ConsumerState<ChatsScreen>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabController =
-  TabController(length: 2, vsync: this);
+  late final TabController _tabController = TabController(
+    length: 2,
+    vsync: this,
+  );
 
   @override
   void dispose() {
@@ -47,13 +51,15 @@ class _RequestsScreenState extends ConsumerState<ChatsScreen>
               _ConversationList(
                 state: 'vibing',
                 emptyTitle: 'No conversations yet',
-                emptyBody: 'When someone replies to your opener, the '
+                emptyBody:
+                    'When someone replies to your opener, the '
                     'conversation moves here.',
               ),
               _ConversationList(
                 state: 'new_energy',
                 emptyTitle: 'Nothing new',
-                emptyBody: 'Openers waiting for a reply — yours or theirs — '
+                emptyBody:
+                    'Openers waiting for a reply — yours or theirs — '
                     'show up here.',
               ),
             ],
@@ -152,11 +158,7 @@ class _CountedTab extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
             if (hasCount) ...[
               const SizedBox(width: 6),
@@ -217,9 +219,8 @@ class _ConversationList extends ConsumerWidget {
     final presence = ref.watch(presenceProvider);
 
     return async.when(
-      loading: () => Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      ),
+      loading: () =>
+          Center(child: CircularProgressIndicator(color: AppColors.primary)),
       error: (err, _) => const _Empty(
         title: "Couldn't load conversations",
         body: 'Pull down to try again.',
@@ -254,7 +255,8 @@ class _RefreshableEmpty extends ConsumerWidget {
     return RefreshIndicator(
       color: AppColors.primary,
       backgroundColor: AppColors.card,
-      onRefresh: () => ref.read(conversationsProvider(state).notifier).refresh(),
+      onRefresh: () =>
+          ref.read(conversationsProvider(state).notifier).refresh(),
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [_Empty(title: title, body: body)],
@@ -279,15 +281,16 @@ class _RefreshableList extends ConsumerWidget {
     return RefreshIndicator(
       color: AppColors.primary,
       backgroundColor: AppColors.card,
-      onRefresh: () => ref.read(conversationsProvider(state).notifier).refresh(),
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      onRefresh: () =>
+          ref.read(conversationsProvider(state).notifier).refresh(),
+      child: ListView.builder(
+        padding: const EdgeInsets.only(top: 8, bottom: 24),
         itemCount: items.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 10),
         itemBuilder: (_, index) => ConversationTile(
           conversation: items[index],
           colorIndex: index,
-          online: presence[items[index].otherUser.id] ??
+          online:
+              presence[items[index].otherUser.id] ??
               items[index].otherUser.isOnline,
         ),
       ),
@@ -330,39 +333,57 @@ class ConversationTile extends StatelessWidget {
         if (muted) 'muted',
         if (online) 'online now',
       ].join(', '),
+      onLongPressHint: 'Chat options',
+      onLongPress: () => _openActions(context, other.id, name),
       excludeSemantics: true,
-      child: RadiusCard(
-        padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+      child: InkWell(
         onTap: () => _openChat(context, other, name),
-        child: Row(
-          children: [
-            _Avatar(
-              name: name,
-              photoUrl: other.primaryPhotoUrl,
-              colorIndex: colorIndex,
-              online: online,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _TileText(
+        onLongPress: () {
+          HapticFeedback.mediumImpact();
+          _openActions(context, other.id, name);
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 9),
+          child: Row(
+            children: [
+              _Avatar(
                 name: name,
-                snippet: snippet,
-                muted: muted,
-                unread: unread,
+                photoUrl: other.primaryPhotoUrl,
+                colorIndex: colorIndex,
+                online: online,
               ),
-            ),
-            const SizedBox(width: 8),
-            _TileMeta(lastMessageAt: conversation.lastMessageAt, unread: unread, muted: muted),
-            _RowMenu(
-              conversationId: conversation.id,
-              userId: other.id,
-              userName: name,
-              isArchived: isArchived,
-              isMuted: muted,
-            ),
-          ],
+              const SizedBox(width: 14),
+              Expanded(
+                child: _TileText(
+                  name: name,
+                  snippet: snippet,
+                  muted: muted,
+                  unread: unread,
+                ),
+              ),
+              const SizedBox(width: 10),
+              _TileMeta(
+                lastMessageAt: conversation.lastMessageAt,
+                unread: unread,
+                muted: muted,
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  /// Mute, archive, delete, block, report — on a long press, the way every
+  /// inbox people already use works. The same menu is in the thread's header.
+  void _openActions(BuildContext context, String userId, String name) {
+    showChatActionsMenu(
+      context,
+      conversationId: conversation.id,
+      userId: userId,
+      userName: name,
+      isArchived: isArchived,
+      isMuted: conversation.muted,
     );
   }
 
@@ -410,7 +431,13 @@ class _TileText extends StatelessWidget {
                 name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.bodyStrong.copyWith(fontSize: 15),
+                style: AppTextStyles.bodyStrong.copyWith(
+                  fontSize: 15.5,
+                  fontWeight: unread > 0 ? FontWeight.w700 : FontWeight.w600,
+                  fontVariations: [
+                    FontVariation('wght', unread > 0 ? 700 : 600),
+                  ],
+                ),
               ),
             ),
             if (muted) ...[
@@ -429,7 +456,10 @@ class _TileText extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: AppTextStyles.caption.copyWith(
+            fontSize: 14,
             color: unread > 0 ? AppColors.textDark : AppColors.textGrey,
+            fontWeight: unread > 0 ? FontWeight.w600 : FontWeight.w400,
+            fontVariations: [FontVariation('wght', unread > 0 ? 600 : 400)],
           ),
         ),
       ],
@@ -456,12 +486,21 @@ class _TileMeta extends StatelessWidget {
       children: [
         Text(
           _ago(lastMessageAt),
-          style: AppTextStyles.caption.copyWith(fontSize: 11),
+          style: AppTextStyles.caption.copyWith(
+            fontSize: 12,
+            color: unread > 0 && !muted ? AppColors.primaryInk : null,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
         ),
-        if (unread > 0) ...[
-          const SizedBox(height: 6),
+        const SizedBox(height: 6),
+        if (unread == 0)
+          const SizedBox(height: 20)
+        else ...[
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            constraints: const BoxConstraints(minWidth: 20),
+            height: 20,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 6),
             decoration: BoxDecoration(
               color: muted ? AppColors.iconMuted : AppColors.primary,
               borderRadius: BorderRadius.circular(999),
@@ -469,7 +508,8 @@ class _TileMeta extends StatelessWidget {
             child: Text(
               unread > 9 ? '9+' : '$unread',
               style: AppTextStyles.caption.copyWith(
-                fontSize: 10.5,
+                fontSize: 11,
+                height: 1,
                 color: AppColors.onAccent,
                 fontWeight: FontWeight.w700,
                 fontVariations: const [FontVariation('wght', 700)],
@@ -488,46 +528,6 @@ class _TileMeta extends StatelessWidget {
     if (d.inMinutes < 60) return '${d.inMinutes}m';
     if (d.inHours < 24) return '${d.inHours}h';
     return '${d.inDays}d';
-  }
-}
-
-class _RowMenu extends StatelessWidget {
-  const _RowMenu({
-    required this.conversationId,
-    required this.userId,
-    required this.userName,
-    required this.isArchived,
-    required this.isMuted,
-  });
-
-  final String conversationId;
-  final String userId;
-  final String userName;
-  final bool isArchived;
-  final bool isMuted;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Options for $userName',
-      excludeSemantics: true,
-      child: InkWell(
-        onTap: () => showChatActionsMenu(
-          context,
-          conversationId: conversationId,
-          userId: userId,
-          userName: userName,
-          isArchived: isArchived,
-          isMuted: isMuted,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-          child: Icon(Icons.more_vert, size: 19, color: AppColors.iconMuted),
-        ),
-      ),
-    );
   }
 }
 
@@ -551,30 +551,30 @@ class _Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 52,
-      height: 52,
+      width: 56,
+      height: 56,
       child: Stack(
         children: [
           Container(
-            width: 52,
-            height: 52,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: photoUrl == null ? avatarGradient(colorIndex) : null,
               image: photoUrl != null
                   ? DecorationImage(
-                image: NetworkImage(photoUrl!),
-                fit: BoxFit.cover,
-              )
+                      image: NetworkImage(photoUrl!),
+                      fit: BoxFit.cover,
+                    )
                   : null,
             ),
             child: photoUrl == null
                 ? Center(
-              child: Text(
-                name.isNotEmpty ? name[0].toUpperCase() : '?',
-                style: AppTextStyles.avatarInitial(20),
-              ),
-            )
+                    child: Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                      style: AppTextStyles.avatarInitial(21),
+                    ),
+                  )
                 : null,
           ),
           if (online)
@@ -582,8 +582,8 @@ class _Avatar extends StatelessWidget {
               right: 1,
               bottom: 1,
               child: Container(
-                width: 13,
-                height: 13,
+                width: 15,
+                height: 15,
                 decoration: BoxDecoration(
                   color: AppColors.ok,
                   shape: BoxShape.circle,

@@ -49,10 +49,11 @@ class RadiusCard extends StatelessWidget {
   }
 }
 
-/// A dashed callout for the thing someone needs to know before they act — a
-/// privacy note, a store rule, a consequence.
+/// The thing someone needs to know before they act — a privacy note, a store
+/// rule, a consequence — set as a quiet footnote with a mark beside it.
 ///
-/// Deliberately not an error style. It explains; it does not warn.
+/// It used to be an outlined box, and a box reads as a warning whatever it
+/// says. These explain; they do not warn.
 class NoticeBox extends StatelessWidget {
   const NoticeBox({super.key, required this.text, this.icon});
 
@@ -61,28 +62,23 @@ class NoticeBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primarySoft, width: 1.5),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 17, color: AppColors.primary),
-            const SizedBox(width: 10),
-          ],
-          Expanded(
-            child: Text(
-              text,
-              style: AppTextStyles.caption.copyWith(height: 1.5),
-            ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (icon != null) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(icon, size: 17, color: AppColors.iconMuted),
           ),
+          const SizedBox(width: 10),
         ],
-      ),
+        Expanded(
+          child: Text(
+            text,
+            style: AppTextStyles.caption.copyWith(fontSize: 13, height: 1.5),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -141,9 +137,10 @@ class TagPill extends StatelessWidget {
 
 enum TagTone { accent, premium, neutral }
 
-/// Small uppercase heading that separates groups within a screen.
+/// The heading that opens a group within a screen, in sentence case — the
+/// way the label is written is the way it is shown.
 class SectionLabel extends StatelessWidget {
-  const SectionLabel(this.label, {super.key, this.topSpacing = 22});
+  const SectionLabel(this.label, {super.key, this.topSpacing = 26});
 
   final String label;
 
@@ -154,8 +151,11 @@ class SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(top: topSpacing, bottom: 10),
-      child: Text(label.toUpperCase(), style: AppTextStyles.label),
+      padding: EdgeInsets.only(top: topSpacing, bottom: 12),
+      child: Semantics(
+        header: true,
+        child: Text(label, style: AppTextStyles.label),
+      ),
     );
   }
 }

@@ -25,21 +25,16 @@ class BlockedAccountsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.card,
+        backgroundColor: AppColors.background,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        shape: Border(
-          bottom: BorderSide(color: AppColors.inputBorder, width: 1),
-        ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: AppColors.textDark),
+          tooltip: 'Back',
+          icon: Icon(Icons.arrow_back_rounded, color: AppColors.textDark),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'Blocked accounts',
-          style: AppTextStyles.title.copyWith(fontSize: 18),
-        ),
+        title: Text('Blocked accounts', style: AppTextStyles.title),
       ),
       body: SafeArea(
         child: RefreshIndicator(
@@ -73,11 +68,10 @@ class BlockedAccountsScreen extends ConsumerWidget {
                 );
               }
 
-              return ListView.separated(
+              return ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                padding: const EdgeInsets.only(top: 8, bottom: 24),
                 itemCount: blocked.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 10),
                 itemBuilder: (_, index) => _BlockedRow(
                   user: blocked[index],
                   colorIndex: index,
@@ -109,44 +103,14 @@ class _BlockedRowState extends ConsumerState<_BlockedRow> {
   Future<void> _unblock() async {
     if (_busy) return;
 
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.panel,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          'Unblock $_name?',
-          style: AppTextStyles.title.copyWith(fontSize: 18),
-        ),
-        content: Text(
-          'You will be able to see and message each other again. Anything '
-          'they sent while blocked stays undelivered.',
-          style: AppTextStyles.bodyMuted,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(
-              'Cancel',
-              style: AppTextStyles.bodyStrong.copyWith(
-                color: AppColors.textGrey,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(
-              'Unblock',
-              style: AppTextStyles.bodyStrong.copyWith(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
+    final ok = await showRadiusConfirm(
+      context,
+      title: 'Unblock $_name?',
+      message: 'You will be able to see and message each other again. '
+          'Anything they sent while blocked stays undelivered.',
+      confirmLabel: 'Unblock',
     );
-    if (ok != true) return;
+    if (!ok) return;
 
     setState(() => _busy = true);
     try {
@@ -161,13 +125,13 @@ class _BlockedRowState extends ConsumerState<_BlockedRow> {
 
   @override
   Widget build(BuildContext context) {
-    return RadiusCard(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 9),
       child: Row(
         children: [
           Container(
-            width: 46,
-            height: 46,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: widget.user.primaryPhotoUrl == null
@@ -184,12 +148,12 @@ class _BlockedRowState extends ConsumerState<_BlockedRow> {
                 ? Center(
                     child: Text(
                       _name.isNotEmpty ? _name[0].toUpperCase() : '?',
-                      style: AppTextStyles.avatarInitial(18),
+                      style: AppTextStyles.avatarInitial(20),
                     ),
                   )
                 : null,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -199,13 +163,17 @@ class _BlockedRowState extends ConsumerState<_BlockedRow> {
                   _name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.bodyStrong.copyWith(fontSize: 15),
+                  style: AppTextStyles.bodyStrong.copyWith(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w600,
+                    fontVariations: const [FontVariation('wght', 600)],
+                  ),
                 ),
                 if (widget.user.blockedAt != null) ...[
                   const SizedBox(height: 2),
                   Text(
                     'Blocked ${_ago(widget.user.blockedAt!)}',
-                    style: AppTextStyles.caption.copyWith(fontSize: 11.5),
+                    style: AppTextStyles.caption.copyWith(fontSize: 13),
                   ),
                 ],
               ],

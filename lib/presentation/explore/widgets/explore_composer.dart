@@ -10,6 +10,7 @@ import '../../common/widgets/widgets.dart';
 import '../../home/models/profile_seed.dart';
 import '../../home/screens/profile_detail_sheet.dart';
 import '../../home/widgets/message_limit_paywall.dart';
+import '../../home/widgets/send_failure.dart';
 import 'explore_avatar.dart';
 
 /// The message bar pinned under the map.
@@ -91,7 +92,16 @@ class _ExploreComposerState extends ConsumerState<ExploreComposer> {
       // paywall, so accepting the offer is one tap back to what they wrote.
       if (mounted) showMessageLimitPaywall(context, gate: gate);
     } on AppException catch (e) {
-      if (mounted) showRadiusToast(context, e.message, tone: ToastTone.error);
+      // Moderation, the New Energy cap, a dropped connection — each gets the
+      // same plain sentence the chat thread uses. The draft stays in the field.
+      if (mounted) {
+        sendFailureHaptic();
+        showRadiusToast(
+          context,
+          SendFailure.from(e, name: recipient.displayName).toastText,
+          tone: ToastTone.error,
+        );
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -189,7 +199,14 @@ class _ExploreComposerState extends ConsumerState<ExploreComposer> {
                   hintStyle: AppTextStyles.body.copyWith(
                     color: AppColors.textGrey,
                   ),
+                  // Every state, not just `border`: the theme's enabled and
+                  // focused outlines otherwise draw a second ring inside the
+                  // pill this sits in.
                   border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  filled: false,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 12,
@@ -235,7 +252,9 @@ class _ExploreComposerState extends ConsumerState<ExploreComposer> {
                     : Icon(
                         Icons.send_rounded,
                         size: 19,
-                        color: canSend ? AppColors.onAccent : AppColors.iconMuted,
+                        color: canSend
+                            ? AppColors.onAccent
+                            : AppColors.iconMuted,
                       ),
               ),
             ),

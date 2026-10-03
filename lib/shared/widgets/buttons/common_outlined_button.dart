@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/utils.dart';
 import '../app_text.dart';
 
@@ -46,14 +47,12 @@ class _CommonOutlinedButtonState extends State<CommonOutlinedButton> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final borderColor = colorScheme.primary.withValues(alpha: 0.01);
-    final radius = (widget.buttonRadius ?? 8).r;
-    final activeBorderColor = widget.borderColor ?? colorScheme.primary;
-    final activeTextColor = widget.textColor ?? colorScheme.primary;
+    // The ghost button: a hairline and ink, matching RadiusButtonKind.ghost.
+    final radius = (widget.buttonRadius ?? 16).r;
+    final activeBorderColor = widget.borderColor ?? AppColors.inputBorder;
+    final activeTextColor = widget.textColor ?? AppColors.textDark;
     return Material(
-      color: _isPressed
-          ? colorScheme.primary.withValues(alpha: 0.08)
-          : Colors.transparent,
+      color: AppColors.card,
       borderRadius: BorderRadius.circular(radius),
       child: InkWell(
         borderRadius: BorderRadius.circular(radius),
@@ -65,16 +64,15 @@ class _CommonOutlinedButtonState extends State<CommonOutlinedButton> {
         },
         child: Container(
           width: (widget.width)?.w ?? double.infinity,
-          height: (widget.height ?? 50).h,
+          height: (widget.height ?? 54).h,
           padding: EdgeInsets.all(5.r),
           decoration: BoxDecoration(
             color: widget.isDisableButton
-                ? Colors.grey.shade500
+                ? AppColors.inputBorder
                 : _isPressed
-                ? (widget.isPressedColor ??
-                      colorScheme.primary.withValues(alpha: 0.3))
-                : borderColor,
-            border: Border.all(width: 1.r, color: activeBorderColor),
+                ? (widget.isPressedColor ?? AppColors.inputBorder)
+                : Colors.transparent,
+            border: Border.all(width: 1.5, color: activeBorderColor),
             borderRadius: BorderRadius.circular(radius),
           ),
           child: Center(

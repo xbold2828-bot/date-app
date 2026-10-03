@@ -11,25 +11,28 @@ import 'package:dating_app/data/repositories/chat_repository.dart';
 import 'package:dating_app/data/repositories/media_repository.dart';
 import 'package:dating_app/data/repositories/profile_repository.dart';
 import 'package:dating_app/presentation/common/widgets/widgets.dart';
+import 'package:dating_app/presentation/home/screens/edit_profile_screen.dart';
+import 'package:dating_app/presentation/home/screens/settings_screen.dart';
 import 'package:dating_app/presentation/home/screens/you_screen.dart';
 import 'package:dating_app/providers/core_providers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 MeUser _me({bool premium = false, bool verified = false}) => MeUser.fromJson({
-      'id': 'u1',
-      'supabaseId': 'sb-1',
-      'status': 'active',
-      'primaryPhotoId': 'm1',
-      'age': 25,
-      'verified': verified,
-      'premium': {'isActive': premium, 'plan': 'monthly'},
-      'profile': {
-        'displayName': 'Salaar',
-        'bio': 'Here for good conversation and better coffee.',
-        'personalityTags': ['gym', 'foodie', 'night_owl'],
-      },
-      'location': {'city': 'Tirupathi'},
-      'onboarding': {'isComplete': true, 'completedSteps': []},
-    });
+  'id': 'u1',
+  'supabaseId': 'sb-1',
+  'status': 'active',
+  'primaryPhotoId': 'm1',
+  'age': 25,
+  'verified': verified,
+  'premium': {'isActive': premium, 'plan': 'monthly'},
+  'profile': {
+    'displayName': 'Salaar',
+    'bio': 'Here for good conversation and better coffee.',
+    'personalityTags': ['gym', 'foodie', 'night_owl'],
+  },
+  'location': {'city': 'Tirupathi'},
+  'onboarding': {'isComplete': true, 'completedSteps': []},
+});
 
 class _FakeProfileRepository implements ProfileRepository {
   _FakeProfileRepository(this._user, {this.stats});
@@ -63,19 +66,18 @@ class _FakeChatRepository implements ChatRepository {
     bool? archived,
     int page = 1,
     int limit = 20,
-  }) async =>
-      PageResult<ConversationSummary>(
-        items: List.generate(
-          state == 'vibing' ? vibing : 0,
-          (i) => ConversationSummary.fromJson({
-            'id': 'c$i',
-            'otherUser': {'id': 'u$i', 'displayName': 'Person $i'},
-            'state': 'vibing',
-          }),
-        ),
-        page: 1,
-        limit: limit,
-      );
+  }) async => PageResult<ConversationSummary>(
+    items: List.generate(
+      state == 'vibing' ? vibing : 0,
+      (i) => ConversationSummary.fromJson({
+        'id': 'c$i',
+        'otherUser': {'id': 'u$i', 'displayName': 'Person $i'},
+        'state': 'vibing',
+      }),
+    ),
+    page: 1,
+    limit: limit,
+  );
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
@@ -88,18 +90,18 @@ class _FakeMediaRepository implements MediaRepository {
 
   @override
   Future<List<MediaAsset>> listMine() async => List.generate(
-        count,
-        (i) => MediaAsset.fromJson({
-          'id': 'm${i + 1}',
-          'type': MediaKind.publicPhoto,
-          'visibility': 'public',
-          'status': i.isEven ? 'approved' : 'pending',
-          // Deliberately unreachable: the widget must fall back to its
-          // errorBuilder rather than throwing or overflowing.
-          'url': 'https://invalid.test/photo$i.jpg',
-          'contentType': 'image/jpeg',
-        }),
-      );
+    count,
+    (i) => MediaAsset.fromJson({
+      'id': 'm${i + 1}',
+      'type': MediaKind.publicPhoto,
+      'visibility': 'public',
+      'status': i.isEven ? 'approved' : 'pending',
+      // Deliberately unreachable: the widget must fall back to its
+      // errorBuilder rather than throwing or overflowing.
+      'url': 'https://invalid.test/photo$i.jpg',
+      'contentType': 'image/jpeg',
+    }),
+  );
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
@@ -132,10 +134,10 @@ void main() {
               stats: stats,
             ),
           ),
-          mediaRepositoryProvider
-              .overrideWithValue(_FakeMediaRepository(photos)),
-          chatRepositoryProvider
-              .overrideWithValue(_FakeChatRepository(vibing)),
+          mediaRepositoryProvider.overrideWithValue(
+            _FakeMediaRepository(photos),
+          ),
+          chatRepositoryProvider.overrideWithValue(_FakeChatRepository(vibing)),
         ],
         child: const MaterialApp(home: Scaffold(body: YouScreen())),
       ),
@@ -177,8 +179,9 @@ void main() {
   });
 
   // The tick is not gated on premium, or on whose profile this is.
-  testWidgets('a verified account wears its tick beside the name',
-      (tester) async {
+  testWidgets('a verified account wears its tick beside the name', (
+    tester,
+  ) async {
     await pumpYou(tester, screen: const Size(375, 3000), verified: true);
     expect(find.byType(VerificationTick), findsWidgets);
   });
@@ -205,6 +208,142 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('—'), findsNWidgets(2));
       expect(find.text('2'), findsOneWidget);
+    });
+  });
+
+  group('sections', () {
+    testWidgets('settings live behind the menu, not on the profile', (
+      tester,
+    ) async {
+      await pumpYou(tester, screen: const Size(375, 3000));
+
+      // The profile itself carries no account plumbing any more.
+      expect(find.text('Sign out'), findsNothing);
+      expect(find.text('Dark mode'), findsNothing);
+      expect(find.bySemanticsLabel('Settings'), findsOneWidget);
+      expect(find.text('Edit profile'), findsOneWidget);
+    });
+
+    testWidgets('the About tab lays out on a narrow phone', (tester) async {
+      await pumpYou(tester, screen: const Size(320, 3000));
+
+      await tester.tap(find.bySemanticsLabel('About'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('About you'), findsOneWidget);
+      expect(find.text('Here for'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('an incomplete profile says what is left to do', (
+      tester,
+    ) async {
+      await pumpYou(tester, screen: const Size(375, 3000), photos: 1);
+
+      expect(find.text('Finish your profile'), findsOneWidget);
+      expect(find.text('Add 2 more photos'), findsOneWidget);
+    });
+
+    testWidgets('holds together at a large text size', (tester) async {
+      tester.view.physicalSize = const Size(320, 3000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            profileRepositoryProvider.overrideWithValue(
+              _FakeProfileRepository(
+                _me(premium: true, verified: true),
+                stats: const ProfileStats(
+                  profileViews: 12800,
+                  likesReceived: 1900,
+                ),
+              ),
+            ),
+            mediaRepositoryProvider.overrideWithValue(_FakeMediaRepository(5)),
+            chatRepositoryProvider.overrideWithValue(_FakeChatRepository(40)),
+          ],
+          child: const MaterialApp(
+            home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(1.3)),
+              child: Scaffold(body: YouScreen()),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('13k'), findsOneWidget);
+      expect(find.text('1.9k'), findsOneWidget);
+    });
+  });
+
+  group('settings', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    testWidgets('lays out at 320 px with every row reachable', (tester) async {
+      tester.view.physicalSize = const Size(320, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            profileRepositoryProvider.overrideWithValue(
+              _FakeProfileRepository(_me(verified: true)),
+            ),
+          ],
+          child: const MaterialApp(home: SettingsScreen()),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      for (final row in [
+        'cozune Premium',
+        'Verification',
+        'Live location',
+        'Blocked accounts',
+        'Dark mode',
+        'Sign out',
+        'Delete account',
+      ]) {
+        expect(find.text(row), findsOneWidget, reason: row);
+      }
+    });
+  });
+
+  group('edit profile', () {
+    testWidgets('opens with the bio and the editor, no overflow', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            profileRepositoryProvider.overrideWithValue(
+              _FakeProfileRepository(_me()),
+            ),
+          ],
+          child: const MaterialApp(home: EditProfileScreen()),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(tester.takeException(), isNull);
+      expect(
+        find.text('Here for good conversation and better coffee.'),
+        findsOneWidget,
+      );
+      expect(find.text('Save changes'), findsOneWidget);
     });
   });
 }

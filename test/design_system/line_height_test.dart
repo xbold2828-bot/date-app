@@ -38,6 +38,8 @@ void main() {
   test('no token sets a line box shorter than its glyphs need', () {
     final tokens = <String, TextStyle>{
       'display': AppTextStyles.display,
+      'question': AppTextStyles.question,
+      'stat': AppTextStyles.stat(22),
       'title': AppTextStyles.title,
       'hero': AppTextStyles.hero,
       'body': AppTextStyles.body,
@@ -45,7 +47,6 @@ void main() {
       'bodyMuted': AppTextStyles.bodyMuted,
       'button': AppTextStyles.button,
       'caption': AppTextStyles.caption,
-      'eyebrow': AppTextStyles.eyebrow,
       'label': AppTextStyles.label,
       'chip': AppTextStyles.chip,
       'chipSelected': AppTextStyles.chipSelected,

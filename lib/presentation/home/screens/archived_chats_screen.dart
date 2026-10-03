@@ -77,11 +77,10 @@ class ArchivedChatsScreen extends ConsumerWidget {
                       );
                     }
 
-                    return ListView.separated(
+                    return ListView.builder(
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                      padding: const EdgeInsets.only(top: 8, bottom: 24),
                       itemCount: items.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
                       itemBuilder: (_, index) => ConversationTile(
                         conversation: items[index],
                         colorIndex: index,

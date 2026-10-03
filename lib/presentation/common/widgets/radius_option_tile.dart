@@ -8,8 +8,10 @@ import '../../../core/constants/app_text_styles.dart';
 /// Used wherever the answer is one-of-several — relationship status, search
 /// radius, subscription plan. For yes/no or many-of-several, use a chip.
 ///
-/// Like [RadiusChip], selection changes fill, border and mark together rather
-/// than relying on the hairline alone.
+/// Selection changes the border's colour and weight and fills the mark — never
+/// the hairline alone. The card itself stays the page colour: a tinted fill on
+/// top of a coloured border on top of a filled mark was three ways of saying
+/// one thing.
 class RadiusOptionTile extends StatelessWidget {
   const RadiusOptionTile({
     super.key,
@@ -20,6 +22,8 @@ class RadiusOptionTile extends StatelessWidget {
     this.leading,
     this.trailing,
     this.showRadio = true,
+    this.accent,
+    this.inGroup = false,
   });
 
   final String title;
@@ -39,8 +43,18 @@ class RadiusOptionTile extends StatelessWidget {
   /// False for tiles that act as navigation rather than a choice.
   final bool showRadio;
 
+  /// The selection colour. Accent blue unless the choice costs money, when
+  /// it is premium purple.
+  final Color? accent;
+
+  /// Drawn as one row of a [RadiusOptionGroup] — no card of its own; the
+  /// group's outline and hairlines hold the rows together.
+  final bool inGroup;
+
   @override
   Widget build(BuildContext context) {
+    final color = accent ?? AppColors.primary;
+
     return Semantics(
       button: true,
       selected: showRadio ? selected : null,
@@ -50,64 +64,117 @@ class RadiusOptionTile extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-            decoration: BoxDecoration(
-              color: selected ? AppColors.primaryTint : AppColors.card,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: selected ? AppColors.primary : AppColors.inputBorder,
-                width: 1.5,
-              ),
-            ),
-            child: Row(
-              children: [
-                if (leading != null) ...[
-                  leading!,
-                  const SizedBox(width: 14),
-                ] else if (showRadio) ...[
-                  _RadioMark(selected: selected),
-                  const SizedBox(width: 14),
-                ],
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        title,
-                        style: AppTextStyles.bodyStrong.copyWith(
-                          fontSize: 15.5,
-                          color: selected
-                              ? AppColors.primaryInk
-                              : AppColors.textDark,
+          borderRadius: inGroup ? null : BorderRadius.circular(18),
+          child: inGroup
+              ? Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                  child: _content(color),
+                )
+              : Container(
+                  // A Container adds its border's width to the padding, so
+                  // the thicker selected border gives back the extra half
+                  // pixel here and the content stays put when chosen.
+                  padding: selected
+                      ? const EdgeInsets.symmetric(
+                          horizontal: 17.5,
+                          vertical: 15.5,
+                        )
+                      : const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 16,
                         ),
-                      ),
-                      if (subtitle != null) ...[
-                        const SizedBox(height: 2),
-                        Text(subtitle!, style: AppTextStyles.caption),
-                      ],
-                    ],
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: selected ? color : AppColors.inputBorder,
+                      width: selected ? 2 : 1.5,
+                    ),
                   ),
+                  child: _content(color),
                 ),
-                if (trailing != null) ...[
-                  const SizedBox(width: 12),
-                  trailing!,
-                ],
+        ),
+      ),
+    );
+  }
+
+  Widget _content(Color color) {
+    return Row(
+      children: [
+        if (leading != null) ...[
+          leading!,
+          const SizedBox(width: 14),
+        ] else if (showRadio) ...[
+          _RadioMark(selected: selected, color: color),
+          const SizedBox(width: 14),
+        ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: AppTextStyles.bodyStrong.copyWith(
+                  fontSize: 15.5,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  fontVariations: [FontVariation('wght', selected ? 700 : 500)],
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(subtitle!, style: AppTextStyles.caption),
               ],
-            ),
+            ],
           ),
         ),
+        if (trailing != null) ...[const SizedBox(width: 12), trailing!],
+      ],
+    );
+  }
+}
+
+/// Several [RadiusOptionTile]s — built with `inGroup: true` — as one list:
+/// a single outline, hairlines between the rows. For settings, where the
+/// options are one question and four separate cards made them look like four.
+class RadiusOptionGroup extends StatelessWidget {
+  const RadiusOptionGroup({super.key, required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.inputBorder, width: 1.5),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0)
+              Divider(
+                height: 1,
+                thickness: 1,
+                indent: 52,
+                color: AppColors.inputBorder,
+              ),
+            children[i],
+          ],
+        ],
       ),
     );
   }
 }
 
 class _RadioMark extends StatelessWidget {
-  const _RadioMark({required this.selected});
+  const _RadioMark({required this.selected, required this.color});
 
   final bool selected;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -116,9 +183,9 @@ class _RadioMark extends StatelessWidget {
       height: 22,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: selected ? AppColors.primary : Colors.transparent,
+        color: selected ? color : Colors.transparent,
         border: Border.all(
-          color: selected ? AppColors.primary : AppColors.inputBorder,
+          color: selected ? color : AppColors.inputBorder,
           width: 2,
         ),
       ),

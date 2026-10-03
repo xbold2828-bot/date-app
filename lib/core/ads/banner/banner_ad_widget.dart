@@ -53,6 +53,18 @@ class _BannerAdWidgetState extends ConsumerState<BannerAdWidget> {
   }
 
   void _loadAd() {
+    // Ads exist only on Android and iOS; anywhere else AdHelper has no unit id
+    // and throws. A missing banner must never take down the screen it sits in
+    // (the chat composer carries one), so an unsupported platform simply
+    // shows no ad.
+    try {
+      _createAd();
+    } on UnsupportedError {
+      _ad = null;
+    }
+  }
+
+  void _createAd() {
     _ad = AdHelper.createBannerAd(
       size: widget.size,
       onLoaded: (ad) {

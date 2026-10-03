@@ -65,7 +65,14 @@ class ProfileActionBar extends StatelessWidget {
                   hintStyle: AppTextStyles.body.copyWith(
                     color: AppColors.textGrey,
                   ),
+                  // Every state, not just `border`: the theme's enabled and
+                  // focused outlines otherwise draw a second ring inside the
+                  // pill this sits in.
                   border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  filled: false,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 14,

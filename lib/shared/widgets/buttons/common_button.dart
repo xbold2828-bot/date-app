@@ -3,7 +3,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../core/extensions/padding_extension.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_shadow.dart';
 import '../../../core/utils/utils.dart';
 import '../app_text.dart';
 
@@ -62,38 +61,18 @@ class CommonButton extends StatefulWidget {
 class _CommonButtonState extends State<CommonButton> {
   bool _isPressed = false;
 
-  // Default gradient colors matching the provided image
-  final Color _defaultStartColor = AppColors.secondary;
-  final Color _defaultEndColor = AppColors.primary;
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final bool isDisabled = widget.isDisableButton;
-    final radius = (widget.buttonRadius ?? 8).r;
+    final radius = (widget.buttonRadius ?? 16).r;
 
-    // --- Gradient Logic ---
-    Color startColor;
-    Color endColor;
-
-    if (widget.bgColor != null) {
-      // If a color is provided, make the start color 2 shades (~15% lightness) lighter
-      endColor = widget.bgColor!;
-      final HSLColor hsl = HSLColor.fromColor(endColor);
-      startColor = hsl
-          .withLightness((hsl.lightness + 0.15).clamp(0.0, 1.0))
-          .toColor();
-    } else {
-      // Default to the dark green gradient from the image
-      startColor = _defaultStartColor;
-      endColor = _defaultEndColor;
-    }
-
-    // Handle pressed state opacity
-    if (_isPressed) {
-      startColor = startColor.withValues(alpha: 0.8);
-      endColor = endColor.withValues(alpha: 0.8);
-    }
+    // One solid fill. The teal-to-blue sweep this used to paint belonged to
+    // no part of the palette and made every legacy screen look templated.
+    // `isGradient` and `customGradient` survive for callers that still pass
+    // them; only an explicit gradient paints one.
+    var fill = widget.bgColor ?? AppColors.primary;
+    if (_isPressed) fill = Color.alphaBlend(Colors.black.withValues(alpha: 0.08), fill);
 
     return Material(
       color: Colors.transparent, // Must be transparent so Ink gradient shows
@@ -102,19 +81,9 @@ class _CommonButtonState extends State<CommonButton> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(radius),
           color: isDisabled
-              ? Colors.grey.shade400
-              : !widget.isGradient
-              ? widget.bgColor
-              : null,
-          // Only apply gradient if the button is NOT disabled
-          gradient: isDisabled || !widget.isGradient
-              ? null
-              : widget.customGradient ??
-                    LinearGradient(
-                      colors: [startColor, endColor],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
+              ? AppColors.inputBorder
+              : (widget.customGradient == null ? fill : null),
+          gradient: isDisabled ? null : widget.customGradient,
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(radius),
@@ -130,7 +99,7 @@ class _CommonButtonState extends State<CommonButton> {
             width:
                 (widget.width)?.w ??
                 (widget.isSmallButton ? null : double.infinity),
-            height: (widget.height ?? 50).h,
+            height: (widget.height ?? 54).h,
             child: Padding(
               padding: widget.internalButtonPadding ?? const EdgeInsets.all(0),
               child: Center(
@@ -165,15 +134,21 @@ class _CommonButtonState extends State<CommonButton> {
                             ),
                             spacerW(widget.spaceBetweenIconAndTitle ?? 10),
                           ],
-                          AppText(
-                            text: widget.text,
-                            fontSize: 15,
-                            isEllipsis: true,
-                            color: isDisabled
-                                ? Colors.white70
-                                : widget.textColor ?? colorScheme.onPrimary,
-                            fontWeight: widget.fontWeight ?? FontWeight.w700,
-                          ).paddingSymmetric(horizontal: 8.w),
+                          // Flexible, or `isEllipsis` never gets the chance:
+                          // a Row hands its children unbounded width, so a
+                          // long label at a large text size pushed past the
+                          // button's edge instead of truncating.
+                          Flexible(
+                            child: AppText(
+                              text: widget.text,
+                              fontSize: 15,
+                              isEllipsis: true,
+                              color: isDisabled
+                                  ? AppColors.textGrey
+                                  : widget.textColor ?? AppColors.onAccent,
+                              fontWeight: widget.fontWeight ?? FontWeight.w700,
+                            ).paddingSymmetric(horizontal: 8.w),
+                          ),
                         ],
                       ),
               ),
@@ -261,22 +236,8 @@ class _CommonButton2State extends State<CommonButton2>
     final bool isDisabled = widget.isDisableButton;
     final radius = (widget.buttonRadius ?? 14).r;
 
-    Color startColor, endColor;
-    if (widget.bgColor != null) {
-      endColor = widget.bgColor!;
-      final hsl = HSLColor.fromColor(endColor);
-      startColor = hsl
-          .withLightness((hsl.lightness + 0.12).clamp(0.0, 1.0))
-          .toColor();
-    } else {
-      startColor = AppColors.secondary;
-      endColor = AppColors.secondaryDark;
-    }
-
-    if (_isPressed) {
-      startColor = startColor.withValues(alpha: 0.85);
-      endColor = endColor.withValues(alpha: 0.85);
-    }
+    var fill = widget.bgColor ?? AppColors.primary;
+    if (_isPressed) fill = Color.alphaBlend(Colors.black.withValues(alpha: 0.08), fill);
 
     return AnimatedBuilder(
       animation: _scaleAnim,
@@ -285,9 +246,8 @@ class _CommonButton2State extends State<CommonButton2>
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(radius),
-          boxShadow: (isDisabled || !widget.hasShadow)
-              ? null
-              : AppShadow.button,
+          // Flat, like every other button in the app.
+          boxShadow: null,
         ),
         child: Material(
           color: Colors.transparent,
@@ -296,16 +256,9 @@ class _CommonButton2State extends State<CommonButton2>
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(radius),
               color: isDisabled
-                  ? Colors.grey.shade400
-                  : (!widget.isGradient ? widget.bgColor : null),
-              gradient: isDisabled || !widget.isGradient
-                  ? null
-                  : widget.customGradient ??
-                        LinearGradient(
-                          colors: [startColor, endColor],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
+                  ? AppColors.inputBorder
+                  : (widget.customGradient == null ? fill : null),
+              gradient: isDisabled ? null : widget.customGradient,
             ),
             child: InkWell(
               borderRadius: BorderRadius.circular(radius),

@@ -32,9 +32,13 @@ import '../../common/widgets/widgets.dart';
 /// guard, which is what makes them reusable here. Each returns a fresh
 /// self-view, so the last one to run is what `meProvider` is set to.
 class ProfileEditPanel extends ConsumerStatefulWidget {
-  const ProfileEditPanel({super.key, required this.me});
+  const ProfileEditPanel({super.key, required this.me, this.embedded = false});
 
   final MeUser me;
+
+  /// Rendered as the body of the Edit profile screen: always open, no card
+  /// and no show-more toggle — the screen itself is the "expanded" state.
+  final bool embedded;
 
   @override
   ConsumerState<ProfileEditPanel> createState() => _ProfileEditPanelState();
@@ -54,6 +58,8 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
   bool _expanded = false;
   bool _isSaving = false;
 
+  bool get _editing => widget.embedded || _expanded;
+
   /// Re-read the account when it changes underneath us.
   ///
   /// The bio and vibe sheets write through `meProvider`, so this panel can be
@@ -67,7 +73,7 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
   @override
   void didUpdateWidget(ProfileEditPanel old) {
     super.didUpdateWidget(old);
-    if (_expanded || identical(old.me, widget.me)) return;
+    if (_editing || identical(old.me, widget.me)) return;
 
     final p = widget.me.profile;
     _name.text = p.displayName ?? '';
@@ -197,7 +203,7 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
 
       if (latest != null) ref.read(meProvider.notifier).setMe(latest);
       if (mounted) {
-        setState(() => _expanded = false);
+        if (!widget.embedded) setState(() => _expanded = false);
         _snack('Profile updated');
       }
     } on AppException catch (e) {
@@ -212,6 +218,8 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
     final catalogue = ref.watch(tagsByCategoryProvider);
     final grouped = catalogue.valueOrNull ?? const <String, List<Tag>>{};
 
+    if (widget.embedded) return _editor(grouped, catalogue.isLoading);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -224,7 +232,7 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
         children: [
           Row(
             children: [
-              Expanded(child: Text('PROFILE DETAILS', style: AppTextStyles.label)),
+              Expanded(child: Text('Profile details', style: AppTextStyles.label)),
               _ShowMoreButton(
                 expanded: _expanded,
                 onTap: () => setState(() => _expanded = !_expanded),
@@ -563,7 +571,17 @@ class _Field extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: Text(label.toUpperCase(), style: AppTextStyles.label)),
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppTextStyles.bodyStrong.copyWith(
+                    fontSize: 13.5,
+                    color: AppColors.textGrey,
+                    fontWeight: FontWeight.w600,
+                    fontVariations: const [FontVariation('wght', 600)],
+                  ),
+                ),
+              ),
               ?counter,
             ],
           ),

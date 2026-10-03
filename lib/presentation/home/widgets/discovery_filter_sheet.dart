@@ -75,8 +75,11 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
 
   void _edit(DiscoveryFilter next) => setState(() => _draft = next);
 
-  void _toggleIn(List<String> current, String value,
-      DiscoveryFilter Function(List<String>) rebuild) {
+  void _toggleIn(
+    List<String> current,
+    String value,
+    DiscoveryFilter Function(List<String>) rebuild,
+  ) {
     final next = [...current];
     next.contains(value) ? next.remove(value) : next.add(value);
     _edit(rebuild(next));
@@ -119,7 +122,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
                   _sectionHeader('Free', 'Available on every account'),
                   const SizedBox(height: 18),
 
-                  _label('SHOW ME'),
+                  _label('Show me'),
                   const _Hint('Leave all unselected to see everyone.'),
                   const SizedBox(height: 12),
                   _chips(
@@ -133,42 +136,61 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
                   ),
 
                   const SizedBox(height: 24),
-                  _label('AGE RANGE'),
+                  _label('Age range'),
                   const SizedBox(height: 4),
                   Text(
                     _draft.maxAge >= kAgeFilterMax
                         ? '${_draft.minAge} – $kAgeFilterMax+'
                         : '${_draft.minAge} – ${_draft.maxAge}',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textDark,
-                    ),
+                    style: AppTextStyles.stat(20),
                   ),
-                  RangeSlider(
-                    min: kAgeFilterMin.toDouble(),
-                    max: kAgeFilterMax.toDouble(),
-                    divisions: kAgeFilterMax - kAgeFilterMin,
-                    activeColor: AppColors.primary,
-                    inactiveColor: AppColors.inputBorder,
-                    values: RangeValues(
-                      _draft.minAge.toDouble(),
-                      _draft.maxAge.toDouble(),
+                  SliderTheme(
+                    // One solid track and two plain thumbs. The default tick
+                    // per year drew forty-two dots along the line.
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 4,
+                      activeTrackColor: AppColors.primary,
+                      inactiveTrackColor: AppColors.inputBorder,
+                      thumbColor: AppColors.primary,
+                      overlayColor: AppColors.primary.withValues(alpha: 0.12),
+                      rangeTickMarkShape: const RoundRangeSliderTickMarkShape(
+                        tickMarkRadius: 0,
+                      ),
+                      rangeThumbShape: const RoundRangeSliderThumbShape(
+                        enabledThumbRadius: 11,
+                        elevation: 1.5,
+                        pressedElevation: 3,
+                      ),
+                      rangeTrackShape: const RoundedRectRangeSliderTrackShape(),
+                      showValueIndicator: ShowValueIndicator.never,
                     ),
-                    labels: RangeLabels(
-                      '${_draft.minAge}',
-                      _draft.maxAge >= kAgeFilterMax
-                          ? '$kAgeFilterMax+'
-                          : '${_draft.maxAge}',
+                    child: RangeSlider(
+                      min: kAgeFilterMin.toDouble(),
+                      max: kAgeFilterMax.toDouble(),
+                      divisions: kAgeFilterMax - kAgeFilterMin,
+                      activeColor: AppColors.primary,
+                      inactiveColor: AppColors.inputBorder,
+                      values: RangeValues(
+                        _draft.minAge.toDouble(),
+                        _draft.maxAge.toDouble(),
+                      ),
+                      labels: RangeLabels(
+                        '${_draft.minAge}',
+                        _draft.maxAge >= kAgeFilterMax
+                            ? '$kAgeFilterMax+'
+                            : '${_draft.maxAge}',
+                      ),
+                      onChanged: (values) => _edit(
+                        _draft.copyWith(
+                          minAge: values.start.round(),
+                          maxAge: values.end.round(),
+                        ),
+                      ),
                     ),
-                    onChanged: (values) => _edit(_draft.copyWith(
-                      minAge: values.start.round(),
-                      maxAge: values.end.round(),
-                    )),
                   ),
 
                   const SizedBox(height: 16),
-                  _label('INTENT'),
+                  _label('Intent'),
                   const SizedBox(height: 12),
                   _chips(
                     options: _intentOptions,
@@ -196,8 +218,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
                     subtitle: 'People who passed the live check.',
                     value: _draft.verifiedOnly,
                     enabled: isPremium,
-                    onChanged: (v) =>
-                        _edit(_draft.copyWith(verifiedOnly: v)),
+                    onChanged: (v) => _edit(_draft.copyWith(verifiedOnly: v)),
                   ),
                   _SwitchTile(
                     title: 'Online now',
@@ -211,12 +232,11 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
                     subtitle: 'Seen in the last 24 hours.',
                     value: _draft.recentlyActive,
                     enabled: isPremium,
-                    onChanged: (v) =>
-                        _edit(_draft.copyWith(recentlyActive: v)),
+                    onChanged: (v) => _edit(_draft.copyWith(recentlyActive: v)),
                   ),
 
                   const SizedBox(height: 20),
-                  _label('SITUATION', locked: !isPremium),
+                  _label('Situation', locked: !isPremium),
                   const SizedBox(height: 12),
                   _chips(
                     options: _situationOptions,
@@ -248,8 +268,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
                       const SizedBox(height: 20),
                       const _Hint("Couldn't load the tag options."),
                       TextButton(
-                        onPressed: () =>
-                            ref.invalidate(tagsByCategoryProvider),
+                        onPressed: () => ref.invalidate(tagsByCategoryProvider),
                         child: Text(
                           'Retry',
                           style: TextStyle(color: AppColors.primary),
@@ -262,7 +281,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
                             .isNotEmpty) ...[
                           const SizedBox(height: 20),
                           _label(
-                            TagCategories.label(category).toUpperCase(),
+                            TagCategories.label(category),
                             locked: !isPremium,
                           ),
                           const SizedBox(height: 12),
@@ -290,38 +309,32 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
   // ── chrome ──────────────────────────────────────────────────────────────
 
   Widget _grabber() => Padding(
-        padding: const EdgeInsets.only(top: 12, bottom: 12),
-        child: Center(
-          child: Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.inputBorder,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
+    padding: const EdgeInsets.only(top: 12, bottom: 12),
+    child: Center(
+      child: Container(
+        width: 40,
+        height: 4,
+        decoration: BoxDecoration(
+          color: AppColors.inputBorder,
+          borderRadius: BorderRadius.circular(2),
         ),
-      );
+      ),
+    ),
+  );
 
   Widget _titleRow() => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 12, 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Filters',
-              style: AppTextStyles.title,
-            ),
-            TextButton(
-              onPressed: () => _edit(_draft.clearedToDefaults()),
-              child: Text(
-                'Reset',
-                style: TextStyle(color: AppColors.textGrey),
-              ),
-            ),
-          ],
+    padding: const EdgeInsets.fromLTRB(24, 0, 12, 12),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text('Filters', style: AppTextStyles.title),
+        TextButton(
+          onPressed: () => _edit(_draft.clearedToDefaults()),
+          child: Text('Reset', style: TextStyle(color: AppColors.textGrey)),
         ),
-      );
+      ],
+    ),
+  );
 
   /// "Show N people" — the count comes from `/discovery/nearby/count`, which is
   /// free to call, so it can track the draft as chips are tapped.
@@ -397,26 +410,27 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
             children: [
               Row(
                 children: [
-                  Text(
-                    title.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textDark,
-                      letterSpacing: 1.4,
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      title,
+                      style: AppTextStyles.title.copyWith(fontSize: 20),
                     ),
                   ),
                   if (locked) ...[
-                    const SizedBox(width: 6),
-                    Icon(Icons.lock_outline,
-                        size: 15, color: AppColors.textGrey),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.lock_outline_rounded,
+                      size: 17,
+                      color: AppColors.premiumInk,
+                    ),
                   ],
                 ],
               ),
+              const SizedBox(height: 2),
               Text(
                 subtitle,
-                style:
-                    TextStyle(fontSize: 12, color: AppColors.textGrey),
+                style: AppTextStyles.caption.copyWith(fontSize: 13),
               ),
             ],
           ),
@@ -426,9 +440,10 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
             onPressed: onUnlock,
             child: Text(
               'Upgrade',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w600,
+              style: AppTextStyles.bodyStrong.copyWith(
+                color: AppColors.premiumInk,
+                fontWeight: FontWeight.w700,
+                fontVariations: const [FontVariation('wght', 700)],
               ),
             ),
           ),
@@ -437,22 +452,19 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
   }
 
   Widget _label(String text, {bool locked = false}) => Row(
-        children: [
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textGrey,
-              letterSpacing: 1.2,
-            ),
-          ),
-          if (locked) ...[
-            const SizedBox(width: 6),
-            Icon(Icons.lock_outline, size: 12, color: AppColors.textGrey),
-          ],
-        ],
-      );
+    children: [
+      Flexible(
+        child: Semantics(
+          header: true,
+          child: Text(text, style: AppTextStyles.label),
+        ),
+      ),
+      if (locked) ...[
+        const SizedBox(width: 6),
+        Icon(Icons.lock_outline_rounded, size: 15, color: AppColors.textGrey),
+      ],
+    ],
+  );
 
   Widget _chips({
     required List<({String label, String value})> options,
@@ -465,14 +477,16 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
       spacing: 8,
       runSpacing: 8,
       children: options
-          .map((option) => _Chip(
-                label: option.label,
-                selected: selected.contains(option.value),
-                enabled: enabled,
-                onTap: enabled
-                    ? () => onToggle(option.value)
-                    : (onLockedTap ?? () {}),
-              ))
+          .map(
+            (option) => _Chip(
+              label: option.label,
+              selected: selected.contains(option.value),
+              enabled: enabled,
+              onTap: enabled
+                  ? () => onToggle(option.value)
+                  : (onLockedTap ?? () {}),
+            ),
+          )
           .toList(),
     );
   }
@@ -482,26 +496,29 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
     required bool isPersonality,
     required bool enabled,
   }) {
-    final selected =
-        isPersonality ? _draft.personalityTags : _draft.preferenceTags;
+    final selected = isPersonality
+        ? _draft.personalityTags
+        : _draft.preferenceTags;
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: tags
-          .map((tag) => _Chip(
-                label: tag.label,
-                selected: selected.contains(tag.slug),
-                enabled: enabled,
-                onTap: enabled
-                    ? () => _toggleIn(
-                          selected,
-                          tag.slug,
-                          (next) => isPersonality
-                              ? _draft.copyWith(personalityTags: next)
-                              : _draft.copyWith(preferenceTags: next),
-                        )
-                    : _goPremium,
-              ))
+          .map(
+            (tag) => _Chip(
+              label: tag.label,
+              selected: selected.contains(tag.slug),
+              enabled: enabled,
+              onTap: enabled
+                  ? () => _toggleIn(
+                      selected,
+                      tag.slug,
+                      (next) => isPersonality
+                          ? _draft.copyWith(personalityTags: next)
+                          : _draft.copyWith(preferenceTags: next),
+                    )
+                  : _goPremium,
+            ),
+          )
           .toList(),
     );
   }
@@ -514,12 +531,12 @@ class _Hint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: 6),
-        child: Text(
-          text,
-          style: TextStyle(fontSize: 12, color: AppColors.textGrey),
-        ),
-      );
+    padding: const EdgeInsets.only(top: 6),
+    child: Text(
+      text,
+      style: TextStyle(fontSize: 12, color: AppColors.textGrey),
+    ),
+  );
 }
 
 class _Chip extends StatelessWidget {
@@ -544,8 +561,9 @@ class _Chip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
           decoration: BoxDecoration(
-            color:
-                selected ? AppColors.primary.withValues(alpha:0.1) : AppColors.card,
+            color: selected
+                ? AppColors.primary.withValues(alpha: 0.1)
+                : AppColors.card,
             borderRadius: BorderRadius.circular(30),
             border: Border.all(
               color: selected ? AppColors.primary : AppColors.inputBorder,
@@ -603,15 +621,17 @@ class _SwitchTile extends StatelessWidget {
                     ),
                     if (!enabled) ...[
                       const SizedBox(width: 6),
-                      Icon(Icons.lock_outline,
-                          size: 14, color: AppColors.textGrey),
+                      Icon(
+                        Icons.lock_outline,
+                        size: 14,
+                        color: AppColors.textGrey,
+                      ),
                     ],
                   ],
                 ),
                 Text(
                   subtitle,
-                  style:
-                      TextStyle(fontSize: 12, color: AppColors.textGrey),
+                  style: TextStyle(fontSize: 12, color: AppColors.textGrey),
                 ),
               ],
             ),

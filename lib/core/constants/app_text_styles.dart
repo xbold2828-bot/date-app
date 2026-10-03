@@ -122,6 +122,26 @@ class AppTextStyles {
     letterSpacing: -0.4,
   );
 
+  /// The one question an onboarding step asks. A size up from [display]: on
+  /// those screens it is the only thing that has to be read, and the answers
+  /// sit right under it. The line box stays at the face's natural height —
+  /// tighter clips descenders on the second line.
+  static TextStyle get question => _fraunces(
+    size: 34,
+    weight: 700,
+    height: 1.24,
+    letterSpacing: -0.7,
+  );
+
+  /// A number read at a glance — profile stats, the likes meter. Tabular, so a
+  /// count ticking from 9 to 10 does not shove its neighbours sideways.
+  static TextStyle stat(double size) => _fraunces(
+    size: size,
+    weight: 700,
+    height: 1.25,
+    letterSpacing: -0.2,
+  ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
+
   /// Sheet titles and the wordmark.
   static TextStyle get title => _fraunces(
     size: 21,
@@ -155,22 +175,18 @@ class AppTextStyles {
 
   // --- UI (DM Sans) ---------------------------------------------------------
 
-  /// Small uppercase lead-in, in accent blue. "18+ · Verified people only"
-  static TextStyle get eyebrow => _dmSans(
-    size: 11,
-    weight: 700,
-    height: 1.3,
-    letterSpacing: 0.14 * 11,
-    color: AppColors.primaryInk,
-  );
-
-  /// Uppercase section heading between groups. "DISPLAY NAME"
+  /// The heading over one group of controls — "Who can see my location",
+  /// "Age range". Sentence case, set in ink at a weight step above the rows
+  /// it heads.
+  ///
+  /// It used to be an 11px uppercase caption with wide tracking. Every screen
+  /// that used it read like a form template, and at that size the tracking was
+  /// doing the work the weight should.
   static TextStyle get label => _dmSans(
-    size: 11,
+    size: 15,
     weight: 700,
-    height: 1.3,
-    letterSpacing: 0.13 * 11,
-    color: AppColors.textGrey,
+    height: 1.35,
+    letterSpacing: -0.1,
   );
 
   /// Body copy.
