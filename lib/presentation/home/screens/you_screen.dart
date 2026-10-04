@@ -1,29 +1,32 @@
-import 'package:dating_app/shared/widgets/dialogs/app_dialogs.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
-import '../../../core/extensions/global_back_extension.dart';
-import '../../../core/router/app_router.dart';
-import '../../../core/theme/app_colors.dart';
+
 import '../../../core/constants/app_text_styles.dart';
-import '../../../core/theme/theme_controller.dart';
+import '../../../core/extensions/global_back_extension.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/onboarding_maps.dart';
-import '../../../core/utils/utils.dart';
-import '../../../data/services/auth_service.dart';
+import '../../../data/models/user_model.dart';
 import '../../../providers/chat_provider.dart';
-import '../../../providers/core_providers.dart';
-import '../../../providers/notification_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../common/widgets/widgets.dart';
-import '../widgets/location_sharing_card.dart';
-import '../widgets/profile_edit_panel.dart';
+import '../widgets/live_location_line.dart';
 import '../widgets/profile_edit_sheets.dart';
 import '../widgets/you_gallery.dart';
 import '../widgets/you_header.dart';
-import './blocked_accounts_screen.dart';
-import './premium_screen.dart';
+import 'edit_profile_screen.dart';
+import 'settings_screen.dart';
 
+enum _YouTab { photos, about }
+
+/// The profile tab, laid out the way a profile is read on a phone: who you
+/// are and your numbers at the top, two buttons, then your photos and your
+/// details as tabs.
+///
+/// It used to be one long column of cards — location, metrics, gallery, vibe,
+/// bio, details, verification, premium, dark mode, blocked accounts, sign out —
+/// so the account's settings sat between you and your own photos. Settings now
+/// live behind the menu ([SettingsScreen]); editing lives behind "Edit
+/// profile" ([EditProfileScreen]).
 class YouScreen extends ConsumerStatefulWidget {
   const YouScreen({super.key});
 
@@ -32,112 +35,45 @@ class YouScreen extends ConsumerStatefulWidget {
 }
 
 class _YouScreenState extends ConsumerState<YouScreen> {
-  // ---------------------------------------------------------------------------
-  // Action Handlers
-  // ---------------------------------------------------------------------------
+  _YouTab _tab = _YouTab.photos;
+  final _gallery = GlobalKey<YouGalleryState>();
 
   Future<void> _onEditBio(String bio) async {
     final saved = await showEditBioSheet(context, bio);
-    if (saved && mounted) _snack('Bio updated successfully');
+    if (saved && mounted) {
+      showRadiusToast(context, 'Bio updated', tone: ToastTone.success);
+    }
   }
 
   Future<void> _onEditVibes(List<String> vibes) async {
     final saved = await showEditVibesSheet(context, vibes);
-    if (saved && mounted) _snack('Vibes updated successfully');
-  }
-
-  void _snack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg, style: const TextStyle(fontWeight: FontWeight.w500)),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-  }
-
-  Future<void> _onSignOut() async {
-
-    final confirm = await AppDialogs.commonDialog(
-      iconData: Icons.logout,
-      iconVectorColor: AppColors.whiteColor,
-    context: context, headingText: 'Sign Out', descriptionText: 'Are you sure you want to sign out?', buttonText: 'Sign Out',
-      isShowTwoButtons: true,
-    );
-
-    if (confirm == true && mounted) {
-      await ref.read(pushRegistrarProvider).stop();
-      await AuthService().signOut();
-
-      if (!mounted) return;
-      _navigateToLogin();
+    if (saved && mounted) {
+      showRadiusToast(context, 'Vibes updated', tone: ToastTone.success);
     }
   }
 
-  Future<void> _onDeleteAccount() async {
-    final confirm = await _showActionDialog(
-      title: 'Delete Account',
-      content: 'This will permanently delete your account and all data. This cannot be undone.',
-      actionText: 'Delete',
-      actionColor: AppColors.danger,
-    );
+  void _openEdit() => Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+  );
 
-    if (confirm == true && mounted) {
-      await ref.read(pushRegistrarProvider).stop();
-      try {
-        await ref.read(profileRepositoryProvider).deleteAccount();
-      } catch (_) {
-        // Handle error if necessary
-      }
-      await AuthService().signOut();
+  void _openSettings() => Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const SettingsScreen()),
+  );
 
-      if (!mounted) return;
-      _navigateToLogin();
-    }
-  }
-
-  Future<bool?> _showActionDialog({
-    required String title,
-    required String content,
-    required String actionText,
-    required Color actionColor,
-  }) {
-    return showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.panel,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text(title, style: TextStyle(color: actionColor, fontWeight: FontWeight.bold)),
-        content: Text(content, style: TextStyle(color: AppColors.textGrey, height: 1.4)),
-        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: TextStyle(color: AppColors.textGrey)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: actionColor.withValues(alpha: 0.1),
-              foregroundColor: actionColor,
-              elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: Text(actionText, style: const TextStyle(fontWeight: FontWeight.w600)),
-          ),
-        ],
-      ),
+  /// Adding a photo lives in the grid; from anywhere else, show the grid
+  /// first and then ask it.
+  void _addPhoto() {
+    if (_tab != _YouTab.photos) setState(() => _tab = _YouTab.photos);
+    WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _gallery.currentState?.addPhoto(),
     );
   }
 
-  void _navigateToLogin() {
-
-    context.go(AppRoutes.login);
+  void _selectTab(_YouTab tab) {
+    if (tab != _tab) setState(() => _tab = tab);
   }
-
-  // ---------------------------------------------------------------------------
-  // Build Method
-  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -150,158 +86,88 @@ class _YouScreenState extends ConsumerState<YouScreen> {
     final stats = ref.watch(myProfileStatsProvider).valueOrNull;
     final friends = ref.watch(activeConversationCountProvider);
     final tagLabels = ref.watch(tagLabelsProvider).valueOrNull ?? const {};
+    final media = ref.watch(myMediaProvider).valueOrNull;
+    final photoCount = media?.where((m) => m.isPublicPhoto).length;
 
-    final primaryPhotoUrl = _getPrimaryPhotoUrl(me.primaryPhotoId);
-
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
-            child: Wordmark(),
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
+      slivers: [
+        SliverToBoxAdapter(
+          child: YouTopBar(me: me, onMenu: _openSettings),
+        ),
+        SliverToBoxAdapter(
+          child: YouProfileHeader(
+            me: me,
+            avatarUrl: _primaryPhotoUrl(me.primaryPhotoId),
+            visits: stats?.profileViews,
+            likes: stats?.likesReceived,
+            friends: friends,
           ),
-
-          YouHeader(me: me, avatarUrl: primaryPhotoUrl),
-          spacerH(20),
-
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            child: LocationSharingCard(),
+        ),
+        SliverToBoxAdapter(
+          child: YouIdentity(
+            me: me,
+            tagLabels: tagLabels,
+            onWriteBio: () => _onEditBio(me.profile.bio ?? ''),
           ),
-          spacerH(20),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: ProfileMetricsRow(
-              visits: stats?.profileViews,
-              likes: stats?.likesReceived,
-              friends: friends,
-            ),
+        ),
+        SliverToBoxAdapter(
+          child: YouActions(me: me, onEdit: _openEdit),
+        ),
+        SliverToBoxAdapter(
+          child: _FinishProfile(
+            me: me,
+            photoCount: photoCount,
+            onAddPhoto: _addPhoto,
+            onWriteBio: () => _onEditBio(me.profile.bio ?? ''),
+            onPickVibes: () => _onEditVibes(me.profile.personalityTags),
+            onSetPreferences: _openEdit,
           ),
-          spacerH(26),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: YouGallery(primaryPhotoId: me.primaryPhotoId),
-          ),
-          spacerH(26),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _ProfileSectionCard(
-              label: 'MY VIBE',
-              onEdit: () => _onEditVibes(me.profile.personalityTags),
-              child: me.profile.personalityTags.isEmpty
-                  ? Text('Nothing picked yet.', style: AppTextStyles.caption)
-                  : Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final vibe in me.profile.personalityTags)
-                    TagPill(
-                      label: tagLabels[vibe] ?? humanizeSlug(vibe),
-                      tone: TagTone.neutral,
-                    ),
-                ],
-              ),
-            ),
-          ),
-          spacerH(16),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _ProfileSectionCard(
-              label: 'BIO',
-              onEdit: () => _onEditBio(me.profile.bio ?? ''),
-              child: Text(
-                (me.profile.bio ?? '').trim().isEmpty
-                    ? 'Say something worth replying to.'
-                    : me.profile.bio!,
-                style: AppTextStyles.body.copyWith(
-                  height: 1.5,
-                  color: (me.profile.bio ?? '').trim().isEmpty
-                      ? AppColors.textGrey
-                      : AppColors.textDark,
-                ),
-              ),
-            ),
-          ),
-          spacerH(16),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: ProfileEditPanel(me: me),
-          ),
-          spacerH(16),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _VerificationCard(isVerified: me.verified),
-          ),
-          spacerH(16),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _PremiumCard(isPremium: me.premium.isActive),
-          ),
-          spacerH(24),
-
-          // Settings & Actions
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            child: _DarkModeTile(),
-          ),
-          spacerH(12),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _MenuTile(
-              icon: Icons.block_outlined,
-              label: 'Blocked accounts',
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const BlockedAccountsScreen()),
-              ),
-            ),
-          ),
-          spacerH(12),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _MenuTile(
-              icon: Icons.logout_outlined,
-              label: 'Sign Out',
-              onTap: _onSignOut,
-            ),
-          ),
-          spacerH(32),
-
-          Center(
-            child: GestureDetector(
-              onTap: _onDeleteAccount,
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  'Delete Account',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.danger.withValues(alpha: 0.8),
-                    fontWeight: FontWeight.w600,
+        ),
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _TabBarDelegate(selected: _tab, onSelect: _selectTab),
+        ),
+        SliverToBoxAdapter(
+          child: GestureDetector(
+            // Swipe between the two tabs, as a profile's tabs always allow.
+            onHorizontalDragEnd: (details) {
+              final v = details.primaryVelocity ?? 0;
+              if (v < -250) _selectTab(_YouTab.about);
+              if (v > 250) _selectTab(_YouTab.photos);
+            },
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              switchInCurve: const Cubic(0.23, 1, 0.32, 1),
+              child: switch (_tab) {
+                _YouTab.photos => Padding(
+                  key: const ValueKey('you-photos'),
+                  padding: const EdgeInsets.only(top: 2),
+                  child: YouGallery(
+                    key: _gallery,
+                    primaryPhotoId: me.primaryPhotoId,
                   ),
                 ),
-              ),
+                _YouTab.about => _AboutTab(
+                  key: const ValueKey('you-about'),
+                  me: me,
+                  tagLabels: tagLabels,
+                  onEdit: _openEdit,
+                  onWriteBio: () => _onEditBio(me.profile.bio ?? ''),
+                ),
+              },
             ),
           ),
-          spacerH(80),
-        ],
-      ),
+        ),
+        // Clear of the floating tab bar and the banner ad under it.
+        const SliverToBoxAdapter(child: SizedBox(height: 140)),
+      ],
     ).withGlobalBackHandler(context);
   }
 
-  String? _getPrimaryPhotoUrl(String? primaryId) {
+  String? _primaryPhotoUrl(String? primaryId) {
     if (primaryId == null) return null;
     final media = ref.watch(myMediaProvider).valueOrNull ?? const [];
 
@@ -312,80 +178,154 @@ class _YouScreenState extends ConsumerState<YouScreen> {
   }
 }
 
-// -----------------------------------------------------------------------------
-// Extracted Widgets for Premium UI & Better Performance
-// -----------------------------------------------------------------------------
-
-class _ProfileSectionCard extends StatelessWidget {
-  const _ProfileSectionCard({
-    required this.label,
-    required this.onEdit,
-    required this.child,
+/// What is still missing from the profile, as one line of progress and a row
+/// of the actions that fix it. Gone once there is nothing left to do.
+class _FinishProfile extends StatelessWidget {
+  const _FinishProfile({
+    required this.me,
+    required this.photoCount,
+    required this.onAddPhoto,
+    required this.onWriteBio,
+    required this.onPickVibes,
+    required this.onSetPreferences,
   });
 
-  final String label;
-  final VoidCallback onEdit;
-  final Widget child;
+  final MeUser me;
+
+  /// Null while the gallery is loading — the strip waits rather than nagging
+  /// about photos it has not counted yet.
+  final int? photoCount;
+  final VoidCallback onAddPhoto;
+  final VoidCallback onWriteBio;
+  final VoidCallback onPickVibes;
+  final VoidCallback onSetPreferences;
+
+  static const _photoGoal = 3;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-        border: Border.all(color: AppColors.inputBorder.withValues(alpha: 0.3)),
+    final photos = photoCount;
+    if (photos == null) return const SizedBox(height: 18);
+
+    final p = me.profile;
+    final steps = <(bool, IconData, String, VoidCallback)>[
+      (
+      photos >= _photoGoal,
+      Icons.add_photo_alternate_outlined,
+      photos == 0
+          ? 'Add photos'
+          : 'Add ${_photoGoal - photos} more '
+          '${_photoGoal - photos == 1 ? 'photo' : 'photos'}',
+      onAddPhoto,
       ),
+      (
+      (p.bio ?? '').trim().isNotEmpty,
+      Icons.short_text_rounded,
+      'Write a bio',
+      onWriteBio,
+      ),
+      (
+      p.personalityTags.isNotEmpty,
+      Icons.local_offer_outlined,
+      'Pick your three words',
+      onPickVibes,
+      ),
+      (
+      p.preferenceTags.isNotEmpty,
+      Icons.tune_rounded,
+      'Set your kind of night',
+      onSetPreferences,
+      ),
+    ];
+    final done = steps.where((s) => s.$1).length;
+    if (done == steps.length) return const SizedBox(height: 18);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 22, 0, 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                label,
-                style: AppTextStyles.label.copyWith(
-                  letterSpacing: 1.2,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textDark.withValues(alpha: 0.8),
-                ),
-              ),
-              Semantics(
-                button: true,
-                label: 'Edit ${label.toLowerCase()}',
-                excludeSemantics: true,
-                child: GestureDetector(
-                  onTap: onEdit,
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.background.withValues(alpha: 0.5),
-                      shape: BoxShape.circle,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Finish your profile',
+                    style: AppTextStyles.bodyStrong.copyWith(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      fontVariations: const [FontVariation('wght', 700)],
                     ),
-                    child: Icon(Icons.edit_outlined, size: 16, color: AppColors.textGrey),
                   ),
                 ),
-              ),
-            ],
+                Text(
+                  '$done of ${steps.length}',
+                  style: AppTextStyles.caption.copyWith(
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
           ),
-          spacerH(16),
-          child,
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: _Progress(done: done, total: steps.length),
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                for (final (isDone, icon, label, onTap) in steps)
+                  if (!isDone)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _TodoChip(icon: icon, label: label, onTap: onTap),
+                    ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _MenuTile extends StatelessWidget {
-  const _MenuTile({
+/// [done] of [total] as filled segments. Static: it is a status, not news.
+class _Progress extends StatelessWidget {
+  const _Progress({required this.done, required this.total});
+
+  final int done;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(
+      child: Row(
+        children: [
+          for (var i = 0; i < total; i++) ...[
+            if (i > 0) const SizedBox(width: 4),
+            Expanded(
+              child: Container(
+                height: 3.5,
+                decoration: BoxDecoration(
+                  color: i < done ? AppColors.primary : AppColors.inputBorder,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TodoChip extends StatelessWidget {
+  const _TodoChip({
     required this.icon,
     required this.label,
     required this.onTap,
@@ -397,320 +337,280 @@ class _MenuTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, size: 20, color: AppColors.textDark),
-            ),
-            spacerW(16),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppColors.textDark,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded, size: 22, color: AppColors.textGrey),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DarkModeTile extends ConsumerWidget {
-  const _DarkModeTile();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final dark = isDarkMode(context, ref.watch(themeModeProvider));
-
     return Semantics(
-      toggled: dark,
-      label: 'Dark mode',
+      button: true,
+      label: label,
       excludeSemantics: true,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                dark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-                size: 20,
-                color: AppColors.textDark,
-              ),
-            ),
-            spacerW(16),
-            Expanded(
-              child: Text(
-                'Dark mode',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppColors.textDark,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            Switch.adaptive(
-              value: dark,
-              activeColor: AppColors.primary,
-              onChanged: (on) => ref.read(themeModeProvider.notifier).toggle(dark: on),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _VerificationCard extends StatelessWidget {
-  const _VerificationCard({required this.isVerified});
-
-  final bool isVerified;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
+      child: Material(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: (isVerified ? AppColors.ok : Colors.black)
-                .withValues(alpha: isVerified ? 0.08 : 0.02),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-        border: Border.all(
-          color: isVerified
-              ? AppColors.ok.withValues(alpha: 0.25)
-              : AppColors.inputBorder.withValues(alpha: 0.3),
+        shape: StadiumBorder(
+          side: BorderSide(color: AppColors.inputBorder, width: 1.5),
         ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              gradient: isVerified
-                  ? LinearGradient(
-                colors: [
-                  AppColors.ok.withValues(alpha: 0.2),
-                  AppColors.ok.withValues(alpha: 0.05),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-                  : null,
-              color: isVerified ? null : AppColors.background,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.verified_rounded,
-              size: 24,
-              color: isVerified ? AppColors.ok : AppColors.iconMuted,
-            ),
-          ),
-          spacerW(16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 9, 14, 9),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
+                Icon(icon, size: 17, color: AppColors.primaryInk),
+                const SizedBox(width: 7),
                 Text(
-                  'ACCOUNT VERIFICATION',
-                  style: AppTextStyles.label.copyWith(
-                    fontSize: 10,
-                    letterSpacing: 1.2,
-                    color: AppColors.textGrey,
-                  ),
-                ),
-                spacerH(4),
-                Text(
-                  isVerified ? 'Identity Verified' : 'Not verified yet',
-                  style: AppTextStyles.bodyStrong.copyWith(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                spacerH(2),
-                Text(
-                  isVerified
-                      ? 'Your profile is trusted and visible to others.'
-                      : 'Verify to unlock the full experience.',
-                  style: AppTextStyles.caption.copyWith(fontSize: 13, height: 1.3),
+                  label,
+                  style: AppTextStyles.bodyStrong.copyWith(fontSize: 14),
                 ),
               ],
             ),
           ),
-          if (isVerified) const VerificationTick(size: 26),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _PremiumCard extends StatelessWidget {
-  const _PremiumCard({required this.isPremium});
+/// The Photos / About switch, pinned under the header while the content
+/// scrolls beneath it.
+class _TabBarDelegate extends SliverPersistentHeaderDelegate {
+  _TabBarDelegate({required this.selected, required this.onSelect});
 
-  final bool isPremium;
+  final _YouTab selected;
+  final ValueChanged<_YouTab> onSelect;
+
+  static const double _height = 48;
+
+  @override
+  double get minExtent => _height;
+
+  @override
+  double get maxExtent => _height;
+
+  @override
+  bool shouldRebuild(_TabBarDelegate old) => old.selected != selected;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlaps) {
+    // A pinned header has to paint its whole extent; left to the icons'
+    // own height it painted 24 of its 48 and the sliver refused it.
+    return Container(
+      height: _height,
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        border: Border(bottom: BorderSide(color: AppColors.inputBorder)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _tab(_YouTab.photos, Icons.grid_on_rounded, 'Photos'),
+          _tab(_YouTab.about, Icons.person_outline_rounded, 'About'),
+        ],
+      ),
+    );
+  }
+
+  Widget _tab(_YouTab tab, IconData icon, String label) {
+    final on = tab == selected;
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: on,
+        label: label,
+        excludeSemantics: true,
+        child: InkWell(
+          onTap: () => onSelect(tab),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 24,
+                color: on ? AppColors.textDark : AppColors.iconMuted,
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: AnimatedOpacity(
+                  opacity: on ? 1 : 0,
+                  duration: const Duration(milliseconds: 160),
+                  child: Container(height: 2, color: AppColors.textDark),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Everything you said about yourself, read-only, in the order someone
+/// opening your profile meets it.
+class _AboutTab extends StatelessWidget {
+  const _AboutTab({
+    super.key,
+    required this.me,
+    required this.tagLabels,
+    required this.onEdit,
+    required this.onWriteBio,
+  });
+
+  final MeUser me;
+  final Map<String, String> tagLabels;
+  final VoidCallback onEdit;
+  final VoidCallback onWriteBio;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF2D1F63), Color(0xFF1A123B)],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.premium.withValues(alpha: 0.25),
-            blurRadius: 30,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
+    final p = me.profile;
+    String label(String slug) => tagLabels[slug] ?? humanizeSlug(slug);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.premium,
-                      AppColors.premium.withValues(alpha: 0.7),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(
-                  isPremium ? Icons.workspace_premium_rounded : Icons.star_rounded,
-                  size: 22,
-                  color: Colors.white,
-                ),
-              ),
-              spacerW(14),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Cozune Premium',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.onImage,
-                    letterSpacing: -0.5,
+                  'About you',
+                  style: AppTextStyles.title.copyWith(fontSize: 19),
+                ),
+              ),
+              TextButton(
+                onPressed: onEdit,
+                child: Text(
+                  'Edit',
+                  style: AppTextStyles.bodyStrong.copyWith(
+                    color: AppColors.primaryInk,
+                    fontWeight: FontWeight.w700,
+                    fontVariations: const [FontVariation('wght', 700)],
                   ),
                 ),
               ),
-              if (isPremium)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-                  ),
-                  child: const Text(
-                    'ACTIVE',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ),
             ],
           ),
-          spacerH(12),
-          Text(
-            isPremium
-                ? 'Unlimited radius, every filter, and no ads.'
-                : 'See everyone nearby, filter everything, and drop the ads.',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white.withValues(alpha: 0.7),
-              height: 1.5,
+          _Fact(
+            title: 'Here for',
+            child: _Plain(
+              p.intent.isEmpty ? null : p.intent.map(intentLabel).join(', '),
             ),
           ),
-          spacerH(20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const PremiumScreen()),
-              ),
-              style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.symmetric(vertical: 14.h),
-                backgroundColor: AppColors.onImage,
-                foregroundColor: AppColors.premiumDeep,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: Text(
-                isPremium ? 'Manage Subscription' : 'See what you get',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.2,
-                ),
-              ),
+          _Fact(
+            title: 'Situation',
+            child: _Plain(
+              p.relationshipStatus == null
+                  ? null
+                  : relationshipStatusLabel(p.relationshipStatus!),
+            ),
+          ),
+          _Fact(
+            title: 'In three words',
+            child: _Pills([for (final v in p.personalityTags) label(v)]),
+          ),
+          _Fact(
+            title: 'Your kind of night',
+            note: 'Private until you match',
+            child: _Pills([for (final t in p.preferenceTags) label(t)]),
+          ),
+          _Fact(
+            title: "Hard no's",
+            note: p.showHardNosOnProfile
+                ? 'Shown on your profile'
+                : 'Hidden from your profile',
+            child: _Pills([for (final t in p.hardNos) label(t)]),
+          ),
+          _Fact(
+            title: 'Where you are',
+            child: LiveLocationLine(
+              city: me.location?.city,
+              anchorLatitude: me.location?.latitude,
+              anchorLongitude: me.location?.longitude,
+              alignment: CrossAxisAlignment.start,
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _Fact extends StatelessWidget {
+  const _Fact({required this.title, required this.child, this.note});
+
+  final String title;
+  final String? note;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  title,
+                  style: AppTextStyles.bodyStrong.copyWith(
+                    fontSize: 13.5,
+                    color: AppColors.textGrey,
+                  ),
+                ),
+              ),
+              if (note != null) ...[
+                Text('  ·  ', style: AppTextStyles.caption),
+                Flexible(
+                  child: Text(
+                    note!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.caption,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 7),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _Plain extends StatelessWidget {
+  const _Plain(this.value);
+
+  final String? value;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    value ?? 'Not set',
+    style: AppTextStyles.body.copyWith(
+      fontSize: 15,
+      color: value == null ? AppColors.textGrey : AppColors.textDark,
+    ),
+  );
+}
+
+class _Pills extends StatelessWidget {
+  const _Pills(this.labels);
+
+  final List<String> labels;
+
+  @override
+  Widget build(BuildContext context) {
+    if (labels.isEmpty) return const _Plain(null);
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (final l in labels) TagPill(label: l, tone: TagTone.neutral),
+      ],
     );
   }
 }

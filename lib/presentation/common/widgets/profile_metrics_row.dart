@@ -89,6 +89,10 @@ class ProfileMetricsRow extends StatelessWidget {
   }
 }
 
+/// "1.2k" past a thousand — the same shortening the metrics row uses, for
+/// anywhere else a count has to fit a narrow column.
+String compactCount(int value) => _Metric.format(value);
+
 class _Metric extends StatelessWidget {
   const _Metric({
     required this.value,
@@ -144,13 +148,11 @@ class _Metric extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              label.toUpperCase(),
+              label,
               maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: AppTextStyles.caption.copyWith(
-                fontSize: compact ? 9.5 : 10,
-                letterSpacing: 0.9,
-                fontWeight: FontWeight.w700,
-                fontVariations: const [FontVariation('wght', 700)],
+                fontSize: compact ? 11.5 : 12.5,
               ),
             ),
           ],
@@ -167,8 +169,8 @@ class _Divider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: 1,
-        height: compact ? 34 : 40,
-        color: AppColors.inputBorder,
-      );
+    width: 1,
+    height: compact ? 34 : 40,
+    color: AppColors.inputBorder,
+  );
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:dating_app/core/extensions/unfocus_on_tap_extension.dart';
 import 'package:dating_app/core/utils/utils.dart';
 import 'package:dating_app/shared/widgets/buttons/common_button.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart' hide BackButton;
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_text_styles.dart';
@@ -27,6 +28,9 @@ class _OtpScreenState extends State<OtpScreen> {
   final TextEditingController _otpController = TextEditingController();
   final FocusNode _otpFocus = FocusNode();
   final AuthService _authService = AuthService();
+
+  late final TapGestureRecognizer _changeNumberTap = TapGestureRecognizer()
+    ..onTap = _changeNumber;
 
   bool _isLoading = false;
   bool _hasError = false;
@@ -58,6 +62,10 @@ class _OtpScreenState extends State<OtpScreen> {
       }
       setState(() => _secondsLeft--);
     });
+  }
+
+  void _changeNumber() {
+    context.pop();
   }
 
   /// Called automatically when all 6 digits are entered
@@ -130,24 +138,45 @@ class _OtpScreenState extends State<OtpScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               spacerH(16),
-
-              Row(
-                children: [
-                    SizedBox(
-                      width: 38,
-                      height: 38,
-                      child: BackButton(onTap: () => context.pop()),
-                    ),
-                  spacerW(12),
-                  const Wordmark(size: 20),
-                ],
+              BackButton(onTap: () => context.pop()),
+              spacerH(20),
+              Semantics(
+                header: true,
+                child:  Text("Verify it's you", style: AppTextStyles.display),
               ),
-              spacerH(48),
-              Text("Verify it's you", style: AppTextStyles.display),
-              spacerH(8),
-              Text(
-                'Enter the 6-digit code sent to ${widget.phoneNumber}.',
-                style: AppTextStyles.bodyMuted,
+              spacerH( 12),
+              Text.rich(
+                TextSpan(
+                  style: AppTextStyles.bodyMuted.copyWith(fontSize: 15),
+                  children: [
+                    const TextSpan(
+                      text: 'Enter the 6-digit code we sent to ',
+                    ),
+                    TextSpan(
+                      text: displayPhoneNumber(widget.phoneNumber)
+                          .replaceAll(' ', ' '),
+                      style: TextStyle(
+                        color: AppColors.textDark,
+                        fontWeight: FontWeight.w600,
+                        fontVariations: const [
+                          FontVariation('wght', 600),
+                        ],
+                      ),
+                    ),
+                    const TextSpan(text: '. '),
+                    TextSpan(
+                      text: 'Wrong number?',
+                      style: TextStyle(
+                        color: AppColors.primaryInk,
+                        fontWeight: FontWeight.w600,
+                        fontVariations: const [
+                          FontVariation('wght', 600),
+                        ],
+                      ),
+                      recognizer: _changeNumberTap,
+                    ),
+                  ],
+                ),
               ),
               spacerH(40),
 
@@ -195,24 +224,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 onClick: () => _onVerify(),
               ),
 
-              spacerH(48),
-              Center(
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.inputBorder),
-                    color: AppColors.card,
-                  ),
-                  child: Icon(
-                    Icons.shield_outlined,
-                    color: AppColors.textGrey,
-                    size: 28,
-                  ),
-                ),
-              ),
-              spacerH(40),
+              spacerH(50),
             ],
           ),
         ),

@@ -119,4 +119,5 @@ flutter:
     - assets/vectors/svg/
     - assets/icons/
     - assets/map/
+    - assets/animation/gifs/
     - .env

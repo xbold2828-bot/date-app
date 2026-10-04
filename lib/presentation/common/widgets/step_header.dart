@@ -147,6 +147,40 @@ class StepHeader extends StatelessWidget {
   }
 }
 
+/// A plain back arrow with a full-size touch target — no box around it. The
+/// boxed square it replaces was the loudest thing in the header.
+class BackChevron extends StatelessWidget {
+  const BackChevron({super.key, required this.onTap, this.color});
+
+  final VoidCallback onTap;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Go back',
+      excludeSemantics: true,
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: Icon(
+              Icons.arrow_back_rounded,
+              size: 24,
+              color: color ?? AppColors.textDark,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// The square back affordance used across onboarding and detail screens.
 class BackButton extends StatelessWidget {
   const BackButton({super.key, required this.onTap});
@@ -166,6 +200,7 @@ class BackButton extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           child: Container(
+            padding: EdgeInsets.all(10.r),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.inputBorder),

@@ -93,3 +93,29 @@ String? normalizedUrl(String? raw) {
   final hasScheme = RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://').hasMatch(trimmed);
   return hasScheme ? trimmed : 'https://$trimmed';
 }
+
+
+/// "+918688712132" as people read it: "+91 86887 12132".
+String displayPhoneNumber(String e164) {
+  String grouped(String digits, List<int> groups) {
+    final out = StringBuffer();
+    var i = 0;
+    for (final g in groups) {
+      if (i >= digits.length) break;
+      if (out.isNotEmpty) out.write(' ');
+      final end = (i + g).clamp(0, digits.length);
+      out.write(digits.substring(i, end));
+      i = end;
+    }
+    if (i < digits.length) out.write(digits.substring(i));
+    return out.toString();
+  }
+
+  if (e164.startsWith('+91') && e164.length == 13) {
+    return '+91 ${grouped(e164.substring(3), const [5, 5])}';
+  }
+  if (e164.startsWith('+1') && e164.length == 12) {
+    return '+1 ${grouped(e164.substring(2), const [3, 3, 4])}';
+  }
+  return e164;
+}

@@ -1,20 +1,14 @@
+import 'package:dating_app/core/utils/app_loader.dart';
+import 'package:dating_app/shared/widgets/empty_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../../core/ads/banner/banner_ad_widget.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../providers/chat_provider.dart';
 import '../../../providers/realtime_provider.dart';
-import '../../common/widgets/widgets.dart';
 import 'request_screen.dart';
 
-/// Chats filed away rather than deleted.
-///
-/// A separate screen instead of a third inbox tab: the archive is somewhere you
-/// go on purpose, and giving it equal billing next to Vibing and New Energy
-/// would put a rarely-used list in front of people every time they open their
-/// messages.
 class ArchivedChatsScreen extends ConsumerWidget {
   const ArchivedChatsScreen({super.key});
 
@@ -51,13 +45,13 @@ class ArchivedChatsScreen extends ConsumerWidget {
                 backgroundColor: AppColors.card,
                 onRefresh: () async => ref.invalidate(archivedConversationsProvider),
                 child: async.when(
-                  loading: () => Center(
-                    child: CircularProgressIndicator(color: AppColors.primary),
+                  loading: () => const Center(
+                    child: LoaderWidget(),
                   ),
                   error: (err, _) => ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     children: const [
-                      _Empty(
+                      EmptyWidget(
                         title: "Couldn't load your archive",
                         body: 'Pull down to try again.',
                       ),
@@ -68,7 +62,7 @@ class ArchivedChatsScreen extends ConsumerWidget {
                       return ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
                         children: const [
-                          _Empty(
+                          EmptyWidget(
                             title: 'Nothing archived',
                             body: 'Chats you archive are kept here, out of your '
                                 'inbox but not deleted.',
@@ -105,29 +99,4 @@ class ArchivedChatsScreen extends ConsumerWidget {
   }
 }
 
-class _Empty extends StatelessWidget {
-  const _Empty({required this.title, required this.body});
 
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 72, 32, 24),
-      child: Column(
-        children: [
-          RadarMark(size: 84, color: AppColors.iconMuted),
-          const SizedBox(height: 20),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: AppTextStyles.title.copyWith(fontSize: 18),
-          ),
-          const SizedBox(height: 8),
-          Text(body, textAlign: TextAlign.center, style: AppTextStyles.caption),
-        ],
-      ),
-    );
-  }
-}

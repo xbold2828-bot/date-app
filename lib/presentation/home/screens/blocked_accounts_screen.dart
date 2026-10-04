@@ -1,3 +1,5 @@
+import 'package:dating_app/core/utils/app_loader.dart';
+import 'package:dating_app/shared/widgets/empty_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -47,13 +49,13 @@ class BlockedAccountsScreen extends ConsumerWidget {
           backgroundColor: AppColors.card,
           onRefresh: () async => ref.invalidate(blockedUsersProvider),
           child: async.when(
-            loading: () => Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
+            loading: () => const Center(
+              child: LoaderWidget(),
             ),
             error: (err, _) => ListView(
               physics: const AlwaysScrollableScrollPhysics(),
               children: const [
-                _Empty(
+                EmptyWidget(
                   title: "Couldn't load your blocked list",
                   body: 'Pull down to try again.',
                 ),
@@ -64,7 +66,7 @@ class BlockedAccountsScreen extends ConsumerWidget {
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   children: const [
-                    _Empty(
+                      EmptyWidget(
                       title: 'Nobody blocked',
                       body: 'People you block are listed here, so you can '
                           'always let them back in.',
@@ -298,29 +300,3 @@ class _UnblockButton extends StatelessWidget {
   }
 }
 
-class _Empty extends StatelessWidget {
-  const _Empty({required this.title, required this.body});
-
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 72, 32, 24),
-      child: Column(
-        children: [
-          RadarMark(size: 84, color: AppColors.iconMuted),
-          const SizedBox(height: 20),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: AppTextStyles.title.copyWith(fontSize: 18),
-          ),
-          const SizedBox(height: 8),
-          Text(body, textAlign: TextAlign.center, style: AppTextStyles.caption),
-        ],
-      ),
-    );
-  }
-}

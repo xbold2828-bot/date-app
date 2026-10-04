@@ -16,6 +16,9 @@ abstract final class AppVectors {
   static const String wordmarkBlack = "$_svgBaseUrl/11_wordmark_black.svg";
   static const String markSmallSimple = "$_svgBaseUrl/12_mark_small_simple.svg";
 
+  /// Google's own multicolour "G", required on a Google sign-in button.
+  static const String googleG = "$_svgBaseUrl/google_g.svg";
+
   // Icons
   static const String headphoneIcon = "$_svgBaseUrl/headphone_icon.svg";
   static const String uploadingIcon = "$_svgBaseUrl/uploading.svg";

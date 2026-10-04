@@ -1,6 +1,9 @@
-import 'package:dating_app/core/logger/app_logger.dart';
+import 'package:dating_app/core/utils/app_loader.dart';
+import 'package:dating_app/core/utils/utils.dart';
+import 'package:dating_app/shared/widgets/empty_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/ads/rewarded/rewarded_unlock_type.dart';
 import '../../../core/constants/app_string.dart';
 import '../../../core/extensions/global_back_extension.dart';
@@ -8,6 +11,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../data/models/match_model.dart';
+import '../../../shared/widgets/premium_tab_bar.dart';
 import '../models/profile_seed.dart';
 import '../providers/match_provider/match_provider.dart';
 import '../../../providers/realtime_provider.dart';
@@ -17,20 +21,6 @@ import 'chat_detail_screen.dart';
 import 'profile_detail_sheet.dart';
 import './premium_screen.dart';
 
-/// "Liked you" — the people who already made the first move.
-///
-/// Freemium, and honest about it: the server hands back the first couple of
-/// people in full and everyone after them already stripped of name, photo and
-/// id. So the blurred tiles here are blurring nothing — there is no identity in
-/// the payload to leak, and no id to tap through with. A paywall the client
-/// enforces is a paywall a proxy defeats.
-///
-/// Still named FavoritesScreen because the tab it backs is called Likes.
-///
-/// Two sections, because they are two different things. **Likes** is interest
-/// you have not answered — gated, since the reveal is what Premium sells.
-/// **Mutual** is interest you already returned, and is free forever: there is
-/// nothing left to reveal about somebody you have both said yes to.
 class FavoritesScreen extends ConsumerStatefulWidget {
   const FavoritesScreen({super.key});
 
@@ -59,21 +49,13 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
             child: Wordmark(size: 24),
           ),
         ),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: AppColors.inputBorder, width: 1),
-            ),
-          ),
-          child: TabBar(
-            controller: _tabs,
-            indicatorSize: TabBarIndicatorSize.tab,
-            tabs: const [
-              Tab(text: 'Likes'),
-              Tab(text: 'Mutual'),
-            ],
-          ),
+        spacerH(10),
+        PremiumTabBar(
+          controller: _tabs,
+          tabs: const [
+            PremiumTabItem(label: 'Likes', icon: Icons.favorite_rounded),
+            PremiumTabItem(label: 'Mutual', icon: Icons.people_alt_rounded),
+          ],
         ),
         Expanded(
           child: TabBarView(
@@ -128,16 +110,16 @@ class _LikedYouTab extends ConsumerWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 22),
+            // const SizedBox(height: 22),
             Center(
               child: async.when(
-                loading: () => Padding(
-                  padding: const EdgeInsets.only(top: 80),
+                loading: () => const Padding(
+                  padding: EdgeInsets.only(top: 80),
                   child: Center(
-                    child: CircularProgressIndicator(color: AppColors.primary),
+                    child: LoaderWidget()
                   ),
                 ),
-                error: (err, _) => const _Message(
+                error: (err, _) => const EmptyWidget(
                   title: "Couldn't load your likes",
                   body: 'Pull down to try again.',
                 ),
@@ -153,7 +135,8 @@ class _LikedYouTab extends ConsumerWidget {
 
   Widget _body(BuildContext context, WidgetRef ref, LikedYouPage page) {
     if (page.isEmpty) {
-      return const _Message(
+      return const EmptyWidget(
+        isLikePage: true,
         title: 'No likes yet',
         body: 'Keep an eye on your radar — the people you like can see you '
             'too.',
@@ -161,7 +144,7 @@ class _LikedYouTab extends ConsumerWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding:  EdgeInsets.symmetric(horizontal: 20.w,).copyWith(top: 10.h),
       child: GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
@@ -283,13 +266,13 @@ class _MutualTab extends ConsumerWidget {
       backgroundColor: AppColors.card,
       onRefresh: () async => ref.invalidate(mutualLikesProvider),
       child: async.when(
-        loading: () => Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
+        loading: () => const Center(
+          child: LoaderWidget()
         ),
         error: (err, _) => ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           children: const [
-            _Message(
+            EmptyWidget(
               title: "Couldn't load your matches",
               body: 'Pull down to try again.',
             ),
@@ -300,7 +283,7 @@ class _MutualTab extends ConsumerWidget {
             return ListView(
               physics: const AlwaysScrollableScrollPhysics(),
               children: const [
-                _Message(
+                EmptyWidget(
                   title: 'No matches yet',
                   body: 'When you like someone who already liked you, they '
                       'show up here — free to message, always.',
@@ -592,33 +575,6 @@ class _UnlockCardState extends ConsumerState<_UnlockCard> {
             isLoading: _watching,
             onPressed: _watchAd,
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Message extends StatelessWidget {
-  const _Message({required this.title, required this.body});
-
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
-      child: Column(
-        children: [
-          RadarMark(size: 96, color: AppColors.iconMuted),
-          const SizedBox(height: 20),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: AppTextStyles.title.copyWith(fontSize: 19),
-          ),
-          const SizedBox(height: 8),
-          Text(body, textAlign: TextAlign.center, style: AppTextStyles.caption),
         ],
       ),
     );

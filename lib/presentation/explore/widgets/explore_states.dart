@@ -1,3 +1,4 @@
+import 'package:dating_app/shared/widgets/buttons/common_button.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -55,9 +56,9 @@ class ExploreLoadingPill extends StatelessWidget {
   }
 }
 
-/// A floating card with a mark, a headline, a line of explanation and — always
-/// — a way forward. Backs the empty, error and permission states, so all three
-/// read as the same object rather than three improvised layouts.
+/// A floating notice card with a layered icon mark, a headline, a line of
+/// explanation and — always — a way forward. Backs the empty, error and
+/// permission states, so all three read as the same object.
 class ExploreNoticeCard extends StatelessWidget {
   const ExploreNoticeCard({
     super.key,
@@ -86,54 +87,128 @@ class ExploreNoticeCard extends StatelessWidget {
       ExploreNoticeTone.neutral => AppColors.primary,
       ExploreNoticeTone.warning => AppColors.warning,
     };
+    final isDark = AppColors.isDark;
 
     return Semantics(
       container: true,
       liveRegion: true,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
-        child: GlassSurface(
-          radius: 24,
-          padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: accent.withValues(alpha: 0.12),
-                ),
-                child: Icon(icon, size: 26, color: accent),
+        constraints: const BoxConstraints(maxWidth: 340),
+        child: Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.background : Colors.white,
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(
+              color: accent.withValues(alpha: isDark ? 0.28 : 0.16),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: accent.withValues(alpha: isDark ? 0.20 : 0.14),
+                blurRadius: 40,
+                spreadRadius: -6,
+                offset: const Offset(0, 18),
               ),
-              const SizedBox(height: 14),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: AppTextStyles.title.copyWith(fontSize: 18),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.05),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
               ),
-              const SizedBox(height: 6),
-              Text(
-                body,
-                textAlign: TextAlign.center,
-                style: AppTextStyles.caption,
-              ),
-              if (primaryLabel != null && onPrimary != null) ...[
-                const SizedBox(height: 16),
-                RadiusButton(label: primaryLabel!, onPressed: onPrimary),
-              ],
-              if (secondaryLabel != null && onSecondary != null) ...[
-                const SizedBox(height: 8),
-                RadiusButton(
-                  label: secondaryLabel!,
-                  kind: RadiusButtonKind.ghost,
-                  onPressed: onSecondary,
-                ),
-              ],
             ],
           ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(26, 32, 26, 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _IconMark(icon: icon, accent: accent),
+                const SizedBox(height: 24),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.title.copyWith(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  body,
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.caption.copyWith(
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+                if (primaryLabel != null && onPrimary != null) ...[
+                  const SizedBox(height: 26),
+                  CommonButton(text: primaryLabel!, onClick: onPrimary),
+                ],
+                if (secondaryLabel != null && onSecondary != null) ...[
+                  const SizedBox(height: 6),
+                  RadiusButton(
+                    label: secondaryLabel!,
+                    kind: RadiusButtonKind.ghost,
+                    onPressed: onSecondary,
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
+      ),
+    );
+  }
+}
+
+/// Three concentric rings around a solid core, so the icon feels anchored
+/// instead of sitting in a flat circle.
+class _IconMark extends StatelessWidget {
+  const _IconMark({required this.icon, required this.accent});
+
+  final IconData icon;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 108,
+      height: 108,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 108,
+            height: 108,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: accent.withValues(alpha: 0.06),
+            ),
+          ),
+          Container(
+            width: 82,
+            height: 82,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: accent.withValues(alpha: 0.12),
+            ),
+          ),
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: accent,
+            ),
+            child: Icon(
+              icon,
+              size: 28,
+              color: Theme.of(context).colorScheme.onPrimary,
+            ),
+          ),
+        ],
       ),
     );
   }

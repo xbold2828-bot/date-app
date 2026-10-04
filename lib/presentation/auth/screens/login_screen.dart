@@ -1,95 +1,72 @@
-import 'package:dating_app/core/utils/utils.dart';
-import 'package:dating_app/shared/widgets/buttons/common_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/constants/app_text_styles.dart';
-import '../../../core/extensions/global_back_extension.dart';
-import '../../../core/extensions/unfocus_on_tap_extension.dart';
-import '../../../core/router/app_router.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../data/services/auth_service.dart';
-import '../../common/widgets/widgets.dart';
+import 'package:dating_app/core/extensions/global_back_extension.dart';
+import 'package:dating_app/core/extensions/unfocus_on_tap_extension.dart';
+import 'package:dating_app/core/router/app_router.dart';
+import 'package:dating_app/core/theme/app_colors.dart';
+import 'package:dating_app/core/utils/utils.dart';
+import '../../../data/models/auth/country.dart';
+import '../../../providers/auth/login_provider/login_provider.dart';
+import '../../common/widgets/radius_option_tile.dart';
+import '../../common/widgets/radius_sheet.dart';
+import '../../common/widgets/radius_surfaces.dart';
+import '../../common/widgets/radius_toast.dart';
+import '../widgets/login/buttons/continue_button.dart';
+import '../widgets/login/buttons/country_button.dart';
+import '../widgets/login/buttons/google_button.dart';
+import '../widgets/login/login_header.dart';
+import '../widgets/login/login_terms.dart';
+import '../widgets/login/or_divider.dart';
+import '../widgets/login/phone_field.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  // Only the controller lives here (needs dispose). All other state is Riverpod.
   final TextEditingController _phoneController = TextEditingController();
-  final AuthService _authService = AuthService();
-
-  final List<Map<String, String>> _countryCodes = [
-    {'name': 'India', 'code': '+91', 'flag': '🇮🇳', 'digits': '10'},
-    {'name': 'US', 'code': '+1', 'flag': '🇺🇸', 'digits': '10'},
-  ];
-  late Map<String, String> _selectedCountry;
-  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _selectedCountry = _countryCodes[0];
+    _phoneController.addListener(() {
+      ref.read(loginProvider.notifier).setPhone(_phoneController.text.trim());
+    });
+  }
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    super.dispose();
   }
 
   Future<void> _onContinue() async {
-    final phone = _phoneController.text.trim();
-    final requiredLength = int.parse(_selectedCountry['digits']!);
-
-    if (phone.isEmpty || phone.length != requiredLength) {
-      showRadiusToast(
-        context,
-        '${_selectedCountry['name']} numbers are $requiredLength digits',
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
     removeFocus();
     try {
-      final fullPhone = '${_selectedCountry['code']}$phone';
-      await _authService.sendOtp(fullPhone);
-
+      final fullPhone = await ref.read(loginProvider.notifier).sendOtp();
       if (mounted) context.push(AppRoutes.signInOtp, extra: fullPhone);
-    } catch (e) {
-      if (mounted) {
-        showRadiusToast(context, "Couldn't send the code. Try again.");
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    } catch (_) {
+      if (mounted) showRadiusToast(context, "Couldn't send the code. Try again.");
     }
   }
 
   Future<void> _onGoogleSignIn() async {
-    setState(() => _isLoading = true);
-
     try {
-      final response = await _authService.signInWithGoogle();
-
-      // Null means the user cancelled.
-      if (response == null) return;
-
-      // The splash screen decides between onboarding and home now that a
-      // session exists.
-      if (response.user != null && mounted) {
-        context.go(AppRoutes.splash, extra: true);
-      }
+      final success = await ref.read(loginProvider.notifier).signInWithGoogle();
+      if (success && mounted) context.go(AppRoutes.splash, extra: true);
     } catch (e, stack) {
       debugPrint('Google sign-in failed: $e');
       debugPrintStack(stackTrace: stack);
-
       if (mounted) showRadiusToast(context, _googleSignInMessage(e));
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  /// Names the cause of a Google sign-in failure. The status code is the first
-  /// integer in the platform exception message.
   String _googleSignInMessage(Object error) {
     if (error is! PlatformException) {
       return "Couldn't sign in with Google. Try again.";
@@ -101,51 +78,43 @@ class _LoginScreenState extends State<LoginScreen> {
 
     switch (status) {
       case 10:
-        return 'Google sign-in not configured for this build '
-            '(DEVELOPER_ERROR 10) — the package name and signing SHA-1 are '
-            'not registered as an Android OAuth client.';
+        return 'Google sign-in not configured for this build (DEVELOPER_ERROR 10).';
       case 12501:
         return 'Sign-in cancelled.';
       case 12500:
-        return 'Google sign-in failed (12500) — check the Play Services '
-            'account on this device.';
+        return 'Google sign-in failed (12500) — check the Play Services account.';
       case 7:
         return 'Network error reaching Google. Check the connection.';
       default:
-        return 'Google sign-in failed: ${error.code} — ${error.message}';
+        return 'Google sign-in failed: ${error.code}';
     }
   }
 
-  @override
-  void dispose() {
-    _phoneController.dispose();
-    super.dispose();
-  }
-
   void _pickCountry() {
+    final selectedCode = ref.read(loginProvider).country.code;
+
     showRadiusSheet<void>(
       context: context,
       builder: (sheetContext) => RadiusSheet(
         title: 'Country',
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: _countryCodes.map((country) {
-            final isSelected = _selectedCountry['code'] == country['code'];
+          children: kCountries.map((country) {
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: RadiusOptionTile(
-                title: country['name']!,
-                subtitle: '${country['code']} · ${country['digits']} digits',
-                selected: isSelected,
+                title: country.name,
+                subtitle: '${country.code} · ${country.digits} digits',
+                selected: selectedCode == country.code,
                 leading: Text(
-                  country['flag']!,
+                  country.flag,
                   style: const TextStyle(fontSize: 24),
                 ),
                 onTap: () {
-                  setState(() => _selectedCountry = country);
-                  // Digit counts differ per country, so a number typed for the
-                  // previous one would fail validation for no visible reason.
-                  _phoneController.clear();
+                  if (country.code != selectedCode) {
+                    _phoneController.clear(); // listener resets phone in state
+                    ref.read(loginProvider.notifier).setCountry(country);
+                  }
                   Navigator.pop(sheetContext);
                 },
               ),
@@ -158,90 +127,41 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Nothing is watched here, so the scaffold/scroll view never rebuilds when
+    // state changes. Only the small Consumer widgets rebuild.
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) => SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            physics: const ClampingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
             child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight - 40),
-              // IntrinsicHeight lets the Spacer fill a tall screen while the
-              // scroll view still scrolls on a short one.
+              constraints:
+              BoxConstraints(minHeight: constraints.maxHeight - 56),
               child: IntrinsicHeight(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Wordmark(size: 22),
-                    spacerH(30),
-                    const Center(child: RadarMark(size: 104, animate: true)),
-                    spacerH(30),
-                    Text(
-                      '18+ · Verified people only',
-                      style: AppTextStyles.eyebrow,
-                    ),
-                    spacerH(10),
-                    Text(
-                      "Who's around you\ntonight?",
-                      style: AppTextStyles.display,
-                    ),
-                    spacerH(12),
-                    Text(
-                      'Real, verified people nearby who want the same thing '
-                          'you do. No endless swiping.',
-                      style: AppTextStyles.bodyMuted,
-                    ),
-                    spacerH(30),
+                    const LoginHeader(),
                     const SectionLabel('Phone number', topSpacing: 0),
                     Row(
                       children: [
-                        _CountryButton(
-                          country: _selectedCountry,
-                          onTap: _pickCountry,
-                        ),
-                        spacerW(10),
+                        CountryButton(onTap: _pickCountry),
+                        spacerW(12),
                         Expanded(
-                          child: TextField(
-                            controller: _phoneController,
-                            keyboardType: TextInputType.phone,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(
-                                int.parse(_selectedCountry['digits']!),
-                              ),
-                            ],
-                            style: AppTextStyles.body,
-                            decoration: const InputDecoration(
-                              hintText: '000 000 0000',
-                            ),
-                          ),
+                          child: PhoneField(controller: _phoneController),
                         ),
                       ],
                     ),
-                    spacerH(18),
-                    CommonButton(
-                      text: 'Send code',
-                      isLoading: _isLoading,
-                      onClick: _onContinue,
-                    ),
-                    spacerH(20),
-                    const _OrDivider(),
-                    spacerH(20),
-                    RadiusButton(
-                      label: 'Continue with Google',
-                      kind: RadiusButtonKind.ghost,
-                      onPressed: _isLoading ? null : _onGoogleSignIn,
-                    ),
-                    spacerH(28),
-                    const Spacer(),
-                    Center(
-                      child: Text(
-                        "By continuing you confirm you're 18 or older and "
-                            'agree to our Terms and Privacy Policy.',
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.caption.copyWith(fontSize: 11.5),
-                      ),
-                    ),
+                    spacerH(24),
+                    ContinueButton(onContinue: _onContinue),
+                    spacerH(24),
+                    const OrDivider(),
+                    spacerH(24),
+                    GoogleButton(onPressed: _onGoogleSignIn),
+                    spacerH(40),
+                    const LoginTerms(),
                   ],
                 ),
               ),
@@ -249,70 +169,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
-    ).unfocusOnTap().withGlobalBackHandler(context);;
-  }
-}
-
-/// The dialling-code control left of the phone field.
-class _CountryButton extends StatelessWidget {
-  const _CountryButton({required this.country, required this.onTap});
-
-  final Map<String, String> country;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Country: ${country['name']}, ${country['code']}',
-      excludeSemantics: true,
-      child: Material(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
-            height: 52,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.inputBorder, width: 1.5),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(country['flag']!, style: const TextStyle(fontSize: 18)),
-                spacerW(6),
-                Text(country['code']!, style: AppTextStyles.bodyStrong),
-                Icon(
-                  Icons.keyboard_arrow_down,
-                  size: 18,
-                  color: AppColors.textGrey,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _OrDivider extends StatelessWidget {
-  const _OrDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: Divider(color: AppColors.inputBorder)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Text('OR', style: AppTextStyles.label),
-        ),
-        Expanded(child: Divider(color: AppColors.inputBorder)),
-      ],
-    );
+    ).unfocusOnTap().withGlobalBackHandler(context);
   }
 }

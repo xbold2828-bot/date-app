@@ -8,7 +8,9 @@ import 'package:go_router/go_router.dart';
 import '../../../core/ads/rewarded/rewarded_unlock_type.dart';
 import '../../../core/constants/app_string.dart';
 import '../../../core/constants/static_assets/app_vectors.dart';
+import '../../../core/theme/app_colors.dart';
 import 'all_dialogs/common_dialog.dart';
+import 'all_dialogs/common_dialog2.dart';
 import 'all_dialogs/premium_or_ad_dialog.dart';
 import 'all_dialogs/reason_dialog.dart';
 
@@ -25,7 +27,8 @@ abstract final class AppDialogs {
     Color? iconVectorColor,
     bool dismissible = false,
     bool isShowTwoButtons = false,
-  }) {
+  })
+  {
     return showDialog<bool>(
       context: context,
       barrierDismissible: dismissible,
@@ -40,6 +43,34 @@ abstract final class AppDialogs {
           vectorLogo: vectorLogo,
           imageLogo: imageLogo,
           iconData: iconData,
+        );
+      },
+    );
+  }
+
+  static Future<bool?> commonDialog2({
+    required BuildContext context,
+    required String headingText,
+    required String buttonText,
+    String? descriptionText,
+    VoidCallback? onTap,
+    bool dismissible = true,
+    bool isShowTwoButtons = false,
+    bool destructive = false,
+  })
+  {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: dismissible,
+      barrierColor: AppColors.scrim,
+      builder: (context) {
+        return CommonDialog2(
+          isShowTwoButtons: isShowTwoButtons,
+          headingText: headingText,
+          descriptionText: descriptionText,
+          buttonText: buttonText,
+          destructive: destructive,
+          onTap: onTap ?? () {},
         );
       },
     );
@@ -114,13 +145,11 @@ abstract final class AppDialogs {
   }
 
   static Future<void> exitDialog(BuildContext context) {
-    return commonDialog(
+    return commonDialog2(
       context: context,
       isShowTwoButtons: true,
-      vectorLogo: AppVectors.exit,
-      headingText: "Exit",
-      descriptionText: "Are you sure you want to exit?",
-      buttonText: "Confirm",
+      headingText: 'Leave cozune?',
+      buttonText: 'Leave',
       onTap: () {
         SystemNavigator.pop();
       },

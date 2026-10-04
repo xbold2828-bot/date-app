@@ -2,15 +2,16 @@ import 'dart:async';
 import 'package:dating_app/core/constants/app_constants.dart';
 import 'package:dating_app/core/constants/app_string.dart';
 import 'package:dating_app/core/extensions/global_back_extension.dart';
-import 'package:dating_app/core/utils/utils.dart';
+import 'package:dating_app/shared/widgets/empty_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/ads/app_open/app_open_ad_provider.dart';
 import '../../../core/ads/banner/banner_ad_widget.dart';
 import '../../../core/ads/rewarded/rewarded_unlock_type.dart';
+import '../../../core/constants/static_assets/app_vectors.dart';
 import '../../../core/logger/app_logger.dart';
 import '../../../core/notification/push_deep_link.dart';
 import '../../../core/router/app_router.dart';
@@ -31,6 +32,7 @@ import '../../notifications/viewmodel/providers/notification_provider/notificati
 import '../models/like_quota_model.dart';
 import '../providers/like_quota_provider/like_quota_provider.dart';
 import '../widgets/discovery_filter_sheet.dart';
+import '../widgets/likes_meter.dart';
 import '../widgets/match_celebration.dart';
 import '../widgets/premium_filter_prompt.dart';
 import './chat_detail_screen.dart';
@@ -373,7 +375,7 @@ class _RadarTab extends ConsumerWidget {
                 ),
               ),
               error: (err, _) => const SliverToBoxAdapter(
-                child: _EmptyState(
+                child: EmptyWidget(
                   title: "Couldn't load your radar",
                   body: 'Check your connection and pull down to try again.',
                 ),
@@ -394,7 +396,7 @@ class _RadarTab extends ConsumerWidget {
       ) {
     if (state.needsLocation) {
       return const SliverToBoxAdapter(
-        child: _EmptyState(
+        child: EmptyWidget(
           title: 'Set your location',
           body: 'cozune needs to know roughly where you are before it can '
               'show you who is nearby.',
@@ -406,15 +408,12 @@ class _RadarTab extends ConsumerWidget {
 
     if (items.isEmpty && state.paywall == null) {
       return SliverToBoxAdapter(
-        child: _EmptyState(
+        child: EmptyWidget(
           title: 'Quiet in your radius right now',
           body: 'Nobody nearby matches these filters. Clear a few and check '
               'back — who is around changes through the day.',
-          action: RadiusButton(
-            label: 'Open filters',
-            kind: RadiusButtonKind.ghost,
-            onPressed: () => showDiscoveryFilterSheet(context),
-          ),
+          actionLabel: 'Open filters',
+          onAction: () => showDiscoveryFilterSheet(context),
         ),
       );
     }
@@ -506,6 +505,7 @@ class _RadarTab extends ConsumerWidget {
   }
 }
 
+
 class RadarHeader extends ConsumerWidget {
   const RadarHeader({super.key, this.name, this.city});
 
@@ -515,165 +515,187 @@ class RadarHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final place = (city ?? '').trim();
+    final fullName = (name ?? '').trim();
+    final hasName = fullName.isNotEmpty;
 
     final unreadCount =
         ref.watch(unreadNotificationCountProvider).valueOrNull ?? 0;
     final quota = ref.watch(likeQuotaProvider).valueOrNull ?? LikeQuota.empty;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(15, 15, 15, 5),
-      child: Row(
-        children: [
-          const RadarMark(size: 36),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  name == null || name!.isEmpty
-                      ? 'Your ${AppConstants.appName}'
-                      : 'Hey, $name 👋',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.title.copyWith(fontSize: 18),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 96),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 10, 12, 5),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Logo badge
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.primary,
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha:0.25),
+                  width: 1,
                 ),
-                if (place.isNotEmpty)
+              ),
+              child: ClipOval(
+                child: SvgPicture.asset(
+                  AppVectors.appIconWhite,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+
+            // Greeting + location
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   Text(
-                    place,
+                    hasName ? 'Hey 👋' : 'Welcome to',
+                    style: AppTextStyles.caption.copyWith(
+                      fontSize: 13,
+                      color: AppColors.textGrey,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    hasName ? fullName : AppConstants.appName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.caption.copyWith(fontSize: 12),
+                    style: AppTextStyles.title.copyWith(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.4,
+                      height: 1.15,
+                    ),
                   ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-
-          _LikesChip(
-            remaining: quota.remaining,
-            unlimited: quota.unlimited,
-            onTap: () {
-              AppLogger.d("Navigating to likes...");
-              context.push(AppRoutes.notifications);
-            },
-          ),
-          IconButton(
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            onPressed: () {
-              AppLogger.d("Navigating to notifications...");
-              context.push(AppRoutes.notifications);
-            },
-            icon: SizedBox(
-              width: 30.w,
-              height: 30.h,
-              child: Stack(
-                alignment: Alignment.center,
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(Icons.notifications, size: 30.r),
-                  if (unreadCount > 0)
-                    Positioned(
-                      top: 2.h,
-                      right: 2.w,
-                      child: Container(
-                        padding: EdgeInsets.all(3.r),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.whiteColor,
-                            width: 1.5.w,
+                  if (place.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha:0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.location_on_rounded,
+                            size: 13,
+                            color: AppColors.primary,
                           ),
-                        ),
-                        constraints: BoxConstraints(
-                          minWidth: 16.r,
-                          minHeight: 16.r,
-                        ),
-                        child: Center(
-                          child: Text(
-                            unreadCount > 99 ? '99+' : '$unreadCount',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900,
-                              height: 1,
+                          const SizedBox(width: 3),
+                          Flexible(
+                            child: Text(
+                              place,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.caption.copyWith(
+                                fontSize: 12,
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
+                  ],
                 ],
               ),
             ),
-          ),
-          const _FilterButton(),
-        ],
-      ),
-    );
-  }
-}
+            const SizedBox(width: 8),
 
-class _LikesChip extends StatelessWidget {
-  const _LikesChip({
-    required this.remaining,
-    required this.unlimited,
-    required this.onTap,
-  });
-
-  final int remaining;
-  final bool unlimited;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final display = remaining > 99 ? '99+' : '$remaining';
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 30.h,
-        padding: EdgeInsets.symmetric(horizontal: 10.w),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFF5F6D), Color(0xFFFF9A44)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20.r),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFFF5F6D).withValues(alpha: 0.35),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
+            // Actions
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                LikesMeter(
+                  quota: quota,
+                  onTap: () => showLikesTodaySheet(context),
+                ),
+                _NotificationButton(unreadCount: unreadCount),
+                const _FilterButton(),
+              ],
             ),
           ],
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.favorite, size: 16.r, color: Colors.white),
-            spacerW(5),
-            if (unlimited)
-              Icon(Icons.all_inclusive, size: 16.r, color: Colors.white)
-            else
-              Text(
-                display,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  height: 1,
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }
 }
+
+/// Extracted Notification button for a cleaner build method.
+class _NotificationButton extends StatelessWidget {
+  const _NotificationButton({required this.unreadCount});
+
+  final int unreadCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        IconButton(
+          padding: const EdgeInsets.all(8),
+          constraints: const BoxConstraints(),
+          onPressed: () {
+            AppLogger.d("Navigating to notifications...");
+            context.push(AppRoutes.notifications);
+          },
+          // Outlined icon looks more elegant/premium than a heavy filled icon
+          icon: const Icon(
+            Icons.notifications_none_rounded,
+            size: 28,
+          ),
+        ),
+        if (unreadCount > 0)
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  // Creates a premium "cutout" effect against the background
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  width: 2,
+                ),
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 18,
+                minHeight: 18,
+              ),
+              child: Center(
+                child: Text(
+                  unreadCount > 99 ? '99+' : '$unreadCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    height: 1,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 
 class _FilterButton extends StatelessWidget {
   const _FilterButton();
@@ -863,48 +885,6 @@ class _UnlockCardState extends ConsumerState<_UnlockCard> {
   }
 }
 
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({
-    required this.title,
-    required this.body,
-    this.action,
-  });
-
-  final String title;
-  final String body;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 56, 24, 24),
-      child: Column(
-        children: [
-          RadarMark(
-            size: 104,
-            animate: true,
-            color: AppColors.iconMuted,
-          ),
-          const SizedBox(height: 22),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: AppTextStyles.title.copyWith(fontSize: 19),
-          ),
-          const SizedBox(height: 8),
-          Text(body, textAlign: TextAlign.center, style: AppTextStyles.caption),
-          if (action != null) ...[
-            const SizedBox(height: 20),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 260),
-              child: action!,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
 
 // ============================================================================
 // Static data

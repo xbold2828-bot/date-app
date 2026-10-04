@@ -1,4 +1,6 @@
 import 'package:dating_app/core/router/app_router.dart';
+import 'package:dating_app/core/utils/app_loader.dart';
+import 'package:dating_app/core/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +10,8 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../data/models/message_model.dart';
 import '../../../providers/chat_provider.dart';
 import '../../../providers/realtime_provider.dart';
+import '../../../shared/widgets/empty_widget.dart';
+import '../../../shared/widgets/premium_tab_bar.dart';
 import '../../common/widgets/widgets.dart';
 import '../widgets/chat_actions_menu.dart';
 import './chat_detail_screen.dart';
@@ -39,6 +43,7 @@ class _RequestsScreenState extends ConsumerState<ChatsScreen>
     return Column(
       children: [
         const _Header(),
+        spacerH(10),
         _TabBarSection(tabController: _tabController),
         Expanded(
           child: TabBarView(
@@ -102,96 +107,39 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _TabBarSection extends StatelessWidget {
+// ============================================================================
+// Tab bar (premium pill / segmented style)
+// ============================================================================
+
+class _TabBarSection extends ConsumerWidget {
   const _TabBarSection({required this.tabController});
 
   final TabController tabController;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppColors.inputBorder, width: 1),
-        ),
-      ),
-      child: TabBar(
-        controller: tabController,
-        indicatorSize: TabBarIndicatorSize.tab,
-        tabs: const [
-          _CountedTab(label: 'Vibing', state: 'vibing'),
-          _CountedTab(label: 'New Energy', state: 'new_energy'),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================================
-// Tabs
-// ============================================================================
-
-class _CountedTab extends ConsumerWidget {
-  const _CountedTab({required this.label, required this.state});
-
-  final String label;
-  final String state;
-
-  @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final count = ref.watch(conversationCountProvider(state));
-    final hasCount = count != null && count > 0;
+    final vibing = ref.watch(conversationCountProvider('vibing'));
+    final fresh = ref.watch(conversationCountProvider('new_energy'));
 
-    return Tab(
-      child: Semantics(
-        label: hasCount ? '$label, $count people' : label,
-        excludeSemantics: true,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (hasCount) ...[
-              const SizedBox(width: 6),
-              _CountBadge(count: count),
-            ],
-          ],
+    String sem(String label, int? n) =>
+        (n != null && n > 0) ? '$label, $n people' : label;
+
+    return PremiumTabBar(
+      controller: tabController,
+      tabs: [
+        PremiumTabItem(
+          label: 'Vibing',
+          icon: Icons.favorite_rounded,
+          count: vibing,
+          semanticLabel: sem('Vibing', vibing),
         ),
-      ),
-    );
-  }
-}
-
-class _CountBadge extends StatelessWidget {
-  const _CountBadge({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6.5, vertical: 1.5),
-      decoration: BoxDecoration(
-        color: AppColors.primaryTint,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        '$count',
-        style: AppTextStyles.caption.copyWith(
-          fontSize: 11,
-          height: 1.25,
-          color: AppColors.primaryInk,
-          fontWeight: FontWeight.w700,
-          fontVariations: const [FontVariation('wght', 700)],
+        PremiumTabItem(
+          label: 'New Energy',
+          icon: Icons.bolt_rounded,
+          count: fresh,
+          semanticLabel: sem('New Energy', fresh),
         ),
-      ),
+      ],
     );
   }
 }
@@ -217,10 +165,10 @@ class _ConversationList extends ConsumerWidget {
     final presence = ref.watch(presenceProvider);
 
     return async.when(
-      loading: () => Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
+      loading: () => const Center(
+        child: LoaderWidget(),
       ),
-      error: (err, _) => const _Empty(
+      error: (err, _) => const EmptyWidget(
         title: "Couldn't load conversations",
         body: 'Pull down to try again.',
       ),
@@ -257,7 +205,7 @@ class _RefreshableEmpty extends ConsumerWidget {
       onRefresh: () => ref.read(conversationsProvider(state).notifier).refresh(),
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        children: [_Empty(title: title, body: body)],
+        children: [EmptyWidget(title: title, body: body)],
       ),
     );
   }
@@ -591,33 +539,6 @@ class _Avatar extends StatelessWidget {
                 ),
               ),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Empty extends StatelessWidget {
-  const _Empty({required this.title, required this.body});
-
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 64, 32, 24),
-      child: Column(
-        children: [
-          RadarMark(size: 88, color: AppColors.iconMuted),
-          const SizedBox(height: 20),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: AppTextStyles.title.copyWith(fontSize: 18),
-          ),
-          const SizedBox(height: 8),
-          Text(body, textAlign: TextAlign.center, style: AppTextStyles.caption),
         ],
       ),
     );
