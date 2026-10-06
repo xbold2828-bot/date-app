@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:dating_app/core/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/ads/rewarded/rewarded_unlock_type.dart';
@@ -77,6 +78,8 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
     if (text.isEmpty || _isSending) return;
 
     setState(() => _isSending = true);
+
+    removeFocus();
     try {
       await ref.read(chatActionsProvider).open(widget.userId, text);
       _openerController.clear();
@@ -240,15 +243,24 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
 
     const radius = BorderRadius.vertical(top: Radius.circular(26));
 
-    final media = MediaQuery.of(context);
-    final keyboard = media.viewInsets.bottom;
+    // ── Sizing ────────────────────────────────────────────────────────────
+    // A modal bottom sheet strips the top padding from the MediaQuery it
+    // hands to its child (unless useSafeArea is set), so `media.padding.top`
+    // reads 0 in here and the sheet grew under the status bar when the
+    // keyboard opened. The real system insets come from the View itself, which
+    // nothing can strip.
+    final system = MediaQueryData.fromView(View.of(context));
+    final screenHeight = system.size.height;
+    final topSafe = system.padding.top;
+    final keyboard = system.viewInsets.bottom;
 
-    // Normal height, but never taller than the space left above the keyboard
-    // (and below the status bar), so the action bar can't be pushed off screen.
-    final available = media.size.height - keyboard - media.padding.top;
-    final sheetHeight = (media.size.height * kSheetHeightFraction)
-        .clamp(0.0, available)
-        .toDouble();
+    // Room that is actually free: below the status bar, above the keyboard.
+    final available = (screenHeight - topSafe - keyboard).clamp(0.0, screenHeight);
+
+    // Normal height normally; shrinks to fit when the keyboard is up, so the
+    // sheet can never poke above the safe area or push the action bar away.
+    final sheetHeight =
+    (screenHeight * kSheetHeightFraction).clamp(0.0, available).toDouble();
 
     return AnimatedPadding(
       duration: const Duration(milliseconds: 150),
@@ -266,30 +278,51 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
           child: Column(
             children: [
               Expanded(
-                child: SingleChildScrollView(
-                  keyboardDismissBehavior:
-                  ScrollViewKeyboardDismissBehavior.onDrag,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      PhotoCarousel(
-                        photos: _photos(profile),
-                        fallbackInitial: _name,
-                        colorIndex: widget.seed.colorIndex,
-                        onClose: () => Navigator.pop(context),
+                // Scroll area + a close button pinned on top of it.
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: SingleChildScrollView(
+                        // `manual` = scrolling the profile never closes the
+                        // keyboard or drops focus from the message field.
+                        keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.manual,
+                        physics: const ClampingScrollPhysics(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            PhotoCarousel(
+                              photos: _photos(profile),
+                              fallbackInitial: _name,
+                              colorIndex: widget.seed.colorIndex,
+                            ),
+                            ProfileInfoSection(
+                              profile: profile,
+                              seed: widget.seed,
+                              isOnline: isOnline,
+                              failedToLoad: async.hasError,
+                              onRetry: () => ref.invalidate(
+                                publicProfileProvider(widget.userId),
+                              ),
+                              tagLabels:
+                              ref.watch(tagLabelsProvider).valueOrNull ??
+                                  const {},
+                            ),
+                          ],
+                        ),
                       ),
-                      ProfileInfoSection(
-                        profile: profile,
-                        seed: widget.seed,
-                        isOnline: isOnline,
-                        failedToLoad: async.hasError,
-                        onRetry: () =>
-                            ref.invalidate(publicProfileProvider(widget.userId)),
-                        tagLabels:
-                        ref.watch(tagLabelsProvider).valueOrNull ?? const {},
+                    ),
+
+                    // The ONLY close button: pinned, so it stays put while the profile
+                    // scrolls underneath. (PhotoCarousel no longer draws one.)
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: _PinnedCloseButton(
+                        onTap: () => Navigator.pop(context),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
               ProfileActionBar(
@@ -318,3 +351,39 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
     return single == null ? const [] : [single];
   }
 }
+
+/// Round close button that floats over the photo and the profile text alike:
+/// a translucent dark disc with a white icon, readable on any picture.
+class _PinnedCloseButton extends StatelessWidget {
+  const _PinnedCloseButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Close',
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.black.withValues(alpha: 0.45),
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: const SizedBox(
+            width: 38,
+            height: 38,
+            child: Icon(
+              Icons.close_rounded,
+              size: 20,
+              color: AppColors.onImage,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import 'package:dating_app/core/extensions/padding_extension.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../core/utils/app_loader.dart';
 import '../../../core/utils/screen_guard.dart';
+import '../../../core/utils/utils.dart';
 import '../../../data/models/message_model.dart';
 import '../../../providers/profile_provider.dart';
 import '../../../providers/chat_provider.dart';
@@ -21,12 +23,16 @@ import '../../common/widgets/widgets.dart';
 import '../models/profile_seed.dart';
 import '../widgets/chat_actions_menu.dart';
 import '../widgets/message_limit_paywall.dart';
+import '../widgets/send_failure.dart';
 import './profile_detail_sheet.dart';
 
 // ═════════════════════════════════════════════════════════════════════
 // UI-only theme helpers (all derived from AppColors, so light & dark
 // mode follow the active RadiusPalette automatically).
 // ═════════════════════════════════════════════════════════════════════
+
+/// Height of the floating, transparent top bar (excluding the status bar).
+const double _kTopBarHeight = 64;
 
 /// Soft elevation that stays visible in light mode and doesn't turn into
 /// a muddy blob in dark mode.
@@ -38,7 +44,7 @@ List<BoxShadow> _softShadow({
 }) {
   return [
     BoxShadow(
-      color: Colors.black.withOpacity(AppColors.isDark ? dark : light),
+      color: Colors.black.withValues(alpha:AppColors.isDark ? dark : light),
       blurRadius: blur,
       offset: offset,
     ),
@@ -52,7 +58,7 @@ Color get _fieldFill =>
 /// Chat wallpaper base: the page background washed with a hint of the
 /// brand tint, so white bubbles / card bubbles pop in both modes.
 Color get _chatWallpaperBase => Color.alphaBlend(
-  AppColors.primaryTint.withOpacity(AppColors.isDark ? 0.45 : 0.55),
+  AppColors.primaryTint.withValues(alpha:AppColors.isDark ? 0.45 : 0.55),
   AppColors.background,
 );
 
@@ -67,6 +73,10 @@ class ChatDetailScreen extends ConsumerStatefulWidget {
 
   final ChatOtherUser? otherUser;
 
+  /// Text to start the composer with — an opener picked on the match screen.
+  /// Typed in, never sent: the person still decides whether it goes.
+  final String? initialDraft;
+
   const ChatDetailScreen({
     super.key,
     required this.conversationId,
@@ -76,6 +86,7 @@ class ChatDetailScreen extends ConsumerStatefulWidget {
     this.photoUrl,
     this.colorIndex = 0,
     this.otherUser,
+    this.initialDraft,
   });
 
   @override
@@ -91,6 +102,10 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
   bool _isTyping = false;
   bool _sending = false;
 
+  /// The server said the New Energy allowance is spent. Cleared the moment
+  /// their reply arrives — that reply is what lifts the cap server-side too.
+  bool _awaitingReply = false;
+
   StateController<String?>? _activeClaim;
 
   String? _convId;
@@ -101,6 +116,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
   void initState() {
     super.initState();
     _convId = widget.conversationId;
+    final draft = widget.initialDraft;
+    if (draft != null && draft.isNotEmpty) {
+      _messageController.value = TextEditingValue(
+        text: draft,
+        selection: TextSelection.collapsed(offset: draft.length),
+      );
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _onOpen());
   }
 
@@ -123,6 +145,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
       if (!_isLive(incoming.conversationId)) return;
       ref.read(messagesProvider(convId).notifier).addIncoming(incoming.message);
       ref.read(chatActionsProvider).markRead(convId);
+      // Their reply lifts the cap.
+      if (!incoming.message.fromMe) _awaitingReply = false;
       _scrollToBottom();
     }));
     _subs.add(chat.updates.listen((update) {
@@ -198,22 +222,46 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
         await ref.read(chatActionsProvider).send(convId, text);
       }
       _scrollToBottom();
-
-      /// Currently hiding the on everytime message has been send
-      // if (mounted) {
-      //   showRadiusToast(context, 'Message sent', tone: ToastTone.success);
-      // }
     } on EntitlementRequiredException catch (gate) {
-      _messageController.text = text;
+      // Out of new conversations for today. The draft goes back in the box so
+      // accepting the offer is one tap back to what they wrote.
+      removeFocus();
+      _restoreDraft(text);
       if (mounted) showMessageLimitPaywall(context, gate: gate);
     } on AppException catch (e) {
-      _messageController.text = text;
+      _restoreDraft(text);
       if (mounted) {
+        final failure = SendFailure.from(e, name: widget.userName);
+        if (failure.kind == SendFailureKind.awaitingReply) {
+          _awaitingReply = true;
+        }
+        sendFailureHaptic();
         showRadiusToast(context, e.message, tone: ToastTone.error);
+      }
+    } catch (e, st) {
+      // Safety net: a non-AppException (e.g. a parsing TypeError) must never
+      // swallow the message with no feedback.
+      debugPrint('send failed: $e\n$st');
+      _restoreDraft(text);
+      if (mounted) {
+        showRadiusToast(
+          context,
+          'Something went wrong. Please try again.',
+          tone: ToastTone.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  /// Puts a refused message back where it was typed, caret at the end, so the
+  /// person can reword it rather than retype it.
+  void _restoreDraft(String text) {
+    _messageController.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
   }
 
   void _onInputChanged(String _) {
@@ -249,51 +297,73 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
   @override
   Widget build(BuildContext context) {
     final convId = _convId;
+    // Space the content needs at the top so it starts below the floating bar.
+    final topInset = MediaQuery.paddingOf(context).top + _kTopBarHeight;
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildTopBar(),
-            Expanded(
-              child: Stack(
+      body: Stack(
+        children: [
+          // 1. Wallpaper – full screen, also behind the status bar + top bar
+          Positioned.fill(
+            child: ColoredBox(
+              color: _chatWallpaperBase,
+              child: RepaintBoundary(
+                child: CustomPaint(
+                  painter: _WallpaperPainter(
+                    color: AppColors.primaryInk
+                        .withValues(alpha:AppColors.isDark ? 0.07 : 0.08),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // 2. Messages + input bar
+          Positioned.fill(
+            child: SafeArea(
+              top: false,
+              child: Column(
                 children: [
-                  Positioned.fill(
-                    child: ColoredBox(
-                      color: _chatWallpaperBase,
-                      child: RepaintBoundary(
-                        child: CustomPaint(
-                          painter: _WallpaperPainter(
-                            color: AppColors.primaryInk
-                                .withOpacity(AppColors.isDark ? 0.07 : 0.08),
+                  Expanded(
+                    child: convId == null
+                        ? Padding(
+                      padding: EdgeInsets.only(top: topInset),
+                      child: _EmptyThread(name: widget.userName),
+                    )
+                        : ref.watch(messagesProvider(convId)).when(
+                      loading: () => Padding(
+                        padding: EdgeInsets.only(top: topInset),
+                        child: const Center(child: LoaderWidget()),
+                      ),
+                      error: (err, _) => Padding(
+                        padding: EdgeInsets.only(top: topInset),
+                        child: Center(
+                          child: Text(
+                            "Couldn't load messages.\n$err",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: AppColors.textGrey),
                           ),
                         ),
                       ),
+                      data: (messages) =>
+                          _buildMessageList(messages, topInset),
                     ),
                   ),
-                  Positioned.fill(
-                    child: convId == null
-                        ? _EmptyThread(name: widget.userName)
-                        : ref.watch(messagesProvider(convId)).when(
-                      loading: () => const Center(
-                        child: LoaderWidget(),),
-                      error: (err, _) => Center(
-                        child: Text(
-                          "Couldn't load messages.\n$err",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: AppColors.textGrey),
-                        ),
-                      ),
-                      data: (messages) => _buildMessageList(messages),
-                    ),
-                  ),
+                  _buildInputBar(),
                 ],
               ),
             ),
-            _buildInputBar(),
-          ],
-        ),
+          ),
+
+          // 3. Transparent top bar floating above everything
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(bottom: false, child: _buildTopBar()),
+          ),
+        ],
       ),
     );
   }
@@ -348,7 +418,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
     return false;
   }
 
-  // ── Top bar ──────────────────────────────────────────────────────────
+  // ── Top bar (transparent, floats over the wallpaper) ─────────────────
 
   Widget _buildTopBar() {
     final name = widget.userName;
@@ -356,52 +426,31 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
         widget.otherUser?.isOnline ??
         false;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(4, 8, 8, 8),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        border: Border(
-          bottom: BorderSide(color: AppColors.inputBorder, width: 1),
-        ),
-        boxShadow: _softShadow(
-          light: 0.05,
-          dark: 0.30,
-          blur: 14,
-          offset: const Offset(0, 3),
-        ),
-      ),
-      child: Row(
-        children: [
-          Material(
-            color: Colors.transparent,
-            shape: const CircleBorder(),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
+    return SizedBox(
+      height: _kTopBarHeight,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            _GlassButton(
+              icon: Icons.arrow_back_ios_new_rounded,
+              label: 'Back',
+              iconSize: 19,
               onTap: () => Navigator.pop(context),
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  size: 20,
-                  color: AppColors.textDark,
-                ),
-              ),
             ),
-          ),
-          Expanded(
-            child: Semantics(
-              button: true,
-              label: "Open $name's profile",
-              excludeSemantics: true,
-              child: InkWell(
-                onTap: _openProfile,
-                borderRadius: BorderRadius.circular(14),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Semantics(
+                button: true,
+                label: "Open $name's profile",
+                excludeSemantics: true,
+                child: InkWell(
+                  onTap: _openProfile,
+                  borderRadius: BorderRadius.circular(14),
                   child: Row(
                     children: [
                       _buildAvatar(name, online),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -436,10 +485,14 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 4),
-          _topBarIcon(Icons.more_vert_rounded, _openActions),
-        ],
+            const SizedBox(width: 8),
+            _GlassButton(
+              icon: Icons.more_vert_rounded,
+              label: 'More options',
+              onTap: _openActions,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -497,40 +550,28 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
     );
   }
 
-  Widget _topBarIcon(IconData icon, VoidCallback onTap) {
-    return Material(
-      color: Colors.transparent,
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Icon(icon, size: 22, color: AppColors.textDark),
-        ),
-      ),
-    );
-  }
-
   // ── Message list ─────────────────────────────────────────────────────
 
-  Widget _buildMessageList(List<Message> messages) {
+  Widget _buildMessageList(List<Message> messages, double topInset) {
     if (messages.isEmpty) {
-      return Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: AppColors.inputBorder),
-            boxShadow: _softShadow(light: 0.05, blur: 10),
-          ),
-          child: Text(
-            'Say hello 👋',
-            style: TextStyle(
-              color: AppColors.textGrey,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+      return Padding(
+        padding: EdgeInsets.only(top: topInset),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: AppColors.inputBorder),
+              boxShadow: _softShadow(light: 0.05, blur: 10),
+            ),
+            child: Text(
+              'Say hello 👋',
+              style: TextStyle(
+                color: AppColors.textGrey,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ),
@@ -538,7 +579,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
     }
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+      padding: EdgeInsets.fromLTRB(12, topInset, 12, 10),
       itemCount: messages.length + 1,
       itemBuilder: (_, index) {
         if (index == 0) return _buildDateHeader('TODAY');
@@ -586,7 +627,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
         ? AppColors.textGrey
         : (isMine ? AppColors.onAccent : AppColors.textDark);
     final Color metaColor = sentStyle
-        ? AppColors.onAccent.withOpacity(0.70)
+        ? AppColors.onAccent.withValues(alpha:0.70)
         : AppColors.textGrey;
 
     // Reserve room for the inline time / ticks so text never runs under them.
@@ -657,7 +698,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
                   size: 15,
                   color: msg.read
                       ? AppColors.onAccent
-                      : AppColors.onAccent.withOpacity(0.60),
+                      : AppColors.onAccent.withValues(alpha:0.60),
                 ),
               ],
             ],
@@ -711,8 +752,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
                         : (isMine
                         ? [
                       BoxShadow(
-                        color: AppColors.primaryDeep.withOpacity(
-                          AppColors.isDark ? 0.30 : 0.25,
+                        color: AppColors.primaryDeep.withValues(alpha:
+                        AppColors.isDark ? 0.30 : 0.25,
                         ),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
@@ -911,7 +952,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
                     boxShadow: [
                       BoxShadow(
                         color: AppColors.primary
-                            .withOpacity(AppColors.isDark ? 0.30 : 0.35),
+                            .withValues(alpha:AppColors.isDark ? 0.30 : 0.35),
                         blurRadius: 10,
                         offset: const Offset(0, 3),
                       ),
@@ -935,6 +976,58 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// Frosted round button for the transparent top bar
+// ═════════════════════════════════════════════════════════════════════
+
+/// Round frosted-glass button that stays readable over the wallpaper.
+class _GlassButton extends StatelessWidget {
+  const _GlassButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.size = 44,
+    this.iconSize = 21,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final double size;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: ClipOval(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Material(
+            color: AppColors.card.withValues(alpha:AppColors.isDark ? 0.55 : 0.72),
+            child: InkWell(
+              onTap: onTap,
+              child: Container(
+                width: size,
+                height: size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.inputBorder.withValues(alpha:0.7),
+                  ),
+                ),
+                child: Icon(icon, size: iconSize, color: AppColors.textDark),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1078,8 +1171,8 @@ class _MessageActionRow extends StatelessWidget {
     final Color color = danger ? AppColors.danger : AppColors.textDark;
     final Color effective = locked ? AppColors.iconMuted : color;
     final Color badgeBg = locked
-        ? AppColors.iconMuted.withOpacity(0.14)
-        : (danger ? AppColors.danger.withOpacity(0.12) : AppColors.primaryTint);
+        ? AppColors.iconMuted.withValues(alpha:0.14)
+        : (danger ? AppColors.danger.withValues(alpha:0.12) : AppColors.primaryTint);
     final Color badgeIcon =
     locked ? AppColors.iconMuted : (danger ? AppColors.danger : AppColors.primaryInk);
 

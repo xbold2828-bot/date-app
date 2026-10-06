@@ -9,22 +9,24 @@ import '../../../common/widgets/widgets.dart';
 /// Dots only appear for an actual set: a single photo with a lone dot under it
 /// looks like a carousel that failed to load the rest.
 ///
-/// Presence is deliberately not here. There used to be an "Online now" pill in
-/// the top-left corner, which said the same thing as the green dot six lines
-/// below it and said it over the person's face.
+/// There is deliberately NO close button in here. The profile sheet pins a
+/// single one on top of everything, so it stays visible while the page
+/// scrolls — a second one in this strip would scroll away and double up.
+///
+/// Presence is deliberately not here either. There used to be an "Online now"
+/// pill in the top-left corner, which said the same thing as the green dot six
+/// lines below it and said it over the person's face.
 class PhotoCarousel extends StatefulWidget {
   const PhotoCarousel({
     super.key,
     required this.photos,
     required this.fallbackInitial,
     required this.colorIndex,
-    required this.onClose,
   });
 
   final List<String> photos;
   final String fallbackInitial;
   final int colorIndex;
-  final VoidCallback onClose;
 
   @override
   State<PhotoCarousel> createState() => _PhotoCarouselState();
@@ -33,6 +35,17 @@ class PhotoCarousel extends StatefulWidget {
 class _PhotoCarouselState extends State<PhotoCarousel> {
   final PageController _pages = PageController();
   int _index = 0;
+
+  @override
+  void didUpdateWidget(covariant PhotoCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The photo list can change under us (the card's single photo is replaced
+    // by the full set once the profile loads). Never point past the end.
+    if (_index >= widget.photos.length) {
+      _index = widget.photos.isEmpty ? 0 : widget.photos.length - 1;
+      if (_pages.hasClients) _pages.jumpToPage(_index);
+    }
+  }
 
   @override
   void dispose() {
@@ -57,7 +70,9 @@ class _PhotoCarouselState extends State<PhotoCarousel> {
 
   @override
   Widget build(BuildContext context) {
-    final height = MediaQuery.sizeOf(context).height * 0.5;
+    final size = MediaQuery.sizeOf(context);
+    // Half the screen on phones, but never taller than a portrait photo needs
+    final height = (size.height * 0.5).clamp(240.0, size.width * 1.2);
     final count = widget.photos.length;
 
     return SizedBox(
@@ -71,11 +86,10 @@ class _PhotoCarouselState extends State<PhotoCarousel> {
               controller: _pages,
               itemCount: count,
               onPageChanged: (i) => setState(() => _index = i),
-              // The gradient stands in while a photo loads as well as
-              // when it fails, so the strip never flashes empty mid-swipe.
               itemBuilder: (_, i) => Image.network(
                 widget.photos[i],
                 fit: BoxFit.cover,
+                gaplessPlayback: true,
                 errorBuilder: (_, _, _) => _placeholder,
                 loadingBuilder: (_, child, progress) =>
                 progress == null ? child : _placeholder,
@@ -83,8 +97,30 @@ class _PhotoCarouselState extends State<PhotoCarousel> {
             ),
           ),
 
-          // Edge taps, for one-handed use. Behind the close button in the
-          // stack, so they never swallow it.
+          // Soft fade at the top so the sheet's pinned close button stays
+          // readable on bright photos.
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 90,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.32),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Edge taps, for one-handed use.
           if (count > 1) ...[
             _TapZone(
               alignment: Alignment.centerLeft,
@@ -105,32 +141,6 @@ class _PhotoCarouselState extends State<PhotoCarousel> {
               bottom: 14,
               child: _Dots(count: count, active: _index),
             ),
-
-          Positioned(
-            top: 14,
-            right: 14,
-            child: Semantics(
-              button: true,
-              label: 'Close profile',
-              excludeSemantics: true,
-              child: GestureDetector(
-                onTap: widget.onClose,
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.38),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.close,
-                    size: 19,
-                    color: AppColors.onImage,
-                  ),
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -178,25 +188,27 @@ class _Dots extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      label: 'Photo ${active + 1} of $count',
-      excludeSemantics: true,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          for (var i = 0; i < count; i++)
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              width: i == active ? 18 : 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color:
-                AppColors.onImage.withValues(alpha: i == active ? 1 : 0.5),
-                borderRadius: BorderRadius.circular(3),
+    return IgnorePointer(
+      child: Semantics(
+        label: 'Photo ${active + 1} of $count',
+        excludeSemantics: true,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < count; i++)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: i == active ? 18 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: AppColors.onImage
+                      .withValues(alpha: i == active ? 1 : 0.5),
+                  borderRadius: BorderRadius.circular(3),
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

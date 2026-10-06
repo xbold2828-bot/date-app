@@ -3,6 +3,14 @@ import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
 abstract final class AppGradient {
+
+  /// The exact gradient [CommonButton] uses by default:
+  /// AppColors.secondary → AppColors.primary, left to right.
+  LinearGradient get buttonGradient => LinearGradient(
+    colors: [AppColors.secondary, AppColors.primary],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+  );
   static LinearGradient darkGreenLinear() => LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,

@@ -21,18 +21,28 @@ class PremiumTabItem {
   final String? semanticLabel;
 }
 
-/// Pill / segmented tab bar that matches the app's [CommonButton] colours.
+
 class PremiumTabBar extends StatelessWidget {
   const PremiumTabBar({
     super.key,
     required this.controller,
     required this.tabs,
     this.margin = const EdgeInsets.symmetric(horizontal: 20),
+    this.maxWidth = 520,
   });
 
   final TabController controller;
   final List<PremiumTabItem> tabs;
   final EdgeInsetsGeometry margin;
+
+  /// Widest the bar is allowed to get (keeps it tidy on tablets).
+  final double maxWidth;
+
+  static const double _height = 44;
+  static const double _trackPadding = 4;
+
+  /// Below this per-tab width the icon is hidden to save room.
+  static const double _minWidthForIcon = 120;
 
   @override
   Widget build(BuildContext context) {
@@ -42,57 +52,106 @@ class PremiumTabBar extends StatelessWidget {
     );
 
     final isDark = AppColors.isDark;
-    final onPrimary = Theme.of(context).colorScheme.onPrimary;
+    final media = MediaQuery.of(context);
 
-    return Container(
-      margin: margin,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.background : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppColors.primary.withValues(alpha: isDark ? 0.28 : 0.22),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.30 : 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: MediaQuery(
+          // Cap accessibility font scaling so the bar never outgrows its track.
+          data: media.copyWith(
+            textScaler: media.textScaler.clamp(maxScaleFactor: 1.15),
           ),
-        ],
+          child: Container(
+            margin: margin,
+            padding: const EdgeInsets.all(_trackPadding),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.background : Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color:
+                AppColors.primary.withValues(alpha: isDark ? 0.28 : 0.22),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.30 : 0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final count = tabs.length;
+                final tabWidth = constraints.maxWidth / count;
+                final showIcon = tabWidth >= _minWidthForIcon;
+
+                return SizedBox(
+                  height: _height,
+                  width: double.infinity,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Sliding blue pill – follows taps AND swipes.
+                      _SlidingPill(controller: controller, count: count),
+
+                      // Equal-width tabs on top of the pill.
+                      Row(
+                        children: [
+                          for (var i = 0; i < count; i++)
+                            Expanded(
+                              child: _PremiumTab(
+                                item: tabs[i],
+                                index: i,
+                                controller: controller,
+                                showIcon: showIcon,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
       ),
-      child: TabBar(
-        controller: controller,
-        indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: Colors.transparent,
-        splashFactory: NoSplash.splashFactory,
-        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-        labelPadding: EdgeInsets.zero,
-        indicatorPadding: EdgeInsets.zero,
-        labelColor: onPrimary,
-        unselectedLabelColor: AppColors.textGrey,
-        labelStyle: AppTextStyles.bodyStrong.copyWith(
-          fontSize: 14,
-          letterSpacing: 0.2,
-          fontWeight: FontWeight.w700,
-          fontVariations: const [FontVariation('wght', 700)],
-        ),
-        unselectedLabelStyle: AppTextStyles.bodyStrong.copyWith(
-          fontSize: 14,
-          letterSpacing: 0.2,
-          fontWeight: FontWeight.w600,
-          fontVariations: const [FontVariation('wght', 600)],
-        ),
-        // Flat blue pill, no shadow.
-        indicator: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: AppColors.primary,
-        ),
-        tabs: [
-          for (var i = 0; i < tabs.length; i++)
-            _PremiumTab(item: tabs[i], index: i, controller: controller),
-        ],
-      ),
+    );
+  }
+}
+
+/// The blue indicator. Slides smoothly between tabs using the controller's
+/// animation value, so it also tracks a finger swipe in real time.
+class _SlidingPill extends StatelessWidget {
+  const _SlidingPill({required this.controller, required this.count});
+
+  final TabController controller;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller.animation ?? controller,
+      builder: (context, _) {
+        final pos = controller.animation?.value ?? controller.index.toDouble();
+        // Alignment.x: -1 = far left, 1 = far right.
+        final x = count <= 1 ? 0.0 : -1 + 2 * (pos / (count - 1));
+
+        return Align(
+          alignment: Alignment(x.clamp(-1.0, 1.0), 0),
+          child: FractionallySizedBox(
+            widthFactor: 1 / count,
+            heightFactor: 1,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -102,55 +161,76 @@ class _PremiumTab extends StatelessWidget {
     required this.item,
     required this.index,
     required this.controller,
+    required this.showIcon,
   });
 
   final PremiumTabItem item;
   final int index;
   final TabController controller;
+  final bool showIcon;
 
   @override
   Widget build(BuildContext context) {
+    final onPrimary = Theme.of(context).colorScheme.onPrimary;
     final count = item.count;
     final hasCount = count != null && count > 0;
 
-    return Tab(
-      height: 44,
-      child: Semantics(
-        label: item.semanticLabel ??
-            (hasCount ? '${item.label}, $count' : item.label),
-        excludeSemantics: true,
-        child: AnimatedBuilder(
-          animation: controller.animation ?? controller,
-          builder: (context, _) {
-            // 1.0 = this tab fully selected, 0.0 = idle (follows swipes).
-            final pos =
-                controller.animation?.value ?? controller.index.toDouble();
-            final t = (1 - (pos - index).abs()).clamp(0.0, 1.0);
+    return AnimatedBuilder(
+      animation: controller.animation ?? controller,
+      builder: (context, _) {
+        // 1.0 = this tab fully selected, 0.0 = idle (follows swipes).
+        final pos = controller.animation?.value ?? controller.index.toDouble();
+        final t = (1 - (pos - index).abs()).clamp(0.0, 1.0);
+        final color = Color.lerp(AppColors.textGrey, onPrimary, t)!;
 
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (item.icon != null) ...[
-                  Icon(item.icon, size: 16),
-                  const SizedBox(width: 6),
-                ],
-                Flexible(
-                  child: Text(
-                    item.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+        return Semantics(
+          button: true,
+          selected: controller.index == index,
+          label: item.semanticLabel ??
+              (hasCount ? '${item.label}, $count' : item.label),
+          excludeSemantics: true,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => controller.animateTo(index),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (item.icon != null && showIcon) ...[
+                        Icon(item.icon, size: 16, color: color),
+                        const SizedBox(width: 6),
+                      ],
+                      Text(
+                        item.label,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: AppTextStyles.bodyStrong.copyWith(
+                          fontSize: 14,
+                          letterSpacing: 0.2,
+                          color: color,
+                          fontWeight:
+                          t > 0.5 ? FontWeight.w700 : FontWeight.w600,
+                          fontVariations: [
+                            FontVariation('wght', t > 0.5 ? 700 : 600),
+                          ],
+                        ),
+                      ),
+                      if (hasCount) ...[
+                        const SizedBox(width: 8),
+                        _CountBadge(count: count, selectedAmount: t),
+                      ],
+                    ],
                   ),
                 ),
-                if (hasCount) ...[
-                  const SizedBox(width: 8),
-                  _CountBadge(count: count, selectedAmount: t),
-                ],
-              ],
-            );
-          },
-        ),
-      ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -160,14 +240,12 @@ class _CountBadge extends StatelessWidget {
 
   final int count;
 
-  /// 0 → tab idle, 1 → tab selected. Drives a smooth colour cross-fade.
   final double selectedAmount;
 
   @override
   Widget build(BuildContext context) {
     final onPrimary = Theme.of(context).colorScheme.onPrimary;
 
-    // Idle tab:     solid blue chip.
     // Selected tab: frosted chip on top of the blue pill.
     final frosted = onPrimary.withValues(alpha: 0.26);
     final fill = Color.lerp(AppColors.primary, frosted, selectedAmount)!;

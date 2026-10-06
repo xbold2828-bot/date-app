@@ -55,7 +55,7 @@ class InternetScreen extends ConsumerWidget {
                 child: Column(
                   children: [
                     Padding(
-                      padding: EdgeInsets.only(top: 42.h),
+                      padding: EdgeInsets.only(top: 25.h),
                       child: Container(
                         width: 70.w,
                         height: 70.h,
@@ -72,14 +72,14 @@ class InternetScreen extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    spacerH(30),
+                    spacerH(25),
                     const AppText(
                       text: "Connection Unavailable",
                       textAlign: TextAlign.center,
                       fontWeight: FontWeight.w700,
                       fontSize: 22,
                     ),
-                    spacerH(20),
+                    spacerH(15),
                     AppText(
                       text:
                       "Unable to connect to the internet.\nPlease check your connection and try again to continue using the application.",
@@ -88,7 +88,7 @@ class InternetScreen extends ConsumerWidget {
                       fontWeight: FontWeight.w400,
                       fontSize: 15,
                     ),
-                    spacerH(40),
+                    spacerH(35),
                     Row(
                       children: [
                         if (context.canPop()) ...[
@@ -111,7 +111,7 @@ class InternetScreen extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    spacerH(40),
+                    spacerH(35),
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),

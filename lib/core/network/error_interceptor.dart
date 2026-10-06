@@ -7,6 +7,9 @@ import '../errors/app_exceptions.dart';
 ///
 /// The mapped exception is attached as `DioException.error`; [ApiClient]
 /// unwraps and rethrows it so repositories catch domain exceptions directly.
+///
+/// This only fires if Dio actually throws, so [ApiClient] must NOT override
+/// `validateStatus` to accept every status code.
 class ErrorInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
@@ -40,7 +43,12 @@ class ErrorInterceptor extends Interceptor {
       case DioExceptionType.badResponse:
         break;
       default:
-        throw Exception('Unknown error');
+      // transformTimeout and any future enum value. Never throw from an
+      // interceptor's onError — it would escape as an unhandled error.
+        if (err.response == null) {
+          return UnknownApiException(err.message ?? 'Unknown error');
+        }
+        break;
     }
 
     final response = err.response;
@@ -83,9 +91,9 @@ class ErrorInterceptor extends Interceptor {
       case 409:
         return ConflictException(message);
       case 422:
-        // Moderation refusals share 422 with DTO validation but need their own
-        // type — the UI says something different for "we won't publish that"
-        // than for "that field is malformed".
+      // Moderation refusals share 422 with DTO validation but need their own
+      // type — the UI says something different for "we won't publish that"
+      // than for "that field is malformed".
         if (errorCode == 'ContentRejected') {
           return ContentRejectedException(message, details: details);
         }

@@ -3,9 +3,10 @@ abstract final class AppConstants {
   static const String packageName = "com.cozune.app";
 
   /// Privacy Policy - Terms & Conditions
-  static const String _baseUrl = "https://cozune.in/admin/user";
-  static const String termsAndCondition = "$_baseUrl/terms-and-conditions";
-  static const String privacyPolicy = "$_baseUrl/privacy-policy";
+  static const String termsAndCondition =
+      "http://website-six-indol-41.vercel.app/terms-and-conditions";
+  static const String privacyPolicy =
+      "http://website-six-indol-41.vercel.app/privacy-policy";
 
   /// Android or iOS
   static const String androidAppId = "com.cozune.app";

@@ -31,10 +31,12 @@ class ApiClient {
       ..receiveTimeout = ApiConstants.receiveTimeout
       ..sendTimeout = ApiConstants.sendTimeout
       ..headers['content-type'] = 'application/json; charset=utf-8'
-      ..responseType = ResponseType.json
-    // We want to inspect every status code ourselves (via ErrorInterceptor)
-    // rather than have Dio throw before we've had a chance to log/map it.
-      ..validateStatus = (_) => true;
+      ..responseType = ResponseType.json;
+    // NOTE: `validateStatus` is intentionally NOT overridden. Dio's default
+    // (2xx only) makes every non-2xx response throw a DioException, which is
+    // what lets AuthInterceptor.onError (401 refresh) and
+    // ErrorInterceptor.onError (402 -> EntitlementRequiredException, etc.)
+    // run. Accepting every status code bypasses both.
 
     _dio.interceptors.addAll([
       // Logging goes first so it captures the request exactly as sent and
@@ -493,13 +495,10 @@ class ApiClient {
     }
   }
 
-  /// [ErrorInterceptor] is expected to have already mapped `e.error` to a
-  /// typed [AppException] (that's what `handler.reject(...)` in that
-  /// interceptor should set, using the `error` machine code from the
-  /// backend envelope). This is the final safety net in case a
-  /// [DioException] slips through unmapped — e.g. a call that bypasses
-  /// `_send` (download/stream), or a transport failure before the
-  /// interceptor chain runs.
+  /// [ErrorInterceptor] maps `e.error` to a typed [AppException]. This is the
+  /// final safety net in case a [DioException] slips through unmapped — e.g.
+  /// a call that bypasses `_send` (download/stream), or a transport failure
+  /// before the interceptor chain runs.
   AppException _unwrap(DioException e) {
     final err = e.error;
     if (err is AppException) return err;
@@ -529,8 +528,7 @@ class ApiClient {
             );
           case 'VerificationRequired':
             return VerificationRequiredException(
-              message ??
-                  'Identity verification is required for this action.',
+              message ?? 'Identity verification is required for this action.',
               details,
             );
           case 'PremiumRequired':
@@ -577,9 +575,8 @@ class ApiClient {
         };
       }
 
-      final fallback = data is String && data.isNotEmpty
-          ? data
-          : 'Server error ($status)';
+      final fallback =
+      data is String && data.isNotEmpty ? data : 'Server error ($status)';
       return UnknownApiException(fallback, statusCode: status);
     }
 

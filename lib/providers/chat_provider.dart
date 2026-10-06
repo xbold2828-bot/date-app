@@ -64,7 +64,7 @@ class UnreadCountNotifier extends AsyncNotifier<int> {
 
   Future<void> refresh() async {
     state = await AsyncValue.guard(
-      () => ref.read(chatRepositoryProvider).unreadCount(),
+          () => ref.read(chatRepositoryProvider).unreadCount(),
     );
   }
 
@@ -77,7 +77,7 @@ class UnreadCountNotifier extends AsyncNotifier<int> {
 }
 
 final unreadCountProvider =
-    AsyncNotifierProvider<UnreadCountNotifier, int>(UnreadCountNotifier.new);
+AsyncNotifierProvider<UnreadCountNotifier, int>(UnreadCountNotifier.new);
 
 /// The conversation the user currently has open, or null. Lets the realtime
 /// layer tell "a message arrived somewhere" from "a message arrived in the
@@ -172,7 +172,7 @@ class ChatActions {
   /// action.
   Future<String?> conversationIdWith(String userId) async {
     final existing =
-        await ref.read(chatRepositoryProvider).conversationWith(userId);
+    await ref.read(chatRepositoryProvider).conversationWith(userId);
     return existing?.id;
   }
 
@@ -190,7 +190,7 @@ class ChatActions {
   /// Send into an existing conversation (free).
   Future<SendResult> send(String conversationId, String body) async {
     final result =
-        await ref.read(chatRepositoryProvider).send(conversationId, body);
+    await ref.read(chatRepositoryProvider).send(conversationId, body);
     ref.read(messagesProvider(conversationId).notifier)
         .appendSent(result.message);
     return result;
@@ -242,12 +242,12 @@ class ChatActions {
   /// Rewrite one of my own messages. Premium — a free member gets 402/403 from
   /// the server, which the caller surfaces as the paywall.
   Future<void> editMessage(
-    String conversationId,
-    String messageId,
-    String body,
-  ) async {
+      String conversationId,
+      String messageId,
+      String body,
+      ) async {
     final updated =
-        await ref.read(chatRepositoryProvider).editMessage(messageId, body);
+    await ref.read(chatRepositoryProvider).editMessage(messageId, body);
     ref.read(messagesProvider(conversationId).notifier).replace(updated);
     // The inbox preview is the server's copy of the last message, and an edit
     // to the newest one changes it.
@@ -256,11 +256,11 @@ class ChatActions {
 
   /// Take one of my own messages back, for both sides. Premium.
   Future<void> deleteMessage(
-    String conversationId,
-    String messageId,
-  ) async {
+      String conversationId,
+      String messageId,
+      ) async {
     final tombstone =
-        await ref.read(chatRepositoryProvider).deleteMessage(messageId);
+    await ref.read(chatRepositoryProvider).deleteMessage(messageId);
     ref.read(messagesProvider(conversationId).notifier).replace(tombstone);
     ref.invalidate(conversationsProvider);
   }
@@ -293,10 +293,10 @@ class ChatActions {
   }
 
   Future<void> reportUser(
-    String userId, {
-    required String reason,
-    String? context,
-  }) =>
+      String userId, {
+        required String reason,
+        String? context,
+      }) =>
       ref
           .read(safetyRepositoryProvider)
           .report(userId, reason: reason, context: context);
@@ -322,7 +322,7 @@ final chatActionsProvider = Provider<ChatActions>((ref) => ChatActions(ref));
 /// request per tap. One fetch serves the session, and every block/unblock
 /// invalidates it.
 final blockedUsersProvider =
-    FutureProvider<List<BlockedUser>>((ref) async {
+FutureProvider<List<BlockedUser>>((ref) async {
   final page = await ref.watch(safetyRepositoryProvider).blocks();
   return page.items;
 });
@@ -335,7 +335,7 @@ final blockedUserIdsProvider = Provider<Set<String>>((ref) {
 
 /// The archive — threads filed away rather than deleted.
 final archivedConversationsProvider =
-    FutureProvider.autoDispose<List<ConversationSummary>>((ref) async {
+FutureProvider.autoDispose<List<ConversationSummary>>((ref) async {
   final page = await ref
       .watch(chatRepositoryProvider)
       .conversations(archived: true, limit: 50);

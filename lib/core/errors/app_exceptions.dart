@@ -16,11 +16,11 @@ class AppException implements Exception {
   final Map<String, dynamic>? details;
 
   const AppException(
-    this.message, {
-    this.statusCode,
-    this.error,
-    this.details,
-  });
+      this.message, {
+        this.statusCode,
+        this.error,
+        this.details,
+      });
 
   @override
   String toString() =>
@@ -45,10 +45,10 @@ class RequestTimeoutException extends AppException {
 /// 400 — malformed request (bad slug, missing conditional field, no location).
 class BadRequestException extends AppException {
   const BadRequestException(
-    String message, {
-    String? error,
-    Map<String, dynamic>? details,
-  }) : super(message, statusCode: 400, error: error, details: details);
+      String message, {
+        String? error,
+        Map<String, dynamic>? details,
+      }) : super(message, statusCode: 400, error: error, details: details);
 }
 
 /// 401 — missing/invalid/expired Supabase token.
@@ -63,14 +63,14 @@ class UnauthorizedException extends AppException {
 /// `{ reason, action, cost, balance, options: ['premium'|'watch_ad'] }`.
 class EntitlementRequiredException extends AppException {
   const EntitlementRequiredException(
-    String message, {
-    Map<String, dynamic>? details,
-  }) : super(
-          message,
-          statusCode: 402,
-          error: 'EntitlementRequired',
-          details: details,
-        );
+      String message, {
+        Map<String, dynamic>? details,
+      }) : super(
+    message,
+    statusCode: 402,
+    error: 'EntitlementRequired',
+    details: details,
+  );
 
   /// `['premium', 'watch_ad']` etc.
   List<String> get options =>
@@ -87,11 +87,11 @@ class VerificationRequiredException extends AppException {
     String message = 'Identity verification is required for this action.',
     Map<String, dynamic>? details,
   ]) : super(
-          message,
-          statusCode: 403,
-          error: 'VerificationRequired',
-          details: details,
-        );
+    message,
+    statusCode: 403,
+    error: 'VerificationRequired',
+    details: details,
+  );
 }
 
 /// 403 — a premium-only feature (advanced discovery filters).
@@ -100,20 +100,20 @@ class PremiumRequiredException extends AppException {
     String message = 'This feature requires Premium.',
     Map<String, dynamic>? details,
   ]) : super(
-          message,
-          statusCode: 403,
-          error: 'PremiumRequired',
-          details: details,
-        );
+    message,
+    statusCode: 403,
+    error: 'PremiumRequired',
+    details: details,
+  );
 }
 
 /// 403 — any other forbidden case (admin route, etc.).
 class ForbiddenException extends AppException {
   const ForbiddenException(
-    String message, {
-    String? error,
-    Map<String, dynamic>? details,
-  }) : super(message, statusCode: 403, error: error, details: details);
+      String message, {
+        String? error,
+        Map<String, dynamic>? details,
+      }) : super(message, statusCode: 403, error: error, details: details);
 }
 
 /// 404 — not found, or hidden because blocked/inactive.
@@ -131,9 +131,9 @@ class ConflictException extends AppException {
 /// 422 — DTO validation failure.
 class ValidationException extends AppException {
   const ValidationException(
-    String message, {
-    Map<String, dynamic>? details,
-  }) : super(message, statusCode: 422, error: 'ValidationError', details: details);
+      String message, {
+        Map<String, dynamic>? details,
+      }) : super(message, statusCode: 422, error: 'ValidationError', details: details);
 }
 
 /// 422 `ContentRejected` — automated moderation refused a photo, bio or
@@ -149,14 +149,14 @@ class ValidationException extends AppException {
 /// there is no per-category breakdown to render and no way to probe for one.
 class ContentRejectedException extends AppException {
   const ContentRejectedException(
-    String message, {
-    Map<String, dynamic>? details,
-  }) : super(
-          message,
-          statusCode: 422,
-          error: 'ContentRejected',
-          details: details,
-        );
+      String message, {
+        Map<String, dynamic>? details,
+      }) : super(
+    message,
+    statusCode: 422,
+    error: 'ContentRejected',
+    details: details,
+  );
 
   /// `public_photo` | `private_photo` | `verified_selfie` | `bio` | `message`.
   String? get surface => details?['surface'] as String?;
@@ -167,14 +167,14 @@ class ContentRejectedException extends AppException {
 /// 429 — rate limit, ad daily cap, or New-Energy message cap.
 class RateLimitedException extends AppException {
   const RateLimitedException(
-    String message, {
-    Map<String, dynamic>? details,
-  }) : super(
-          message,
-          statusCode: 429,
-          error: 'TooManyRequests',
-          details: details,
-        );
+      String message, {
+        Map<String, dynamic>? details,
+      }) : super(
+    message,
+    statusCode: 429,
+    error: 'TooManyRequests',
+    details: details,
+  );
 
   /// Seconds to wait before retrying, when the server supplied it.
   int? get retryAfterSeconds =>
@@ -228,9 +228,9 @@ class LocationUnavailableException extends AppException {
 /// Fallback for anything not otherwise classified.
 class UnknownApiException extends AppException {
   const UnknownApiException(
-    String message, {
-    int? statusCode,
-    String? error,
-    Map<String, dynamic>? details,
-  }) : super(message, statusCode: statusCode, error: error, details: details);
+      String message, {
+        int? statusCode,
+        String? error,
+        Map<String, dynamic>? details,
+      }) : super(message, statusCode: statusCode, error: error, details: details);
 }

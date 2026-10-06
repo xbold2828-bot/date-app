@@ -77,10 +77,10 @@ class ChatRepository {
 
   /// `GET /messaging/conversations/:id/messages` — history (newest first).
   Future<MessagesPage> messages(
-    String conversationId, {
-    int page = 1,
-    int limit = 30,
-  }) async {
+      String conversationId, {
+        int page = 1,
+        int limit = 30,
+      }) async {
     final data = await _api.get(
       ApiConstants.conversationMessages(conversationId),
       query: {'page': page, 'limit': limit},

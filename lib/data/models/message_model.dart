@@ -7,9 +7,9 @@ class ConversationRef {
   const ConversationRef({required this.id, required this.state});
 
   factory ConversationRef.fromJson(Map<String, dynamic> json) => ConversationRef(
-        id: json['id'] as String? ?? '',
-        state: json['state'] as String? ?? 'new_energy',
-      );
+    id: json['id'] as String? ?? '',
+    state: json['state'] as String? ?? 'new_energy',
+  );
 }
 
 /// A single message (backend `MessageView`).
@@ -45,28 +45,28 @@ class Message {
   });
 
   Message copyWith({bool? read}) => Message(
-        id: id,
-        body: body,
-        type: type,
-        senderId: senderId,
-        fromMe: fromMe,
-        sentAt: sentAt,
-        read: read ?? this.read,
-        edited: edited,
-        deleted: deleted,
-      );
+    id: id,
+    body: body,
+    type: type,
+    senderId: senderId,
+    fromMe: fromMe,
+    sentAt: sentAt,
+    read: read ?? this.read,
+    edited: edited,
+    deleted: deleted,
+  );
 
   factory Message.fromJson(Map<String, dynamic> json) => Message(
-        id: json['id'] as String? ?? '',
-        body: json['body'] as String? ?? '',
-        type: json['type'] as String? ?? 'text',
-        senderId: json['senderId'] as String? ?? '',
-        fromMe: json['fromMe'] as bool? ?? false,
-        sentAt: DateTime.tryParse(json['sentAt'] as String? ?? ''),
-        read: json['read'] as bool? ?? false,
-        edited: json['edited'] as bool? ?? false,
-        deleted: json['deleted'] as bool? ?? false,
-      );
+    id: json['id'] as String? ?? '',
+    body: json['body'] as String? ?? '',
+    type: json['type'] as String? ?? 'text',
+    senderId: json['senderId'] as String? ?? '',
+    fromMe: json['fromMe'] as bool? ?? false,
+    sentAt: DateTime.tryParse(json['sentAt'] as String? ?? ''),
+    read: json['read'] as bool? ?? false,
+    edited: json['edited'] as bool? ?? false,
+    deleted: json['deleted'] as bool? ?? false,
+  );
 }
 
 /// The other participant summary embedded in a conversation.
@@ -101,16 +101,16 @@ class ChatOtherUser {
   });
 
   factory ChatOtherUser.fromJson(Map<String, dynamic> json) => ChatOtherUser(
-        id: json['id'] as String? ?? '',
-        displayName: json['displayName'] as String?,
-        age: (json['age'] as num?)?.toInt(),
-        primaryPhotoUrl: json['primaryPhotoUrl'] as String?,
-        isOnline: json['isOnline'] as bool? ?? false,
-        isVerified: json['isVerified'] as bool? ?? false,
-        city: json['city'] as String?,
-        lastActiveAt: DateTime.tryParse(json['lastActiveAt'] as String? ?? ''),
-        isDeactivated: json['isDeactivated'] as bool? ?? false,
-      );
+    id: json['id'] as String? ?? '',
+    displayName: json['displayName'] as String?,
+    age: (json['age'] as num?)?.toInt(),
+    primaryPhotoUrl: json['primaryPhotoUrl'] as String?,
+    isOnline: json['isOnline'] as bool? ?? false,
+    isVerified: json['isVerified'] as bool? ?? false,
+    city: json['city'] as String?,
+    lastActiveAt: DateTime.tryParse(json['lastActiveAt'] as String? ?? ''),
+    isDeactivated: json['isDeactivated'] as bool? ?? false,
+  );
 
   /// "Active now" / "Active 3h ago" / null when there is nothing to say.
   String? get activityLabel {
@@ -142,11 +142,11 @@ class LastMessage {
   });
 
   factory LastMessage.fromJson(Map<String, dynamic> json) => LastMessage(
-        snippet: json['snippet'] as String? ?? '',
-        senderId: json['senderId'] as String? ?? '',
-        sentAt: DateTime.tryParse(json['sentAt'] as String? ?? ''),
-        fromMe: json['fromMe'] as bool? ?? false,
-      );
+    snippet: json['snippet'] as String? ?? '',
+    senderId: json['senderId'] as String? ?? '',
+    sentAt: DateTime.tryParse(json['sentAt'] as String? ?? ''),
+    fromMe: json['fromMe'] as bool? ?? false,
+  );
 }
 
 /// An inbox row (backend `ConversationSummary`).
@@ -200,8 +200,8 @@ class ConversationSummary {
         lastMessage: json['lastMessage'] == null
             ? null
             : LastMessage.fromJson(
-                Map<String, dynamic>.from(json['lastMessage'] as Map),
-              ),
+          Map<String, dynamic>.from(json['lastMessage'] as Map),
+        ),
         unread: (json['unread'] as num?)?.toInt() ?? 0,
         muted: json['muted'] as bool? ?? false,
         lastMessageAt: DateTime.tryParse(json['lastMessageAt'] as String? ?? ''),
@@ -216,13 +216,13 @@ class SendResult {
   const SendResult({required this.conversation, required this.message});
 
   factory SendResult.fromJson(Map<String, dynamic> json) => SendResult(
-        conversation: ConversationRef.fromJson(
-          Map<String, dynamic>.from(json['conversation'] as Map? ?? const {}),
-        ),
-        message: Message.fromJson(
-          Map<String, dynamic>.from(json['message'] as Map? ?? const {}),
-        ),
-      );
+    conversation: ConversationRef.fromJson(
+      Map<String, dynamic>.from(json['conversation'] as Map? ?? const {}),
+    ),
+    message: Message.fromJson(
+      Map<String, dynamic>.from(json['message'] as Map? ?? const {}),
+    ),
+  );
 }
 
 /// Result of `GET /messaging/conversations/:id/messages` (newest first).
@@ -244,15 +244,15 @@ class MessagesPage {
   bool get hasMore => page * limit < total;
 
   factory MessagesPage.fromJson(Map<String, dynamic> json) => MessagesPage(
-        conversation: ConversationRef.fromJson(
-          Map<String, dynamic>.from(json['conversation'] as Map? ?? const {}),
-        ),
-        page: (json['page'] as num?)?.toInt() ?? 1,
-        limit: (json['limit'] as num?)?.toInt() ?? 30,
-        total: (json['total'] as num?)?.toInt() ?? 0,
-        items: ((json['items'] as List?) ?? const [])
-            .whereType<Map>()
-            .map((e) => Message.fromJson(Map<String, dynamic>.from(e)))
-            .toList(),
-      );
+    conversation: ConversationRef.fromJson(
+      Map<String, dynamic>.from(json['conversation'] as Map? ?? const {}),
+    ),
+    page: (json['page'] as num?)?.toInt() ?? 1,
+    limit: (json['limit'] as num?)?.toInt() ?? 30,
+    total: (json['total'] as num?)?.toInt() ?? 0,
+    items: ((json['items'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => Message.fromJson(Map<String, dynamic>.from(e)))
+        .toList(),
+  );
 }

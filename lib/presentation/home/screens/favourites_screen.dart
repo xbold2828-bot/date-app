@@ -1,3 +1,4 @@
+import 'package:dating_app/core/extensions/padding_extension.dart';
 import 'package:dating_app/core/utils/app_loader.dart';
 import 'package:dating_app/core/utils/utils.dart';
 import 'package:dating_app/shared/widgets/empty_widget.dart';
@@ -99,18 +100,7 @@ class _LikedYouTab extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Liked you', style: AppTextStyles.display),
-                  const SizedBox(height: 6),
-                  Text(_subtitle(page), style: AppTextStyles.bodyMuted),
-                ],
-              ),
-            ),
-            // const SizedBox(height: 22),
+
             Center(
               child: async.when(
                 loading: () => const Padding(
@@ -140,29 +130,56 @@ class _LikedYouTab extends ConsumerWidget {
         title: 'No likes yet',
         body: 'Keep an eye on your radar — the people you like can see you '
             'too.',
-      );
+      ).paddingOnly(top: 20.h);
     }
 
-    return Padding(
-      padding:  EdgeInsets.symmetric(horizontal: 20.w,).copyWith(top: 10.h),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        padding: EdgeInsets.zero,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: 0.78,
+    return _buildContent(context, ref, page);
+  }
+
+
+
+  Widget _buildContent(BuildContext context, WidgetRef ref, LikedYouPage page) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Header
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Liked you', style: AppTextStyles.display),
+              const SizedBox(height: 6),
+              Text(_subtitle(page), style: AppTextStyles.bodyMuted),
+            ],
+          ),
         ),
-        itemCount: page.items.length,
-        itemBuilder: (context, index) => _tile(
-          context,
-          ref,
-          page.items[index],
-          index,
+        const SizedBox(height: 22),
+
+        // Grid
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20.w).copyWith(top: 10.h),
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 0.78,
+            ),
+            itemCount: page.items.length,
+            itemBuilder: (context, index) => _tile(
+              context,
+              ref,
+              page.items[index],
+              index,
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 

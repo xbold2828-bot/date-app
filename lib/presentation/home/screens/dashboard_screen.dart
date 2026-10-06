@@ -165,30 +165,30 @@ class _HomeScreenState extends ConsumerState<DashboardScreen>
         statusBarBrightness: AppColors.isDark ? Brightness.dark : Brightness.light, // iOS
       ),
       child: MatchCelebrationHost(
-        child: Scaffold(
-          backgroundColor: AppColors.background,
-          body: SafeArea(
-            bottom: false,
-            child: Stack(
-              children: [
-                Positioned.fill(child: _body()),
-                Align(
-                  alignment: Alignment.bottomCenter,
-                  child: BannerAdWidget(visible: _showsBannerAd(_current)),
-                ),
-              ],
+          child: Scaffold(
+            backgroundColor: AppColors.background,
+            body: SafeArea(
+              bottom: false,
+              child: Stack(
+                children: [
+                  Positioned.fill(child: _body()),
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: BannerAdWidget(visible: _showsBannerAd(_current)),
+                  ),
+                ],
+              ),
             ),
-          ),
-          bottomNavigationBar: SafeArea(
-            top: false,
-            minimum: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: _BottomNav(
-              current: _current,
-              unread: ref.watch(unreadCountProvider).valueOrNull ?? 0,
-              onSelect: (tab) => setState(() => _current = tab),
+            bottomNavigationBar: SafeArea(
+              top: false,
+              minimum: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: _BottomNav(
+                current: _current,
+                unread: ref.watch(unreadCountProvider).valueOrNull ?? 0,
+                onSelect: (tab) => setState(() => _current = tab),
+              ),
             ),
-          ),
-        )
+          )
       ),
     );
   }
@@ -342,49 +342,54 @@ class _RadarTab extends ConsumerWidget {
     final presence = ref.watch(presenceProvider);
     final me = ref.watch(meProvider).valueOrNull;
 
-    return RefreshIndicator(
-      color: AppColors.primary,
-      backgroundColor: AppColors.card,
-      onRefresh: () => ref.read(nearbyProvider.notifier).refresh(),
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(
-            child: RadarHeader(
-              name: me?.displayName,
-              city: nearbyAsync.valueOrNull?.city ?? me?.location?.city,
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: _QuickFilters(
-              filter: filter,
-              isPremium: me?.premium.isActive ?? false,
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 6, 20, 32),
-            sliver: nearbyAsync.when(
-              loading: () => SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 80),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: AppColors.primary,
-                    ),
+    return Column(
+      children: [
+        // Outside the scroll view, so it stays pinned while the grid scrolls.
+        RadarHeader(
+          name: me?.displayName,
+          city: nearbyAsync.valueOrNull?.city ?? me?.location?.city,
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            color: AppColors.primary,
+            backgroundColor: AppColors.card,
+            onRefresh: () => ref.read(nearbyProvider.notifier).refresh(),
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: _QuickFilters(
+                    filter: filter,
+                    isPremium: me?.premium.isActive ?? false,
                   ),
                 ),
-              ),
-              error: (err, _) => const SliverToBoxAdapter(
-                child: EmptyWidget(
-                  title: "Couldn't load your radar",
-                  body: 'Check your connection and pull down to try again.',
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 6, 20, 32),
+                  sliver: nearbyAsync.when(
+                    loading: () => SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 80),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ),
+                    error: (err, _) => const SliverToBoxAdapter(
+                      child: EmptyWidget(
+                        title: "Couldn't load your radar",
+                        body: 'Check your connection and pull down to try again.',
+                      ),
+                    ),
+                    data: (state) => _grid(context, ref, state, presence),
+                  ),
                 ),
-              ),
-              data: (state) => _grid(context, ref, state, presence),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     ).withGlobalBackHandler(context);
   }
 
@@ -471,11 +476,11 @@ class _RadarTab extends ConsumerWidget {
                 isLoading: state.loadingMore,
                 onPressed: () {
                   _showDiscoveryLimitDialog(
-                    context,ref
+                      context,ref
                   );
                   // ref.read(nearbyProvider.notifier).loadMore(); // This is the rewared
 
-                  },
+                },
               ),
             ),
           ),
@@ -506,6 +511,8 @@ class _RadarTab extends ConsumerWidget {
 }
 
 
+/// Compact top bar. Lives outside the scroll view in [_RadarTab], so it stays
+/// pinned while the grid scrolls.
 class RadarHeader extends ConsumerWidget {
   const RadarHeader({super.key, this.name, this.city});
 
@@ -522,113 +529,93 @@ class RadarHeader extends ConsumerWidget {
         ref.watch(unreadNotificationCountProvider).valueOrNull ?? 0;
     final quota = ref.watch(likeQuotaProvider).valueOrNull ?? LikeQuota.empty;
 
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 96),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 10, 12, 5),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Logo badge
-            Container(
-              width: 54,
-              height: 54,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.primary,
-                border: Border.all(
-                  color: AppColors.primary.withValues(alpha:0.25),
-                  width: 1,
-                ),
-              ),
-              child: ClipOval(
-                child: SvgPicture.asset(
-                  AppVectors.appIconWhite,
-                  fit: BoxFit.cover,
-                ),
+    return Container(
+      color: AppColors.background,
+      padding: const EdgeInsets.fromLTRB(20, 6, 12, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Logo badge
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.primary,
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.25),
+                width: 1,
               ),
             ),
-            const SizedBox(width: 14),
-
-            // Greeting + location
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    hasName ? 'Hey 👋' : 'Welcome to',
-                    style: AppTextStyles.caption.copyWith(
-                      fontSize: 13,
-                      color: AppColors.textGrey,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    hasName ? fullName : AppConstants.appName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.title.copyWith(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.4,
-                      height: 1.15,
-                    ),
-                  ),
-                  if (place.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha:0.12),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.location_on_rounded,
-                            size: 13,
-                            color: AppColors.primary,
-                          ),
-                          const SizedBox(width: 3),
-                          Flexible(
-                            child: Text(
-                              place,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTextStyles.caption.copyWith(
-                                fontSize: 12,
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
+            child: ClipOval(
+              child: SvgPicture.asset(
+                AppVectors.appIconWhite,
+                fit: BoxFit.cover,
               ),
             ),
-            const SizedBox(width: 8),
+          ),
+          const SizedBox(width: 12),
 
-            // Actions
-            Row(
+          // Name + location
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                LikesMeter(
-                  quota: quota,
-                  onTap: () => showLikesTodaySheet(context),
+                Text(
+                   "Hi, ${hasName ? fullName : AppConstants.appName}",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.title.copyWith(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                    height: 1.2,
+                  ),
                 ),
-                _NotificationButton(unreadCount: unreadCount),
-                const _FilterButton(),
+                if (place.isNotEmpty)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.location_on_rounded,
+                        size: 12,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 2),
+                      Flexible(
+                        child: Text(
+                          place,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.caption.copyWith(
+                            fontSize: 12,
+                            height: 1.2,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+
+          // Actions
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              LikesMeter(
+                quota: quota,
+                onTap: () => showLikesTodaySheet(context),
+              ),
+              _NotificationButton(unreadCount: unreadCount),
+              const _FilterButton(),
+            ],
+          ),
+        ],
       ),
     );
   }
