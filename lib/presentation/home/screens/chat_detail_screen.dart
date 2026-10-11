@@ -369,8 +369,23 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
   }
 
   void _openProfile() {
-    showRadiusSheet<void>(
+    // Close the keyboard first so the sheet isn't lifted above it.
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      useSafeArea: false,
+      showDragHandle: false,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      clipBehavior: Clip.none,
+      barrierColor: Colors.black54,
+      constraints: const BoxConstraints(maxWidth: double.infinity),
       builder: (_) => ProfileDetailSheet(
         userId: _otherId,
         seed: ProfileSeed(
@@ -880,15 +895,11 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
 
   Widget _buildInputBar() {
     return Container(
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        border: Border(top: BorderSide(color: AppColors.inputBorder, width: 1)),
-        boxShadow: _softShadow(
-          light: 0.05,
-          dark: 0.30,
-          blur: 14,
-          offset: const Offset(0, -3),
-        ),
+      // Transparent bar (was AppColors.card). The drop shadow is removed
+      // because a shadow would tint the now see-through bar.
+      decoration: const BoxDecoration(
+        color: Colors.transparent,
+        // border: Border(top: BorderSide(color: AppColors.inputBorder, width: 1)),
       ),
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
       child: Column(
@@ -905,7 +916,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
                     maxHeight: 120,
                   ),
                   decoration: BoxDecoration(
-                    color: _fieldFill,
+                    // Transparent text field (was _fieldFill).
+                    color: Colors.transparent,
                     borderRadius: BorderRadius.circular(26),
                     border: Border.all(color: AppColors.inputBorder),
                   ),

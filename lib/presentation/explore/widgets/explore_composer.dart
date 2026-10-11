@@ -212,31 +212,21 @@ class _ExploreComposerState extends ConsumerState<ExploreComposer> {
                 height: 44,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: canSend
-                      ? const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            AppMapColors.markerStart,
-                            AppMapColors.markerEnd,
-                          ],
-                        )
-                      : null,
-                  color: canSend ? null : AppColors.inputBorder,
+                  color: canSend ? AppColors.blue : AppColors.inputBorder,
                 ),
                 child: _sending
                     ? Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.onAccent,
-                        ),
-                      )
+                  padding: const EdgeInsets.all(12),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.onAccent,
+                  ),
+                )
                     : Icon(
-                        Icons.send_rounded,
-                        size: 19,
-                        color: canSend ? AppColors.onAccent : AppColors.iconMuted,
-                      ),
+                  Icons.send_rounded,
+                  size: 19,
+                  color: canSend ? AppColors.onAccent : AppColors.iconMuted,
+                ),
               ),
             ),
           ),

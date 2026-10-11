@@ -225,10 +225,10 @@ class _LikeButtonState extends State<LikeButton>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color:
-                  widget.liked ? AppColors.primaryTint : Colors.transparent,
+                  widget.liked ? AppColors.redPink.withValues(alpha: 0.2) : Colors.transparent,
                   border: Border.all(
                     color: widget.liked
-                        ? AppColors.primary
+                        ? AppColors.redPink
                         : AppColors.inputBorder,
                     width: 1.5,
                   ),
@@ -245,7 +245,7 @@ class _LikeButtonState extends State<LikeButton>
                 ),
                 child: Icon(
                   widget.liked ? Icons.favorite : Icons.favorite_border,
-                  color: AppColors.primary,
+                  color: widget.liked? AppColors.youtubeRedDark:  AppColors.primary,
                   size: 22,
                 ),
               ),

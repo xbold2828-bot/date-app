@@ -6,6 +6,8 @@ import 'login_state.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
+final termsAcceptedProvider = StateProvider.autoDispose<bool>((ref) => true);
+
 // Riverpod 2.x. On Riverpod 3.x change AutoDisposeNotifier -> Notifier.
 final loginProvider =
 NotifierProvider.autoDispose<LoginNotifier, LoginState>(LoginNotifier.new);

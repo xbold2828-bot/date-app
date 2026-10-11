@@ -82,6 +82,13 @@ class _HomeScreenState extends ConsumerState<DashboardScreen>
     super.dispose();
   }
 
+  /// Switches tab and re-fetches the like quota, so a fresh purchase (or a
+  /// used-up allowance) shows up as soon as the user comes back to a screen.
+  void _selectTab(_Tab tab) {
+    setState(() => _current = tab);
+    ref.read(likeQuotaProvider.notifier).refresh();
+  }
+
   void _onDeepLink() {
     final link = PushDeepLinks.consume();
     if (link == null || !mounted) return;
@@ -97,8 +104,19 @@ class _HomeScreenState extends ConsumerState<DashboardScreen>
         setState(() => _current = _Tab.radar);
         final userId = link.userId;
         if (userId != null) {
-          showRadiusSheet<void>(
+          showModalBottomSheet<void>(
             context: context,
+            isScrollControlled: true,
+            useSafeArea: false,
+            showDragHandle: false,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+            ),
+            clipBehavior: Clip.none,
+            barrierColor: Colors.black54,
+            constraints: const BoxConstraints(maxWidth: double.infinity),
             builder: (_) => ProfileDetailSheet(
               userId: userId,
               seed: const ProfileSeed(name: 'Someone', colorIndex: 0),
@@ -161,34 +179,37 @@ class _HomeScreenState extends ConsumerState<DashboardScreen>
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: AppColors.isDark ? Brightness.light : Brightness.dark, // Android
-        statusBarBrightness: AppColors.isDark ? Brightness.dark : Brightness.light, // iOS
+        statusBarIconBrightness:
+        AppColors.isDark ? Brightness.light : Brightness.dark, // Android
+        statusBarBrightness:
+        AppColors.isDark ? Brightness.dark : Brightness.light, // iOS
       ),
       child: MatchCelebrationHost(
-          child: Scaffold(
-            backgroundColor: AppColors.background,
-            body: SafeArea(
-              bottom: false,
-              child: Stack(
-                children: [
-                  Positioned.fill(child: _body()),
-                  Align(
-                    alignment: Alignment.bottomCenter,
-                    child: BannerAdWidget(visible: _showsBannerAd(_current)),
-                  ),
-                ],
+        child: Scaffold(
+          // Must stay true so the floating bottom nav works.
+          extendBody: true,
+          backgroundColor: AppColors.background,
+          body: SafeArea(
+            bottom: false,
+            child: _body(),
+          ),
+          // The banner sits directly above the floating bottom nav.
+          bottomNavigationBar: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              BannerAdWidget(visible: _showsBannerAd(_current)),
+              SafeArea(
+                top: false,
+                minimum: const EdgeInsets.fromLTRB(20, 6, 20, 12),
+                child: _BottomNav(
+                  current: _current,
+                  unread: ref.watch(unreadCountProvider).valueOrNull ?? 0,
+                  onSelect: _selectTab,
+                ),
               ),
-            ),
-            bottomNavigationBar: SafeArea(
-              top: false,
-              minimum: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-              child: _BottomNav(
-                current: _current,
-                unread: ref.watch(unreadCountProvider).valueOrNull ?? 0,
-                onSelect: (tab) => setState(() => _current = tab),
-              ),
-            ),
-          )
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -197,7 +218,7 @@ class _HomeScreenState extends ConsumerState<DashboardScreen>
     _Tab.radar => const _RadarTab(),
     _Tab.likes => const FavoritesScreen(),
     _Tab.explore => ExploreScreen(
-      onBrowsePeople: () => setState(() => _current = _Tab.radar),
+      onBrowsePeople: () => _selectTab(_Tab.radar),
     ),
     _Tab.chats => const ChatsScreen(),
     _Tab.you => const YouScreen(),
@@ -206,8 +227,6 @@ class _HomeScreenState extends ConsumerState<DashboardScreen>
   bool _showsBannerAd(_Tab tab) =>
       tab == _Tab.likes || tab == _Tab.chats || tab == _Tab.you;
 }
-
-
 
 // ============================================================================
 // Bottom navigation
@@ -232,7 +251,9 @@ class _BottomNav extends StatelessWidget {
         height: 56,
         padding: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
-          color:  AppColors.isDark ? AppColors.greyColor.withValues(alpha: 0.5) : AppColors.whiteColor,
+          color: AppColors.isDark
+              ? AppColors.greyColor.withValues(alpha: 0.5)
+              : AppColors.whiteColor,
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
@@ -267,15 +288,17 @@ class _BottomNav extends StatelessWidget {
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color:
-                          isActive ? AppColors.primary : Colors.transparent,
+                          color: isActive
+                              ? AppColors.primary
+                              : Colors.transparent,
                           shape: BoxShape.circle,
                         ),
                         alignment: Alignment.center,
                         child: Icon(
                           tab.icon,
                           size: 22,
-                          color: isActive ? Colors.white : AppColors.textDark,
+                          color:
+                          isActive ? Colors.white : AppColors.textDark,
                         ),
                       ),
                       if (badge > 0)
@@ -332,11 +355,32 @@ class _Badge extends StatelessWidget {
 // Radar tab
 // ============================================================================
 
-class _RadarTab extends ConsumerWidget {
+class _RadarTab extends ConsumerStatefulWidget {
   const _RadarTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_RadarTab> createState() => _RadarTabState();
+}
+
+class _RadarTabState extends ConsumerState<_RadarTab> {
+  @override
+  void initState() {
+    super.initState();
+    // Every time the radar opens, re-read the quota so the meter is current.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(likeQuotaProvider.notifier).refresh();
+    });
+  }
+
+  /// Pull-to-refresh: reload the quota together with the nearby list.
+  Future<void> _onRefresh() async {
+    ref.read(likeQuotaProvider.notifier).refresh();
+    await ref.read(nearbyProvider.notifier).refresh();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final nearbyAsync = ref.watch(nearbyProvider);
     final filter = ref.watch(discoveryFilterProvider);
     final presence = ref.watch(presenceProvider);
@@ -353,7 +397,7 @@ class _RadarTab extends ConsumerWidget {
           child: RefreshIndicator(
             color: AppColors.primary,
             backgroundColor: AppColors.card,
-            onRefresh: () => ref.read(nearbyProvider.notifier).refresh(),
+            onRefresh: _onRefresh,
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
@@ -379,7 +423,8 @@ class _RadarTab extends ConsumerWidget {
                     error: (err, _) => const SliverToBoxAdapter(
                       child: EmptyWidget(
                         title: "Couldn't load your radar",
-                        body: 'Check your connection and pull down to try again.',
+                        body:
+                        'Check your connection and pull down to try again.',
                       ),
                     ),
                     data: (state) => _grid(context, ref, state, presence),
@@ -448,8 +493,20 @@ class _RadarTab extends ConsumerWidget {
               onTap: () {
                 ref.read(recordProfileViewProvider)(card.id);
 
-                showRadiusSheet<void>(
+                showModalBottomSheet<void>(
                   context: context,
+                  isScrollControlled: true,
+                  useSafeArea: false,
+                  showDragHandle: false,
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius:
+                    BorderRadius.vertical(top: Radius.circular(26)),
+                  ),
+                  clipBehavior: Clip.none,
+                  barrierColor: Colors.black54,
+                  constraints: const BoxConstraints(maxWidth: double.infinity),
                   builder: (_) => ProfileDetailSheet(
                     userId: card.id,
                     seed: ProfileSeed(
@@ -474,13 +531,7 @@ class _RadarTab extends ConsumerWidget {
                 label: state.loadingMore ? 'Loading' : 'Show more people',
                 kind: RadiusButtonKind.ghost,
                 isLoading: state.loadingMore,
-                onPressed: () {
-                  _showDiscoveryLimitDialog(
-                      context,ref
-                  );
-                  // ref.read(nearbyProvider.notifier).loadMore(); // This is the rewared
-
-                },
+                onPressed: () => _showDiscoveryLimitDialog(context, ref),
               ),
             ),
           ),
@@ -495,7 +546,6 @@ class _RadarTab extends ConsumerWidget {
     );
   }
 
-
   void _showDiscoveryLimitDialog(BuildContext context, WidgetRef ref) async {
     await AppDialogs.premiumOrAdDialog(
       context: context,
@@ -509,7 +559,6 @@ class _RadarTab extends ConsumerWidget {
     );
   }
 }
-
 
 /// Compact top bar. Lives outside the scroll view in [_RadarTab], so it stays
 /// pinned while the grid scrolls.
@@ -563,7 +612,7 @@ class RadarHeader extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                   "Hi, ${hasName ? fullName : AppConstants.appName}",
+                  "Hi, ${hasName ? fullName : AppConstants.appName}",
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.title.copyWith(
@@ -621,7 +670,6 @@ class RadarHeader extends ConsumerWidget {
   }
 }
 
-/// Extracted Notification button for a cleaner build method.
 class _NotificationButton extends StatelessWidget {
   const _NotificationButton({required this.unreadCount});
 
@@ -640,7 +688,6 @@ class _NotificationButton extends StatelessWidget {
             AppLogger.d("Navigating to notifications...");
             context.push(AppRoutes.notifications);
           },
-          // Outlined icon looks more elegant/premium than a heavy filled icon
           icon: const Icon(
             Icons.notifications_none_rounded,
             size: 28,
@@ -656,7 +703,6 @@ class _NotificationButton extends StatelessWidget {
                 color: Colors.red,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  // Creates a premium "cutout" effect against the background
                   color: Theme.of(context).scaffoldBackgroundColor,
                   width: 2,
                 ),
@@ -682,7 +728,6 @@ class _NotificationButton extends StatelessWidget {
     );
   }
 }
-
 
 class _FilterButton extends StatelessWidget {
   const _FilterButton();
@@ -734,11 +779,19 @@ class _QuickFilters extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
       child: Row(
         children: [
+          // "All" is active only when no other filter is on; tapping it
+          // resets the intent and both presence toggles.
           RadiusChip(
             label: 'All',
             dense: true,
-            selected: filter.intent == null,
-            onTap: () => setFilter(filter.copyWith(clearIntent: true)),
+            selected: filter.intent == null &&
+                !filter.onlineOnly &&
+                !filter.recentlyActive,
+            onTap: () => setFilter(filter.copyWith(
+              clearIntent: true,
+              onlineOnly: false,
+              recentlyActive: false,
+            )),
           ),
           const SizedBox(width: 8),
           _presenceChip(
@@ -871,7 +924,6 @@ class _UnlockCardState extends ConsumerState<_UnlockCard> {
     );
   }
 }
-
 
 // ============================================================================
 // Static data

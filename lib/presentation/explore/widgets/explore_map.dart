@@ -328,7 +328,7 @@ class _ExploreMapState extends State<ExploreMap>
       _clusterGlowLayer,
       CircleLayerProperties(
         circleRadius: _clusterRadius(1.55),
-        circleColor: AppMapColors.plum.toHexStringRGB(),
+        circleColor: AppColors.blue.toHexStringRGB(),
         circleOpacity: 0.16,
         circleBlur: 0.85,
         circlePitchAlignment: 'map',
@@ -341,17 +341,7 @@ class _ExploreMapState extends State<ExploreMap>
       _clusterLayer,
       CircleLayerProperties(
         circleRadius: _clusterRadius(1),
-        circleColor: [
-          'step',
-          ['get', 'point_count'],
-          AppColors.primary.toHexStringRGB(),
-          11,
-          _blend(AppColors.primary, AppMapColors.plum, 0.4),
-          51,
-          AppMapColors.plum.toHexStringRGB(),
-          201,
-          AppMapColors.you.toHexStringRGB(),
-        ],
+        circleColor: AppColors.blue.toHexStringRGB(),
         circleStrokeWidth: 3,
         circleStrokeColor: AppColors.onImage.toHexStringRGB(),
         circleStrokeOpacity: 0.92,
@@ -395,7 +385,7 @@ class _ExploreMapState extends State<ExploreMap>
       _peopleGroundLayer,
       CircleLayerProperties(
         circleRadius: ['interpolate', ['linear'], ['zoom'], 11, 2.5, 17, 5.0],
-        circleColor: AppMapColors.plum.toHexStringRGB(),
+        circleColor: AppColors.blue.toHexStringRGB(),
         circleOpacity: 0.3,
         circleBlur: 0.4,
         circlePitchAlignment: 'map',
@@ -449,7 +439,7 @@ class _ExploreMapState extends State<ExploreMap>
       _meCoreLayer,
       CircleLayerProperties(
         circleRadius: 8.5,
-        circleColor: AppMapColors.you.toHexStringRGB(),
+        circleColor: AppColors.blue.toHexStringRGB(),
         circleStrokeWidth: 3.5,
         circleStrokeColor: AppColors.onImage.toHexStringRGB(),
         circlePitchAlignment: 'viewport',
@@ -465,7 +455,7 @@ class _ExploreMapState extends State<ExploreMap>
         textSize: 10.5,
         textLetterSpacing: 0.14,
         textOffset: const [0, 2.1],
-        textColor: AppMapColors.you.toHexStringRGB(),
+        textColor: AppColors.blue.toHexStringRGB(),
         textHaloColor: AppColors.onImage.toHexStringRGB(),
         textHaloWidth: 1.6,
         textAllowOverlap: true,
@@ -530,7 +520,7 @@ class _ExploreMapState extends State<ExploreMap>
       textSize: _distanceSize,
       textAnchor: 'left',
       textOffset: const [2.9, -3.75],
-      textColor: AppMapColors.plum.toHexStringRGB(),
+      textColor: AppColors.blue.toHexStringRGB(),
       textHaloColor: AppColors.onImage.toHexStringRGB(),
       textHaloWidth: 1.9,
       textHaloBlur: 0.3,
@@ -548,10 +538,10 @@ class _ExploreMapState extends State<ExploreMap>
     final eased = Curves.easeOut.transform(progress.clamp(0, 1));
     return CircleLayerProperties(
       circleRadius: 12 + 30 * eased,
-      circleColor: AppMapColors.youPulse.toHexStringRGB(),
+      circleColor: AppColors.blue.toHexStringRGB(),
       circleOpacity: 0.30 * (1 - eased),
       circleStrokeWidth: 1.5,
-      circleStrokeColor: AppMapColors.youPulse.toHexStringRGB(),
+      circleStrokeColor: AppColors.blue.toHexStringRGB(),
       circleStrokeOpacity: 0.45 * (1 - eased),
       circlePitchAlignment: 'viewport',
     );
@@ -985,8 +975,4 @@ class _ExploreMapState extends State<ExploreMap>
       );
     } catch (_) {}
   }
-
-  /// Colour halfway between two colours, as a hex string.
-  static String _blend(Color a, Color b, double t) =>
-      Color.lerp(a, b, t)!.toHexStringRGB();
 }

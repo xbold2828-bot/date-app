@@ -22,6 +22,30 @@ import 'chat_detail_screen.dart';
 import 'profile_detail_sheet.dart';
 import './premium_screen.dart';
 
+/// Opens the profile sheet with a transparent wrapper, so the bottom sheet's
+/// own Material never draws a white edge around it.
+Future<void> _showProfileSheet(
+    BuildContext context, {
+      required String userId,
+      required ProfileSeed seed,
+    }) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: false,
+    showDragHandle: false,
+    backgroundColor: Colors.transparent,
+    elevation: 0,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+    ),
+    clipBehavior: Clip.none,
+    barrierColor: Colors.black54,
+    constraints: const BoxConstraints(maxWidth: double.infinity),
+    builder: (_) => ProfileDetailSheet(userId: userId, seed: seed),
+  );
+}
+
 class FavoritesScreen extends ConsumerStatefulWidget {
   const FavoritesScreen({super.key});
 
@@ -89,7 +113,6 @@ class _LikedYouTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(likedYouProvider);
-    final page = async.maybeWhen(data: (p) => p, orElse: () => null);
 
     return RefreshIndicator(
       color: AppColors.primary,
@@ -100,14 +123,11 @@ class _LikedYouTab extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
             Center(
               child: async.when(
                 loading: () => const Padding(
                   padding: EdgeInsets.only(top: 80),
-                  child: Center(
-                    child: LoaderWidget()
-                  ),
+                  child: Center(child: LoaderWidget()),
                 ),
                 error: (err, _) => const EmptyWidget(
                   title: "Couldn't load your likes",
@@ -135,8 +155,6 @@ class _LikedYouTab extends ConsumerWidget {
 
     return _buildContent(context, ref, page);
   }
-
-
 
   Widget _buildContent(BuildContext context, WidgetRef ref, LikedYouPage page) {
     return Column(
@@ -190,19 +208,16 @@ class _LikedYouTab extends ConsumerWidget {
       BuildContext context,
       WidgetRef ref,
       LikeCard card,
-      ) async{
-    
-    if(card.id.isEmpty)
-      {
-        showRadiusToast(
-          context,
-          "User Id is Empty",
-          tone: ToastTone.error,
-        );
+      ) async {
+    if (card.id.isEmpty) {
+      showRadiusToast(
+        context,
+        "User Id is Empty",
+        tone: ToastTone.error,
+      );
+      return;
+    }
 
-        return;
-      }
-    
     return AppDialogs.premiumOrAdDialog(
       context: context,
       ref: ref,
@@ -252,17 +267,15 @@ class _LikedYouTab extends ConsumerWidget {
       isOnline: card.isOnline,
       isVerified: card.isVerified,
       colorIndex: index,
-      onTap: () => showRadiusSheet<void>(
-        context: context,
-        builder: (_) => ProfileDetailSheet(
-          userId: card.id,
-          seed: ProfileSeed(
-            name: name,
-            age: card.age,
-            photoUrl: card.primaryPhotoUrl,
-            isOnline: card.isOnline,
-            colorIndex: index,
-          ),
+      onTap: () => _showProfileSheet(
+        context,
+        userId: card.id,
+        seed: ProfileSeed(
+          name: name,
+          age: card.age,
+          photoUrl: card.primaryPhotoUrl,
+          isOnline: card.isOnline,
+          colorIndex: index,
         ),
       ),
     );
@@ -283,9 +296,7 @@ class _MutualTab extends ConsumerWidget {
       backgroundColor: AppColors.card,
       onRefresh: () async => ref.invalidate(mutualLikesProvider),
       child: async.when(
-        loading: () => const Center(
-          child: LoaderWidget()
-        ),
+        loading: () => const Center(child: LoaderWidget()),
         error: (err, _) => ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           children: const [
@@ -309,11 +320,19 @@ class _MutualTab extends ConsumerWidget {
             );
           }
 
+          // WhatsApp-style list: full-width rows, no cards, and a hairline
+          // divider that starts after the avatar.
           return ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+            padding: const EdgeInsets.fromLTRB(0, 8, 0, 28),
             itemCount: page.items.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            separatorBuilder: (_, _) => Divider(
+              height: 1,
+              thickness: 0.6,
+              indent: 86,
+              endIndent: 16,
+              color: AppColors.inputBorder,
+            ),
             itemBuilder: (_, index) {
               final match = page.items[index];
               return _MutualRow(
@@ -329,7 +348,8 @@ class _MutualTab extends ConsumerWidget {
   }
 }
 
-/// A match: their face, their name, and the two things you can do about it.
+/// A match, laid out like a WhatsApp chat row: round avatar on the left,
+/// bold name over a grey one-line subtitle, action on the right.
 class _MutualRow extends ConsumerWidget {
   const _MutualRow({
     required this.match,
@@ -344,17 +364,15 @@ class _MutualRow extends ConsumerWidget {
   String get _name => match.user.displayName ?? 'Someone';
 
   void _openProfile(BuildContext context) {
-    showRadiusSheet<void>(
-      context: context,
-      builder: (_) => ProfileDetailSheet(
-        userId: match.user.id,
-        seed: ProfileSeed(
-          name: _name,
-          age: match.user.age,
-          photoUrl: match.user.primaryPhotoUrl,
-          isOnline: online,
-          colorIndex: colorIndex,
-        ),
+    _showProfileSheet(
+      context,
+      userId: match.user.id,
+      seed: ProfileSeed(
+        name: _name,
+        age: match.user.age,
+        photoUrl: match.user.primaryPhotoUrl,
+        isOnline: online,
+        colorIndex: colorIndex,
       ),
     );
   }
@@ -392,67 +410,74 @@ class _MutualRow extends ConsumerWidget {
       button: true,
       label: 'Match with $_name${online ? ', online now' : ''}',
       excludeSemantics: true,
-      child: RadiusCard(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        onTap: () => _openProfile(context),
-        child: Row(
-          children: [
-            _MatchAvatar(
-              name: _name,
-              photoUrl: match.user.primaryPhotoUrl,
-              colorIndex: colorIndex,
-              online: online,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    match.user.age != null
-                        ? '$_name, ${match.user.age}'
-                        : _name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.bodyStrong.copyWith(fontSize: 15),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    match.conversationId == null
-                        ? 'You both liked each other'
-                        : 'You have a conversation going',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.caption,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Semantics(
-              button: true,
-              label: 'Message $_name',
-              excludeSemantics: true,
-              child: InkWell(
-                onTap: () => _openChat(context, ref),
-                borderRadius: BorderRadius.circular(999),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryTint,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.chat_bubble_outline,
-                    size: 18,
-                    color: AppColors.primary,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _openProfile(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              children: [
+                _MatchAvatar(
+                  name: _name,
+                  photoUrl: match.user.primaryPhotoUrl,
+                  colorIndex: colorIndex,
+                  online: online,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        match.user.age != null
+                            ? '$_name, ${match.user.age}'
+                            : _name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.bodyStrong.copyWith(
+                          fontSize: 16.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        match.conversationId == null
+                            ? 'You both liked each other'
+                            : 'You have a conversation going',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.caption.copyWith(
+                          fontSize: 13.5,
+                          color: AppColors.textGrey,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                Semantics(
+                  button: true,
+                  label: 'Message $_name',
+                  excludeSemantics: true,
+                  child: InkWell(
+                    onTap: () => _openChat(context, ref),
+                    borderRadius: BorderRadius.circular(999),
+                    child: SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: Icon(
+                        Icons.chat_bubble_outline,
+                        size: 22,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -475,13 +500,13 @@ class _MatchAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 52,
-      height: 52,
+      width: 56,
+      height: 56,
       child: Stack(
         children: [
           Container(
-            width: 52,
-            height: 52,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: photoUrl == null ? avatarGradient(colorIndex) : null,
@@ -496,7 +521,7 @@ class _MatchAvatar extends StatelessWidget {
                 ? Center(
               child: Text(
                 name.isNotEmpty ? name[0].toUpperCase() : '?',
-                style: AppTextStyles.avatarInitial(20),
+                style: AppTextStyles.avatarInitial(22),
               ),
             )
                 : null,

@@ -187,17 +187,7 @@ class _IconTile extends StatelessWidget {
                 height: 50,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: active
-                      ? const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            AppMapColors.markerStart,
-                            AppMapColors.markerEnd,
-                          ],
-                        )
-                      : null,
-                  color: active ? null : AppColors.card,
+                  color: active ? AppColors.blue : AppColors.card,
                   border: active
                       ? null
                       : Border.all(color: AppColors.inputBorder, width: 1.4),
@@ -237,14 +227,14 @@ class _AllTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _IconTile(
-        icon: Icons.groups_outlined,
-        label: 'All',
-        active: active,
-        onTap: onTap,
-        semanticLabel: active
-            ? 'Showing everyone on the map'
-            : 'Show everyone on the map again',
-      );
+    icon: Icons.groups_outlined,
+    label: 'All',
+    active: active,
+    onTap: onTap,
+    semanticLabel: active
+        ? 'Showing everyone on the map'
+        : 'Show everyone on the map again',
+  );
 }
 
 class _ShowAllTile extends StatelessWidget {
@@ -255,10 +245,10 @@ class _ShowAllTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _IconTile(
-        icon: Icons.grid_view_rounded,
-        label: 'See all',
-        active: false,
-        onTap: onTap,
-        semanticLabel: 'See all $count people in a grid',
-      );
+    icon: Icons.grid_view_rounded,
+    label: 'See all',
+    active: false,
+    onTap: onTap,
+    semanticLabel: 'See all $count people in a grid',
+  );
 }

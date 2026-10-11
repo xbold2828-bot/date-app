@@ -228,10 +228,19 @@ class _RefreshableList extends ConsumerWidget {
       color: AppColors.primary,
       backgroundColor: AppColors.card,
       onRefresh: () => ref.read(conversationsProvider(state).notifier).refresh(),
+      // WhatsApp-style list: full-width rows, no cards, and a hairline
+      // divider that starts after the avatar.
       child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
         itemCount: items.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 10),
+        separatorBuilder: (_, _) => Divider(
+          height: 1,
+          thickness: 0.6,
+          indent: 86,
+          endIndent: 16,
+          color: AppColors.inputBorder,
+        ),
         itemBuilder: (_, index) => ConversationTile(
           conversation: items[index],
           colorIndex: index,
@@ -244,7 +253,11 @@ class _RefreshableList extends ConsumerWidget {
 }
 
 // ============================================================================
-// Conversation tile
+// Conversation tile (WhatsApp-style row)
+//
+// Avatar on the left. Name on top with the time at the right edge; the
+// last-message snippet below with the unread badge at the right edge.
+// Long-press opens the chat actions menu (archive / mute / etc.).
 // ============================================================================
 
 class ConversationTile extends StatelessWidget {
@@ -268,6 +281,7 @@ class ConversationTile extends StatelessWidget {
     final snippet = conversation.lastMessage?.snippet ?? 'Say hello';
     final unread = conversation.unread;
     final muted = conversation.muted;
+    final hasUnread = unread > 0;
 
     return Semantics(
       button: true,
@@ -279,36 +293,132 @@ class ConversationTile extends StatelessWidget {
         if (online) 'online now',
       ].join(', '),
       excludeSemantics: true,
-      child: RadiusCard(
-        padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
-        onTap: () => _openChat(context, other, name),
-        child: Row(
-          children: [
-            _Avatar(
-              name: name,
-              photoUrl: other.primaryPhotoUrl,
-              colorIndex: colorIndex,
-              online: online,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _openChat(context, other, name),
+          onLongPress: () => showChatActionsMenu(
+            context,
+            conversationId: conversation.id,
+            userId: other.id,
+            userName: name,
+            isArchived: isArchived,
+            isMuted: muted,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 6, 10),
+            child: Row(
+              children: [
+                _Avatar(
+                  name: name,
+                  photoUrl: other.primaryPhotoUrl,
+                  colorIndex: colorIndex,
+                  online: online,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Top line: name ........ time
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.bodyStrong.copyWith(
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _ago(conversation.lastMessageAt),
+                            style: AppTextStyles.caption.copyWith(
+                              fontSize: 12,
+                              color: hasUnread && !muted
+                                  ? AppColors.primary
+                                  : AppColors.textGrey,
+                              fontWeight: hasUnread
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      // Bottom line: snippet ........ muted icon / badge
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              snippet,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.caption.copyWith(
+                                fontSize: 13.5,
+                                color: hasUnread
+                                    ? AppColors.textDark
+                                    : AppColors.textGrey,
+                              ),
+                            ),
+                          ),
+                          if (muted) ...[
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.notifications_off_outlined,
+                              size: 16,
+                              color: AppColors.iconMuted,
+                            ),
+                          ],
+                          if (hasUnread) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              constraints: const BoxConstraints(
+                                minWidth: 20,
+                                minHeight: 20,
+                              ),
+                              padding:
+                              const EdgeInsets.symmetric(horizontal: 6),
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: muted
+                                    ? AppColors.iconMuted
+                                    : AppColors.primary,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                unread > 99 ? '99+' : '$unread',
+                                style: AppTextStyles.caption.copyWith(
+                                  fontSize: 11,
+                                  color: AppColors.onAccent,
+                                  fontWeight: FontWeight.w700,
+                                  fontVariations: const [
+                                    FontVariation('wght', 700),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                _RowMenu(
+                  conversationId: conversation.id,
+                  userId: other.id,
+                  userName: name,
+                  isArchived: isArchived,
+                  isMuted: muted,
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _TileText(
-                name: name,
-                snippet: snippet,
-                muted: muted,
-                unread: unread,
-              ),
-            ),
-            const SizedBox(width: 8),
-            _TileMeta(lastMessageAt: conversation.lastMessageAt, unread: unread, muted: muted),
-            _RowMenu(
-              conversationId: conversation.id,
-              userId: other.id,
-              userName: name,
-              isArchived: isArchived,
-              isMuted: muted,
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -330,106 +440,8 @@ class ConversationTile extends StatelessWidget {
       ),
     );
   }
-}
 
-class _TileText extends StatelessWidget {
-  const _TileText({
-    required this.name,
-    required this.snippet,
-    required this.muted,
-    required this.unread,
-  });
-
-  final String name;
-  final String snippet;
-  final bool muted;
-  final int unread;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            Flexible(
-              child: Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.bodyStrong.copyWith(fontSize: 15),
-              ),
-            ),
-            if (muted) ...[
-              const SizedBox(width: 6),
-              Icon(
-                Icons.notifications_off_outlined,
-                size: 14,
-                color: AppColors.iconMuted,
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: 3),
-        Text(
-          snippet,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: AppTextStyles.caption.copyWith(
-            color: unread > 0 ? AppColors.textDark : AppColors.textGrey,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TileMeta extends StatelessWidget {
-  const _TileMeta({
-    required this.lastMessageAt,
-    required this.unread,
-    required this.muted,
-  });
-
-  final DateTime? lastMessageAt;
-  final int unread;
-  final bool muted;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          _ago(lastMessageAt),
-          style: AppTextStyles.caption.copyWith(fontSize: 11),
-        ),
-        if (unread > 0) ...[
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-            decoration: BoxDecoration(
-              color: muted ? AppColors.iconMuted : AppColors.primary,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              unread > 9 ? '9+' : '$unread',
-              style: AppTextStyles.caption.copyWith(
-                fontSize: 10.5,
-                color: AppColors.onAccent,
-                fontWeight: FontWeight.w700,
-                fontVariations: const [FontVariation('wght', 700)],
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  String _ago(DateTime? dt) {
+  static String _ago(DateTime? dt) {
     if (dt == null) return '';
     final d = DateTime.now().difference(dt.toLocal());
     if (d.inMinutes < 1) return 'now';
@@ -499,13 +511,13 @@ class _Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 52,
-      height: 52,
+      width: 56,
+      height: 56,
       child: Stack(
         children: [
           Container(
-            width: 52,
-            height: 52,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: photoUrl == null ? avatarGradient(colorIndex) : null,
@@ -520,7 +532,7 @@ class _Avatar extends StatelessWidget {
                 ? Center(
               child: Text(
                 name.isNotEmpty ? name[0].toUpperCase() : '?',
-                style: AppTextStyles.avatarInitial(20),
+                style: AppTextStyles.avatarInitial(22),
               ),
             )
                 : null,

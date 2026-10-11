@@ -13,24 +13,6 @@ import '../../../providers/core_providers.dart';
 import '../../../providers/profile_provider.dart';
 import '../../common/widgets/widgets.dart';
 
-/// Everything answered during onboarding, editable afterwards.
-///
-/// ## Why it folds
-///
-/// Laid out flat, these six questions are longer than the rest of the "Me" tab
-/// put together — four chip groups, one of them the whole step-6 catalogue —
-/// and they pushed the things people actually come here for (photos, premium,
-/// sign out) below two screens of tags. So the card opens on a summary of the
-/// current answers and expands into the editor, which is the same information
-/// either way: collapsed is a *summary*, not a hidden section.
-///
-/// ## Why it writes to the onboarding endpoints
-///
-/// `PATCH /users/me/profile` only accepts a bio and personality tags. The rest
-/// of these answers have exactly one writable surface — the funnel's own
-/// endpoints — and they are idempotent PATCHes with no "already completed"
-/// guard, which is what makes them reusable here. Each returns a fresh
-/// self-view, so the last one to run is what `meProvider` is set to.
 class ProfileEditPanel extends ConsumerStatefulWidget {
   const ProfileEditPanel({super.key, required this.me, this.embedded = false});
 
@@ -390,7 +372,6 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
                     ),
                     Switch(
                       value: _showHardNos,
-                      activeThumbColor: AppColors.primary,
                       onChanged: (v) => setState(() => _showHardNos = v),
                     ),
                   ],

@@ -16,6 +16,7 @@ class CommonButton extends StatefulWidget {
   final double? imageIconSize;
   final double? width;
   final String text;
+  final String? semanticLabel;
   final Color? textColor;
   final Color? bgColor;
   final VoidCallback? onClick;
@@ -27,8 +28,6 @@ class CommonButton extends StatefulWidget {
   final String? imageIcon;
   final double? buttonRadius;
   final Color iconColor;
-  final Gradient? customGradient;
-  final bool isGradient;
 
   const CommonButton({
     super.key,
@@ -37,20 +36,19 @@ class CommonButton extends StatefulWidget {
     this.internalButtonPadding,
     this.spaceBetweenIconAndTitle,
     required this.text,
+    this.semanticLabel,
     this.imageIconSize,
     this.iconData,
     this.imageIcon,
     this.textColor,
     this.bgColor,
     this.vectorIcon,
-    this.customGradient,
     this.isLoading = false,
     this.isSmallButton = false,
     this.iconDataSize,
     required this.onClick,
     this.buttonRadius,
     this.fontWeight,
-    this.isGradient = true,
     this.iconColor = AppColors.whiteColor,
     this.isDisableButton = false,
   });
@@ -62,120 +60,98 @@ class CommonButton extends StatefulWidget {
 class _CommonButtonState extends State<CommonButton> {
   bool _isPressed = false;
 
-  // Default gradient colors matching the provided image
-  final Color _defaultStartColor = AppColors.secondary;
-  final Color _defaultEndColor = AppColors.primary;
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final bool isDisabled = widget.isDisableButton;
+    final bool isInteractive = !isDisabled && !widget.isLoading;
     final radius = (widget.buttonRadius ?? 8).r;
 
-    // --- Gradient Logic ---
-    Color startColor;
-    Color endColor;
-
-    if (widget.bgColor != null) {
-      // If a color is provided, make the start color 2 shades (~15% lightness) lighter
-      endColor = widget.bgColor!;
-      final HSLColor hsl = HSLColor.fromColor(endColor);
-      startColor = hsl
-          .withLightness((hsl.lightness + 0.15).clamp(0.0, 1.0))
-          .toColor();
-    } else {
-      // Default to the dark green gradient from the image
-      startColor = _defaultStartColor;
-      endColor = _defaultEndColor;
-    }
+    // --- Solid color logic ---
+    Color buttonColor = widget.bgColor ?? AppColors.primary;
 
     // Handle pressed state opacity
     if (_isPressed) {
-      startColor = startColor.withValues(alpha: 0.8);
-      endColor = endColor.withValues(alpha: 0.8);
+      buttonColor = buttonColor.withValues(alpha: 0.8);
     }
 
-    return Material(
-      color: Colors.transparent, // Must be transparent so Ink gradient shows
-      borderRadius: BorderRadius.circular(radius),
-      child: Ink(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(radius),
-          color: isDisabled
-              ? Colors.grey.shade400
-              : !widget.isGradient
-              ? widget.bgColor
-              : null,
-          // Only apply gradient if the button is NOT disabled
-          gradient: isDisabled || !widget.isGradient
-              ? null
-              : widget.customGradient ??
-                    LinearGradient(
-                      colors: [startColor, endColor],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(radius),
-          onTap: widget.isLoading || widget.isDisableButton
-              ? null
-              : widget.onClick,
-          onHighlightChanged: (value) {
-            if (!isDisabled) {
-              setState(() => _isPressed = value);
-            }
-          },
-          child: SizedBox(
-            width:
-                (widget.width)?.w ??
-                (widget.isSmallButton ? null : double.infinity),
-            height: (widget.height ?? 50).h,
-            child: Padding(
-              padding: widget.internalButtonPadding ?? const EdgeInsets.all(0),
-              child: Center(
-                child: widget.isLoading
-                    ? CircularProgressIndicator(color: colorScheme.onPrimary)
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (widget.vectorIcon != null) ...[
-                            SvgPicture.asset(
-                              widget.vectorIcon!,
-                              colorFilter: ColorFilter.mode(
-                                widget.iconColor,
-                                BlendMode.srcIn,
-                              ),
-                            ),
-                            spacerW(widget.spaceBetweenIconAndTitle ?? 10),
-                          ],
+    return Semantics(
+      button: true,
+      enabled: isInteractive,
+      label: widget.semanticLabel ?? widget.text,
+      value: widget.isLoading ? 'Loading' : null,
+      onTap: isInteractive ? widget.onClick : null,
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(radius),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(radius),
+            color: isDisabled ? Colors.grey.shade400 : buttonColor,
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(radius),
+            onTap: widget.isLoading || widget.isDisableButton
+                ? null
+                : widget.onClick,
+            onHighlightChanged: (value) {
+              if (!isDisabled) {
+                setState(() => _isPressed = value);
+              }
+            },
+            child: SizedBox(
+              width:
+              (widget.width)?.w ??
+                  (widget.isSmallButton ? null : double.infinity),
+              height: (widget.height ?? 50).h,
+              child: Padding(
+                padding:
+                widget.internalButtonPadding ?? const EdgeInsets.all(0),
+                child: Center(
+                  child: widget.isLoading
+                      ? CircularProgressIndicator(color: colorScheme.onPrimary)
+                      : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.vectorIcon != null) ...[
+                        SvgPicture.asset(
+                          widget.vectorIcon!,
+                          colorFilter: ColorFilter.mode(
+                            widget.iconColor,
+                            BlendMode.srcIn,
+                          ),
+                        ),
+                        spacerW(widget.spaceBetweenIconAndTitle ?? 10),
+                      ],
 
-                          if (widget.iconData != null) ...[
-                            Icon(
-                              widget.iconData,
-                              size: widget.iconDataSize,
-                              color: widget.iconColor,
-                            ),
-                          ],
-                          if (widget.imageIcon != null) ...[
-                            staticImage(
-                              url: widget.imageIcon!,
-                              color: widget.iconColor,
-                              w: widget.imageIconSize,
-                            ),
-                            spacerW(widget.spaceBetweenIconAndTitle ?? 10),
-                          ],
-                          AppText(
-                            text: widget.text,
-                            fontSize: 15,
-                            isEllipsis: true,
-                            color: isDisabled
-                                ? Colors.white70
-                                : widget.textColor ?? colorScheme.onPrimary,
-                            fontWeight: widget.fontWeight ?? FontWeight.w700,
-                          ).paddingSymmetric(horizontal: 8.w),
-                        ],
-                      ),
+                      if (widget.iconData != null) ...[
+                        Icon(
+                          widget.iconData,
+                          size: widget.iconDataSize,
+                          color: widget.iconColor,
+                        ),
+                      ],
+                      if (widget.imageIcon != null) ...[
+                        staticImage(
+                          url: widget.imageIcon!,
+                          color: widget.iconColor,
+                          w: widget.imageIconSize,
+                        ),
+                        spacerW(widget.spaceBetweenIconAndTitle ?? 10),
+                      ],
+                      AppText(
+                        text: widget.text,
+                        fontSize: 15,
+                        isEllipsis: true,
+                        color: isDisabled
+                            ? Colors.white70
+                            : widget.textColor ?? colorScheme.onPrimary,
+                        fontWeight: widget.fontWeight ?? FontWeight.w700,
+                      ).paddingSymmetric(horizontal: 8.w),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -192,6 +168,7 @@ class CommonButton2 extends StatefulWidget {
   final double? imageIconSize;
   final double? width;
   final String text;
+  final String? semanticLabel;
   final Color? textColor;
   final Color? bgColor;
   final VoidCallback? onClick;
@@ -200,8 +177,6 @@ class CommonButton2 extends StatefulWidget {
   final String? vectorIcon;
   final String? imageIcon;
   final double? buttonRadius;
-  final Gradient? customGradient;
-  final bool isGradient;
   final Color? label; // unused but kept for compat
   final bool hasShadow;
 
@@ -211,17 +186,16 @@ class CommonButton2 extends StatefulWidget {
     this.width,
     this.spaceBetweenIconAndTitle,
     required this.text,
+    this.semanticLabel,
     this.imageIconSize,
     this.imageIcon,
     this.textColor,
     this.bgColor,
     this.vectorIcon,
-    this.customGradient,
     this.isLoading = false,
     required this.onClick,
     this.buttonRadius,
     this.fontWeight,
-    this.isGradient = true,
     this.isDisableButton = false,
     this.label,
     this.hasShadow = true,
@@ -259,112 +233,104 @@ class _CommonButton2State extends State<CommonButton2>
   @override
   Widget build(BuildContext context) {
     final bool isDisabled = widget.isDisableButton;
+    final bool isInteractive = !isDisabled && !widget.isLoading;
     final radius = (widget.buttonRadius ?? 14).r;
 
-    Color startColor, endColor;
-    if (widget.bgColor != null) {
-      endColor = widget.bgColor!;
-      final hsl = HSLColor.fromColor(endColor);
-      startColor = hsl
-          .withLightness((hsl.lightness + 0.12).clamp(0.0, 1.0))
-          .toColor();
-    } else {
-      startColor = AppColors.secondary;
-      endColor = AppColors.secondaryDark;
-    }
+    // --- Solid color logic ---
+    Color buttonColor = widget.bgColor ?? AppColors.secondary;
 
     if (_isPressed) {
-      startColor = startColor.withValues(alpha: 0.85);
-      endColor = endColor.withValues(alpha: 0.85);
+      buttonColor = buttonColor.withValues(alpha: 0.85);
     }
 
-    return AnimatedBuilder(
-      animation: _scaleAnim,
-      builder: (_, child) =>
-          Transform.scale(scale: _scaleAnim.value, child: child),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(radius),
-          boxShadow: (isDisabled || !widget.hasShadow)
-              ? null
-              : AppShadow.button,
-        ),
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(radius),
-          child: Ink(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(radius),
-              color: isDisabled
-                  ? Colors.grey.shade400
-                  : (!widget.isGradient ? widget.bgColor : null),
-              gradient: isDisabled || !widget.isGradient
-                  ? null
-                  : widget.customGradient ??
-                        LinearGradient(
-                          colors: [startColor, endColor],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(radius),
-              onTap: widget.isLoading || isDisabled ? null : widget.onClick,
-              onHighlightChanged: (v) {
-                if (!isDisabled) {
-                  setState(() => _isPressed = v);
-                  if (v) {
-                    _ctrl.forward();
-                  } else {
-                    _ctrl.reverse();
+    return Semantics(
+      button: true,
+      enabled: isInteractive,
+      label: widget.semanticLabel ?? widget.text,
+      value: widget.isLoading ? 'Loading' : null,
+      onTap: isInteractive ? widget.onClick : null,
+      excludeSemantics: true,
+      child: AnimatedBuilder(
+        animation: _scaleAnim,
+        builder: (_, child) =>
+            Transform.scale(scale: _scaleAnim.value, child: child),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(radius),
+            boxShadow: (isDisabled || !widget.hasShadow)
+                ? null
+                : AppShadow.button,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(radius),
+            child: Ink(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(radius),
+                color: isDisabled ? Colors.grey.shade400 : buttonColor,
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(radius),
+                onTap: widget.isLoading || isDisabled ? null : widget.onClick,
+                onHighlightChanged: (v) {
+                  if (!isDisabled) {
+                    setState(() => _isPressed = v);
+                    if (v) {
+                      _ctrl.forward();
+                    } else {
+                      _ctrl.reverse();
+                    }
                   }
-                }
-              },
-              child: SizedBox(
-                width: (widget.width)?.w ?? double.infinity,
-                height: (widget.height ?? 52).h,
-                child: Center(
-                  child: widget.isLoading
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.5,
+                },
+                child: SizedBox(
+                  width: (widget.width)?.w ?? double.infinity,
+                  height: (widget.height ?? 52).h,
+                  child: Center(
+                    child: widget.isLoading
+                        ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2.5,
+                      ),
+                    )
+                        : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (widget.vectorIcon != null) ...[
+                          SvgPicture.asset(widget.vectorIcon!),
+                          SizedBox(
+                            width:
+                            widget.spaceBetweenIconAndTitle?.w ??
+                                10.w,
                           ),
-                        )
-                      : Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (widget.vectorIcon != null) ...[
-                              SvgPicture.asset(widget.vectorIcon!),
-                              SizedBox(
-                                width:
-                                    widget.spaceBetweenIconAndTitle?.w ?? 10.w,
-                              ),
-                            ],
-                            if (widget.imageIcon != null) ...[
-                              staticImage(
-                                url: widget.imageIcon!,
-                                w: widget.imageIconSize,
-                              ),
-                              SizedBox(
-                                width:
-                                    widget.spaceBetweenIconAndTitle?.w ?? 10.w,
-                              ),
-                            ],
-                            AppText(
-                              text: widget.text,
-                              fontSize: 15,
-                              isEllipsis: true,
-                              color: isDisabled
-                                  ? Colors.white70
-                                  : widget.textColor ?? Colors.white,
-                              fontWeight: widget.fontWeight ?? FontWeight.w700,
-                              letterSpacing: 0.2,
-                            ).paddingSymmetric(horizontal: 8.w),
-                          ],
-                        ),
+                        ],
+                        if (widget.imageIcon != null) ...[
+                          staticImage(
+                            url: widget.imageIcon!,
+                            w: widget.imageIconSize,
+                          ),
+                          SizedBox(
+                            width:
+                            widget.spaceBetweenIconAndTitle?.w ??
+                                10.w,
+                          ),
+                        ],
+                        AppText(
+                          text: widget.text,
+                          fontSize: 15,
+                          isEllipsis: true,
+                          color: isDisabled
+                              ? Colors.white70
+                              : widget.textColor ?? Colors.white,
+                          fontWeight:
+                          widget.fontWeight ?? FontWeight.w700,
+                          letterSpacing: 0.2,
+                        ).paddingSymmetric(horizontal: 8.w),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),

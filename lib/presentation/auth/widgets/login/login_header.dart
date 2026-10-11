@@ -37,7 +37,6 @@ class LoginHeader extends StatelessWidget {
   }
 }
 
-
 class VerifiedBadge extends StatelessWidget {
   const VerifiedBadge({super.key});
 

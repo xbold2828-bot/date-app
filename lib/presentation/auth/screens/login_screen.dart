@@ -7,6 +7,7 @@ import 'package:dating_app/core/extensions/unfocus_on_tap_extension.dart';
 import 'package:dating_app/core/router/app_router.dart';
 import 'package:dating_app/core/theme/app_colors.dart';
 import 'package:dating_app/core/utils/utils.dart';
+import '../../../core/utils/app_snack_bar.dart';
 import '../../../data/models/auth/country.dart';
 import '../../../providers/auth/login_provider/login_provider.dart';
 import '../../common/widgets/radius_option_tile.dart';
@@ -29,7 +30,6 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  // Only the controller lives here (needs dispose). All other state is Riverpod.
   final TextEditingController _phoneController = TextEditingController();
 
   @override
@@ -48,6 +48,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _onContinue() async {
     removeFocus();
+
+    if (!ref.read(termsAcceptedProvider)) {
+      AppSnackBar.showWarningSnackBar(
+        message: 'Please accept the Terms and Privacy Policy to continue.',
+      );
+      return;
+    }
+
     try {
       final fullPhone = await ref.read(loginProvider.notifier).sendOtp();
       if (mounted) context.push(AppRoutes.signInOtp, extra: fullPhone);
@@ -112,7 +120,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 onTap: () {
                   if (country.code != selectedCode) {
-                    _phoneController.clear(); // listener resets phone in state
+                    _phoneController.clear();
                     ref.read(loginProvider.notifier).setCountry(country);
                   }
                   Navigator.pop(sheetContext);
@@ -127,14 +135,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Nothing is watched here, so the scaffold/scroll view never rebuilds when
-    // state changes. Only the small Consumer widgets rebuild.
+    // Scroll only while the keyboard is open; otherwise the page is fixed.
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) => SingleChildScrollView(
-            physics: const ClampingScrollPhysics(),
+            physics: keyboardOpen
+                ? const ClampingScrollPhysics()
+                : const NeverScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
             child: ConstrainedBox(
               constraints:
@@ -154,13 +165,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ],
                     ),
-                    spacerH(20),
+                    spacerH(15),
                     ContinueButton(onContinue: _onContinue),
                     spacerH(10),
                     const OrDivider(),
                     spacerH(10),
                     GoogleButton(onPressed: _onGoogleSignIn),
-                    spacerH(20),
+                    spacerH(15),
                     const LoginTerms(),
                   ],
                 ),

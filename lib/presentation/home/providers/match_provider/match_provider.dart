@@ -8,6 +8,7 @@ import '../../../../data/models/match_model.dart';
 import '../../../../data/models/paginated.dart';
 import '../../models/unlike_result_model.dart';
 import '../../../../providers/core_providers.dart';
+import '../like_quota_provider/like_quota_provider.dart';
 
 /// The lowest and highest ages the range slider offers. [kAgeFilterMax] is the
 /// "and above" notch — the backend drops the upper bound at that value.
@@ -17,10 +18,6 @@ const int kAgeFilterMax = 60;
 /// Active discovery filters: the intent chips plus everything in the filter
 /// sheet. Free members get show-me / age / intent; the rest is premium and the
 /// API rejects it (403) for everyone else.
-///
-/// There is no distance filter. `GET /discovery/nearby` still accepts a
-/// `band`, but the app no longer asks anyone to pick one — see
-/// `BasicsScreen5` — so the server's wide default is what everybody gets.
 class DiscoveryFilter {
   final String? intent; // null = All
   final List<String> genders;
@@ -52,8 +49,7 @@ class DiscoveryFilter {
   bool get isFullAgeRange =>
       minAge <= kAgeFilterMin && maxAge >= kAgeFilterMax;
 
-  /// Whether anything premium-only is active — used to render the paywall hint
-  /// and to strip these before sending for a free member.
+  /// Whether any premium-only filter is active.
   bool get usesPremiumFilters =>
       verifiedOnly ||
           onlineOnly ||
@@ -65,7 +61,7 @@ class DiscoveryFilter {
   /// Everything except the intent chips, which live outside the sheet.
   DiscoveryFilter clearedToDefaults() => DiscoveryFilter(intent: intent);
 
-  /// Drop premium-only selections, so a lapsed member's saved filters don't
+  /// Drops premium-only selections, so a lapsed member's saved filters don't
   /// turn every request into a 403.
   DiscoveryFilter withoutPremium() => DiscoveryFilter(
     intent: intent,
@@ -100,9 +96,8 @@ class DiscoveryFilter {
         preferenceTags: preferenceTags ?? this.preferenceTags,
       );
 
-  // Value equality is load-bearing: [nearbyCountProvider] is a family keyed on
-  // this object, so without it every rebuild would look like a new filter set
-  // and fire another count request.
+  // Value equality matters: [nearbyCountProvider] is keyed on this object, so
+  // without it every rebuild would fire another count request.
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -136,9 +131,8 @@ class DiscoveryFilter {
 final discoveryFilterProvider =
 StateProvider<DiscoveryFilter>((ref) => const DiscoveryFilter());
 
-/// Live match count for a candidate filter set — the number on the sheet's
-/// "Show N people" button. Family-keyed on the draft filter so each edit gets
-/// its own request, and autoDispose so abandoned drafts don't linger.
+/// Live match count for a draft filter set — the number on the filter sheet's
+/// "Show N people" button.
 final nearbyCountProvider =
 FutureProvider.autoDispose.family<int, DiscoveryFilter>((ref, filter) {
   return ref.watch(discoveryRepositoryProvider).nearbyCount(
@@ -155,9 +149,9 @@ FutureProvider.autoDispose.family<int, DiscoveryFilter>((ref, filter) {
   );
 });
 
-/// The nearby feed with pagination + gate handling. When the server refuses a
-/// page (402), [paywall] is set and the UI renders the unlock CTA instead of
-/// throwing; when no location is set (400), [needsLocation] is true.
+/// The nearby feed with pagination and gate handling. When the server refuses
+/// a page (402), [paywall] is set and the UI shows the unlock card; when no
+/// location is set (400), [needsLocation] is true.
 class NearbyState {
   final List<DiscoveryCard> items;
   final String? city;
@@ -231,7 +225,7 @@ class NearbyNotifier extends AsyncNotifier<NearbyState> {
         hasMore: res.hasMore,
       );
     } on EntitlementRequiredException catch (e) {
-      // Out of allowance/credits — keep what we have, surface the paywall.
+      // Out of allowance or credits: keep what we have and show the paywall.
       return (previous ?? const NearbyState()).copyWith(
         paywall: e,
         loadingMore: false,
@@ -242,14 +236,9 @@ class NearbyNotifier extends AsyncNotifier<NearbyState> {
     }
   }
 
-  /// Append a page, dropping anyone already on screen.
-  ///
-  /// The server ranks once and pages through one cached ordering, so pages do
-  /// not normally overlap. They can at the seam: the ordering expires while
-  /// somebody is still scrolling, and the next page is cut from a freshly
-  /// ranked feed. Grids do not survive duplicate ids, and "I keep seeing the
-  /// same person twice" is not a bug anybody reports as a caching problem — so
-  /// the client refuses the duplicate rather than trusting the seam.
+  /// Appends a page, skipping anyone already on screen. Pages can overlap when
+  /// the server's ranking expires mid-scroll, and the grid can't show
+  /// duplicate ids.
   static List<DiscoveryCard> _appendNew(
       List<DiscoveryCard> existing,
       List<DiscoveryCard> incoming,
@@ -277,20 +266,17 @@ class NearbyNotifier extends AsyncNotifier<NearbyState> {
 final nearbyProvider =
 AsyncNotifierProvider<NearbyNotifier, NearbyState>(NearbyNotifier.new);
 
-/// Premium status + credits + free daily allowances (the "Discovery Limit" UI).
+/// Premium status, credits and the free daily allowances.
 final entitlementsProvider = FutureProvider.autoDispose<Entitlements>(
       (ref) => ref.watch(discoveryRepositoryProvider).entitlements(),
 );
 
-/// "Liked you" — gated grid.
+/// "Liked you" — the gated grid.
 final likedYouProvider = FutureProvider.autoDispose<LikedYouPage>(
       (ref) => ref.watch(matchRepositoryProvider).likedYou(),
 );
 
-/// Matches — the Mutual tab.
-///
-/// Never gated, so unlike [likedYouProvider] there is no paywall state to
-/// model here: it either loaded or it didn't.
+/// Matches — the Mutual tab. Never gated, so it either loads or fails.
 final mutualLikesProvider =
 FutureProvider.autoDispose<PageResult<MutualCard>>(
       (ref) => ref.watch(matchRepositoryProvider).mutual(),
@@ -302,12 +288,8 @@ FutureProvider.autoDispose<PageResult<LikeCard>>(
       (ref) => ref.watch(matchRepositoryProvider).favorites(),
 );
 
-/// The match waiting to be celebrated, or null.
-///
-/// Set from two places — the response to my own like, and the `match:new`
-/// socket event when the other person completed it — and consumed by the
-/// overlay mounted at the top of the app, so the celebration is not tied to
-/// whichever screen happened to be open.
+/// The match waiting to be celebrated. Set from my own like response and from
+/// the `match:new` socket event, and shown by an overlay at the top of the app.
 class MatchCelebration {
   const MatchCelebration({required this.user, this.conversationId});
 
@@ -320,8 +302,7 @@ class MatchCelebrationNotifier extends Notifier<MatchCelebration?> {
   MatchCelebration? build() => null;
 
   void show(LikeCard user, {String? conversationId}) {
-    // A card with no id came from a redacted payload and has nothing to
-    // celebrate with — better to skip than to show a blank hero.
+    // A card without an id came from a redacted payload; skip it.
     if (user.id.isEmpty) return;
     state = MatchCelebration(user: user, conversationId: conversationId);
   }
@@ -334,39 +315,42 @@ NotifierProvider<MatchCelebrationNotifier, MatchCelebration?>(
   MatchCelebrationNotifier.new,
 );
 
-/// Imperative like/favorite/pass actions. Returns the [LikeResult] (so callers
-/// can celebrate a match), then callers can invalidate the feeds.
+/// Like / favorite / pass actions. After each change the like quota is
+/// re-fetched, so the meter always shows what the server says.
 class LikeActions {
   LikeActions(this.ref);
   final Ref ref;
 
-  Future<LikeResult> react(String toUserId, String type) =>
-      ref.read(matchRepositoryProvider).react(toUserId, type);
+  Future<LikeResult> react(String toUserId, String type) async {
+    final result = await ref.read(matchRepositoryProvider).react(toUserId, type);
+    ref.read(likeQuotaProvider.notifier).refresh();
+    return result;
+  }
 
-  Future<void> unreact(String userId) =>
-      ref.read(matchRepositoryProvider).unreact(userId);
+  Future<void> unreact(String userId) async {
+    await ref.read(matchRepositoryProvider).unreact(userId);
+    ref.read(likeQuotaProvider.notifier).refresh();
+  }
 
-  /// Undo a like/favorite/pass. Distinct from [unreact]: the endpoint behind
-  /// this one also hands back the freshly recalculated quota and whether the
-  /// removed reaction had formed a match, which the profile sheet's unlike
-  /// flow needs in the same round trip.
-  Future<UnlikeResult> unlike(String userId) =>
-      ref.read(matchRepositoryProvider).unlike(userId);
+  /// Undoes a like/favorite/pass. Also returns the recalculated quota and
+  /// whether the removed reaction had been a match.
+  Future<UnlikeResult> unlike(String userId) async {
+    final result = await ref.read(matchRepositoryProvider).unlike(userId);
+    ref.read(likeQuotaProvider.notifier).refresh();
+    return result;
+  }
 }
 
 final likeActionsProvider = Provider<LikeActions>((ref) => LikeActions(ref));
 
-/// Watch a rewarded ad to unlock a gated surface.
-///
-/// The credits the ad mints are what actually open the gate, so every feed that
-/// spends them is refetched afterwards — otherwise the grid keeps rendering the
-/// locked response it fetched before the balance changed.
+/// Watching a rewarded ad to unlock something. The ad mints credits, so every
+/// feed that spends them is re-fetched afterwards, including the like quota.
 class AdActions {
   AdActions(this.ref);
   final Ref ref;
 
   /// Claims one rewarded view and refreshes whatever it may have unlocked.
-  /// Returns the credits granted — zero when the impression was a replay.
+  /// Returns the credits granted — zero when the view was a replay.
   Future<int> watchToUnlock({String? placement}) async {
     final reward = await ref.read(adsRepositoryProvider).claimReward(
       idempotencyKey: AdsRepository.newIdempotencyKey(),
@@ -375,33 +359,22 @@ class AdActions {
     ref.invalidate(entitlementsProvider);
     ref.invalidate(likedYouProvider);
     ref.read(nearbyProvider.notifier).refresh();
+    ref.read(likeQuotaProvider.notifier).refresh();
     return reward.creditsAwarded;
   }
 
-  /// Claims the rewarded view (mints credits), then spends them by calling
-  /// `POST /likes/liked-you/:userId/unlock` with [userId] — i.e. `card.id`
-  /// from the tapped [LikeCard] — to reveal that specific card.
-  ///
-  /// [userId] IS THE CARD's id, passed straight through by the caller.
-  /// A LOCKED card's `id` is always `''` server-side (see [LikeCard.locked]),
-  /// so there is nothing valid to unlock *by* in that case — hitting
-  /// `POST /likes/liked-you//unlock` would just 404. When [userId] is empty
-  /// this claims the reward (crediting the account) and refetches
-  /// [likedYouProvider] without making the per-id call, so the ad isn't
-  /// wasted; the moment the backend gives locked cards a real reference to
-  /// pass here, this branch stops triggering and every tap goes through
-  /// [MatchRepository.unlockLikedYou] for real.
+  /// Spends credits to reveal one specific "liked you" card, using the tapped
+  /// card's [userId]. Returns the server's message and whether it succeeded.
   Future<(String, bool)> unlockLikedYou(
       String userId, {
         String? placement,
       }) async {
-    final result = await ref.read(matchRepositoryProvider).unlockLikedYou(userId);
-
-    // result is a (String, bool) record — destructure it, don't index it.
-    final (message, success) = result;
+    final (message, success) =
+    await ref.read(matchRepositoryProvider).unlockLikedYou(userId);
 
     if (success) {
       ref.invalidate(likedYouProvider);
+      ref.read(likeQuotaProvider.notifier).refresh();
     }
 
     return (message, success);

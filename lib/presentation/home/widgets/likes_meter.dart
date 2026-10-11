@@ -19,12 +19,14 @@ import 'heart_shape.dart';
 
 const Cubic _easeOut = Cubic(0.23, 1, 0.32, 1);
 
+/// Colour of the like heart, on the dashboard meter and in the sheet.
+Color get _likeRed => AppColors.danger;
+
 /// How many likes are left today, as a heart that empties as you spend them.
 ///
-/// Replaces an orange-to-pink gradient pill with a glow, which said "badge"
-/// and nothing else. The number is still there for the exact count; the fill
-/// level is what reads at a glance — and it drains the moment a like lands,
-/// which is the feedback that the like cost something.
+/// The number is the exact count; the fill level is what reads at a glance —
+/// and it drains the moment a like lands, which is the feedback that the like
+/// cost something.
 class LikesMeter extends StatelessWidget {
   const LikesMeter({super.key, required this.quota, required this.onTap});
 
@@ -69,7 +71,7 @@ class LikesMeter extends StatelessWidget {
                 HeartGauge(
                   size: 21,
                   fill: fillOf(quota),
-                  color: empty ? AppColors.iconMuted : AppColors.primary,
+                  color: empty ? AppColors.iconMuted : _likeRed,
                 ),
                 const SizedBox(width: 6),
                 if (quota.unlimited)
@@ -189,6 +191,16 @@ class _LikesTodaySheet extends ConsumerStatefulWidget {
 class _LikesTodaySheetState extends ConsumerState<_LikesTodaySheet> {
   bool _watching = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // Re-read the quota whenever the sheet opens, so it is never stale.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(likeQuotaProvider.notifier).refresh();
+    });
+  }
+
   Future<void> _watchAd() async {
     if (_watching) return;
     setState(() => _watching = true);
@@ -206,6 +218,8 @@ class _LikesTodaySheetState extends ConsumerState<_LikesTodaySheet> {
         return;
       }
       await ref.read(likeQuotaProvider.notifier).unlockMore();
+      // Fetch the quota again so the new count comes from the server.
+      await ref.read(likeQuotaProvider.notifier).refresh();
       if (mounted) {
         showRadiusToast(context, 'Like added', tone: ToastTone.success);
       }
@@ -251,7 +265,7 @@ class _LikesTodaySheetState extends ConsumerState<_LikesTodaySheet> {
           if (q.unlimited)
             Row(
               children: [
-                HeartGauge(size: 30, fill: 1, color: AppColors.premium),
+                HeartGauge(size: 30, fill: 1, color: _likeRed),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -348,11 +362,10 @@ class _HeartRow extends StatelessWidget {
             HeartGauge(
               size: 30,
               fill: i < remaining ? 1 : 0,
-              color: i < remaining ? AppColors.primary : AppColors.iconMuted,
+              color: i < remaining ? _likeRed : AppColors.iconMuted,
             ),
         ],
       ),
     );
   }
 }
-

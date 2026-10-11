@@ -184,6 +184,13 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                         exploreAsync: exploreAsync,
                         location: location,
                         selected: selected,
+                        // With extendBody on, the screen runs under the
+                        // bottom nav (and banner). The composer already pads
+                        // for it; when it is hidden the notice must too, so it
+                        // sits above the nav.
+                        bottomInset: selected == null
+                            ? MediaQuery.paddingOf(context).bottom
+                            : 0,
                       ),
                     ],
                   ),
@@ -233,11 +240,12 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     required AsyncValue<List<MapUser>> exploreAsync,
     required AsyncValue<LatLng?> location,
     required MapUser? selected,
+    required double bottomInset,
   }) {
     return Positioned(
       left: 16,
       right: 16,
-      bottom: 18,
+      bottom: 18 + bottomInset,
       child: Align(
         alignment: Alignment.bottomCenter,
         child: AnimatedSwitcher(

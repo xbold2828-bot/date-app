@@ -127,6 +127,7 @@ class ExploreCountPill extends StatelessWidget {
     );
   }
 }
+
 class ExploreViewToggle extends StatelessWidget {
   const ExploreViewToggle({
     super.key,
@@ -170,14 +171,7 @@ class ExploreViewToggle extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 7),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
-            gradient: selected
-                ? const LinearGradient(
-                    colors: [
-                      AppMapColors.markerStart,
-                      AppMapColors.markerEnd,
-                    ],
-                  )
-                : null,
+            color: selected ? AppColors.blue : null,
           ),
           child: Text(
             label,
@@ -229,18 +223,18 @@ class ExploreZoomButtons extends StatelessWidget {
   }
 
   Widget _button(IconData icon, String label, VoidCallback onTap) => Semantics(
-        button: true,
-        label: label,
-        excludeSemantics: true,
-        child: InkWell(
-          onTap: onTap,
-          child: SizedBox(
-            width: 46,
-            height: 42,
-            child: Icon(icon, size: 20, color: AppColors.textDark),
-          ),
-        ),
-      );
+    button: true,
+    label: label,
+    excludeSemantics: true,
+    child: InkWell(
+      onTap: onTap,
+      child: SizedBox(
+        width: 46,
+        height: 42,
+        child: Icon(icon, size: 20, color: AppColors.textDark),
+      ),
+    ),
+  );
 }
 
 /// Round glass button. Used for centre-on-me, and for anything else that turns
@@ -289,12 +283,12 @@ class _ExploreCircleButtonState extends State<ExploreCircleButton> {
               height: 46,
               child: widget.busy
                   ? Padding(
-                      padding: const EdgeInsets.all(13),
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.2,
-                        color: AppColors.primary,
-                      ),
-                    )
+                padding: const EdgeInsets.all(13),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  color: AppColors.primary,
+                ),
+              )
                   : Icon(widget.icon, size: 21, color: AppColors.primary),
             ),
           ),

@@ -178,8 +178,10 @@ class _YouScreenState extends ConsumerState<YouScreen> {
   }
 }
 
-/// What is still missing from the profile, as one line of progress and a row
-/// of the actions that fix it. Gone once there is nothing left to do.
+/// What is still missing from the profile, shown the way Instagram does its
+/// "Complete your profile" strip: a heading with "n of m complete", then a
+/// row of small cards — icon, title, one-line hint and a solid button.
+/// Gone once there is nothing left to do.
 class _FinishProfile extends StatelessWidget {
   const _FinishProfile({
     required this.me,
@@ -208,84 +210,93 @@ class _FinishProfile extends StatelessWidget {
     if (photos == null) return const SizedBox(height: 18);
 
     final p = me.profile;
-    final steps = <(bool, IconData, String, VoidCallback)>[
-      (
-      photos >= _photoGoal,
-      Icons.add_photo_alternate_outlined,
-      photos == 0
-          ? 'Add photos'
-          : 'Add ${_photoGoal - photos} more '
-          '${_photoGoal - photos == 1 ? 'photo' : 'photos'}',
-      onAddPhoto,
+    final steps = <_TodoStep>[
+      _TodoStep(
+        done: photos >= _photoGoal,
+        icon: Icons.add_photo_alternate_outlined,
+        title: photos == 0
+            ? 'Add photos'
+            : 'Add ${_photoGoal - photos} more '
+            '${_photoGoal - photos == 1 ? 'photo' : 'photos'}',
+        hint: 'Show people who you are.',
+        action: 'Add',
+        onTap: onAddPhoto,
       ),
-      (
-      (p.bio ?? '').trim().isNotEmpty,
-      Icons.short_text_rounded,
-      'Write a bio',
-      onWriteBio,
+      _TodoStep(
+        done: (p.bio ?? '').trim().isNotEmpty,
+        icon: Icons.short_text_rounded,
+        title: 'Write a bio',
+        hint: 'Tell people about yourself.',
+        action: 'Add',
+        onTap: onWriteBio,
       ),
-      (
-      p.personalityTags.isNotEmpty,
-      Icons.local_offer_outlined,
-      'Pick your three words',
-      onPickVibes,
+      _TodoStep(
+        done: p.personalityTags.isNotEmpty,
+        icon: Icons.local_offer_outlined,
+        title: 'Pick your three words',
+        hint: 'Describe your vibe.',
+        action: 'Add',
+        onTap: onPickVibes,
       ),
-      (
-      p.preferenceTags.isNotEmpty,
-      Icons.tune_rounded,
-      'Set your kind of night',
-      onSetPreferences,
+      _TodoStep(
+        done: p.preferenceTags.isNotEmpty,
+        icon: Icons.tune_rounded,
+        title: 'Set your kind of night',
+        hint: 'Share what you are into.',
+        action: 'Set',
+        onTap: onSetPreferences,
       ),
     ];
-    final done = steps.where((s) => s.$1).length;
+    final done = steps.where((s) => s.done).length;
     if (done == steps.length) return const SizedBox(height: 18);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 22, 0, 18),
+      padding: const EdgeInsets.fromLTRB(0, 18, 0, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
               children: [
-                Expanded(
-                  child: Text(
-                    'Finish your profile',
-                    style: AppTextStyles.bodyStrong.copyWith(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      fontVariations: const [FontVariation('wght', 700)],
-                    ),
+                Text(
+                  'Complete your profile',
+                  style: AppTextStyles.bodyStrong.copyWith(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    fontVariations: const [FontVariation('wght', 700)],
                   ),
                 ),
+                const SizedBox(width: 8),
                 Text(
-                  '$done of ${steps.length}',
+                  '$done of ${steps.length} complete',
                   style: AppTextStyles.caption.copyWith(
+                    fontSize: 12.5,
+                    color: AppColors.textGrey,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _Progress(done: done, total: steps.length),
-          ),
           const SizedBox(height: 12),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                for (final (isDone, icon, label, onTap) in steps)
-                  if (!isDone)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _TodoChip(icon: icon, label: label, onTap: onTap),
-                    ),
-              ],
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final step in steps)
+                    if (!step.done)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 10),
+                        child: _TodoCard(step: step),
+                      ),
+                ],
+              ),
             ),
           ),
         ],
@@ -294,73 +305,113 @@ class _FinishProfile extends StatelessWidget {
   }
 }
 
-/// [done] of [total] as filled segments. Static: it is a status, not news.
-class _Progress extends StatelessWidget {
-  const _Progress({required this.done, required this.total});
-
-  final int done;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    return ExcludeSemantics(
-      child: Row(
-        children: [
-          for (var i = 0; i < total; i++) ...[
-            if (i > 0) const SizedBox(width: 4),
-            Expanded(
-              child: Container(
-                height: 3.5,
-                decoration: BoxDecoration(
-                  color: i < done ? AppColors.primary : AppColors.inputBorder,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _TodoChip extends StatelessWidget {
-  const _TodoChip({
+class _TodoStep {
+  const _TodoStep({
+    required this.done,
     required this.icon,
-    required this.label,
+    required this.title,
+    required this.hint,
+    required this.action,
     required this.onTap,
   });
 
+  final bool done;
   final IconData icon;
-  final String label;
+  final String title;
+  final String hint;
+  final String action;
   final VoidCallback onTap;
+}
+
+/// One "complete your profile" card: outlined icon circle, title, hint and a
+/// solid (flat, no gradient) action button.
+class _TodoCard extends StatelessWidget {
+  const _TodoCard({required this.step});
+
+  final _TodoStep step;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: label,
+      label: '${step.title}. ${step.hint}',
       excludeSemantics: true,
       child: Material(
         color: AppColors.card,
-        shape: StadiumBorder(
-          side: BorderSide(color: AppColors.inputBorder, width: 1.5),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: AppColors.inputBorder, width: 1),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 9, 14, 9),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 17, color: AppColors.primaryInk),
-                const SizedBox(width: 7),
-                Text(
-                  label,
-                  style: AppTextStyles.bodyStrong.copyWith(fontSize: 14),
-                ),
-              ],
+          onTap: step.onTap,
+          child: SizedBox(
+            width: 158,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+              child: Column(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.inputBorder,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Icon(
+                      step.icon,
+                      size: 26,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    step.title,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.bodyStrong.copyWith(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      fontVariations: const [FontVariation('wght', 700)],
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    step.hint,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.caption.copyWith(
+                      fontSize: 12,
+                      color: AppColors.textGrey,
+                    ),
+                  ),
+                  const Spacer(),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    height: 32,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      step.action,
+                      style: AppTextStyles.bodyStrong.copyWith(
+                        fontSize: 13.5,
+                        color: AppColors.onAccent,
+                        fontWeight: FontWeight.w700,
+                        fontVariations: const [FontVariation('wght', 700)],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -396,7 +447,9 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
       height: _height,
       decoration: BoxDecoration(
         color: AppColors.background,
-        border: Border(bottom: BorderSide(color: AppColors.inputBorder)),
+        border: Border(
+          bottom: BorderSide(color: AppColors.inputBorder, width: 0.6),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -433,7 +486,7 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
                 child: AnimatedOpacity(
                   opacity: on ? 1 : 0,
                   duration: const Duration(milliseconds: 160),
-                  child: Container(height: 2, color: AppColors.textDark),
+                  child: Container(height: 1.5, color: AppColors.textDark),
                 ),
               ),
             ],
@@ -466,7 +519,7 @@ class _AboutTab extends StatelessWidget {
     String label(String slug) => tagLabels[slug] ?? humanizeSlug(slug);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

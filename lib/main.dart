@@ -112,6 +112,19 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    // Status bar: white background, dark icons
+    statusBarColor: Colors.white,
+    statusBarIconBrightness: Brightness.dark,
+    statusBarBrightness: Brightness.light, // iOS
+
+    // Navigation bar: blue background, white icons
+    systemNavigationBarColor: Color(0xFF4A86E8),
+    systemNavigationBarIconBrightness: Brightness.light, // light = white icons
+    systemNavigationBarDividerColor: Colors.transparent,
+    systemNavigationBarContrastEnforced: false,
+  ));
+
   runApp(const ProviderScope(child: MyApp()));
 
   // scaffoldMessengerKey isn't attached to a live ScaffoldMessenger until
