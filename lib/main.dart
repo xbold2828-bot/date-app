@@ -112,18 +112,20 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    // Status bar: white background, dark icons
-    statusBarColor: Colors.white,
-    statusBarIconBrightness: Brightness.dark,
-    statusBarBrightness: Brightness.light, // iOS
-
-    // Navigation bar: blue background, white icons
-    systemNavigationBarColor: Color(0xFF4A86E8),
-    systemNavigationBarIconBrightness: Brightness.light, // light = white icons
-    systemNavigationBarDividerColor: Colors.transparent,
-    systemNavigationBarContrastEnforced: false,
-  ));
+  // For native Android, I have also implemented this in the values-v35 and values-night-v35 styles.xml files.
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      // Status bar: transparent background (icons unchanged)
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light, // iOS
+      // Navigation bar: blue background, white icons
+      systemNavigationBarColor: Color(0xFF4A86E8),
+      systemNavigationBarIconBrightness: Brightness.light,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+    ),
+  );
 
   runApp(const ProviderScope(child: MyApp()));
 

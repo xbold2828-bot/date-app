@@ -6,8 +6,8 @@
         <item name="android:navigationBarColor">#FF4A86E8</item>
         <item name="android:windowLightNavigationBar">false</item>
 
-        <!-- White status bar with dark icons -->
-        <item name="android:statusBarColor">@android:color/white</item>
+        <!-- Transparent status bar (icons left exactly as before) -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowTranslucentStatus">false</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
