@@ -1,20 +1,18 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../data/models/map_user_model.dart';
 import 'explore_avatar.dart';
 
 /// The row of faces above the map.
 ///
-/// Two jobs. It is the fast way to pick somebody without hunting for their
-/// marker, and it is the answer to "who is even out there" for a user who has
-/// not panned around yet — a map of unfamiliar streets does not tell you that.
+/// Layout: a pinned "All" tile on the left, a thin divider, then the scrolling
+/// row of people. The strip has no container of its own: it sits directly on
+/// the header, so there is no card inside a card.
 ///
-/// "All" leads the row and opens the grid — everybody at once, and where the
-/// map gets repopulated from. When somebody *is* selected they move to the
-/// front and "All" takes second place, so the current subject is always the
-/// first thing under the thumb and the way onwards is always the second.
+/// "All" is always in the same spot, so the way back to everybody never moves.
+/// When somebody is selected they jump to the front of the scrolling row.
 class ExplorePeopleStrip extends StatelessWidget {
   const ExplorePeopleStrip({
     super.key,
@@ -28,64 +26,74 @@ class ExplorePeopleStrip extends StatelessWidget {
   final String? selectedId;
   final ValueChanged<MapUser> onSelect;
 
-  /// Opens the grid of everybody. Both the leading "All" tile and the
-  /// trailing "See all" tile go here — the grid is where the map is repopulated
-  /// from, via its own "All" tile.
+  /// Opens the grid of everybody. Both the pinned "All" tile and the trailing
+  /// "See all" tile go here.
   final VoidCallback onShowAll;
 
-  /// Past this many, scrolling to find a particular face stops being
-  /// reasonable and the grid is the better tool. The strip still scrolls; this
-  /// only decides whether the "See all" tile is offered at the end of it.
+  /// Past this many people, a "See all" tile is offered at the end of the row.
   static const int gridThreshold = 8;
 
-  static const double height = 82;
+  static const double height = 72;
 
   @override
   Widget build(BuildContext context) {
-    // Nothing to pick from. An empty 82 px band above the map reads as a row
-    // that failed to load; the empty-state card on the map says what is
-    // actually going on.
+    // Nothing to pick from: the empty-state card on the map explains why.
     if (people.isEmpty) return const SizedBox.shrink();
 
-    // Selected first, then everyone else in the order the API ranked them
-    // (nearest first) — a strip that reshuffled on every selection would make
-    // people hunt for a face they had just been looking at.
+    // Selected first, then everyone else in API order (nearest first), so the
+    // row does not reshuffle on every selection.
     final ordered = <MapUser>[
       ...people.where((person) => person.id == selectedId),
       ...people.where((person) => person.id != selectedId),
     ];
-    final selectedLeads = selectedId != null && ordered.first.id == selectedId;
+    final hasSeeAll = people.length > gridThreshold;
 
     return SizedBox(
       height: height,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        // People, plus the "All" tile, plus "See all" when the row is long.
-        itemCount: ordered.length +
-            1 +
-            (people.length > gridThreshold ? 1 : 0),
-        separatorBuilder: (_, _) => const SizedBox(width: 10),
-        itemBuilder: (context, index) {
-          // "All" leads, unless somebody is selected — then they do, and All
-          // slides to second.
-          final allIndex = selectedLeads ? 1 : 0;
-          if (index == allIndex) {
-            return _AllTile(active: selectedId == null, onTap: onShowAll);
-          }
-
-          final personIndex = index > allIndex ? index - 1 : index;
-          if (personIndex >= ordered.length) {
-            return _ShowAllTile(count: people.length, onTap: onShowAll);
-          }
-
-          final person = ordered[personIndex];
-          return _PersonTile(
-            person: person,
-            selected: person.id == selectedId,
-            onTap: () => onSelect(person),
-          );
-        },
+      child: Row(
+        children: [
+          _AllTile(active: selectedId == null, onTap: onShowAll),
+          Container(
+            width: 1,
+            height: 44,
+            margin: const EdgeInsets.symmetric(horizontal: 12),
+            color: AppColors.inputBorder,
+          ),
+          Expanded(
+            child: ShaderMask(
+              // Soft fade on the right edge hints that the row scrolls.
+              shaderCallback: (rect) => const LinearGradient(
+                colors: [Colors.black, Colors.black, Colors.transparent],
+                stops: [0, 0.92, 1],
+              ).createShader(rect),
+              blendMode: BlendMode.dstIn,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.only(right: 16),
+                itemCount: ordered.length + (hasSeeAll ? 1 : 0),
+                separatorBuilder: (_, _) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  if (index >= ordered.length) {
+                    return Center(
+                      child: _ShowAllTile(
+                        count: people.length,
+                        onTap: onShowAll,
+                      ),
+                    );
+                  }
+                  final person = ordered[index];
+                  return Center(
+                    child: _PersonTile(
+                      person: person,
+                      selected: person.id == selectedId,
+                      onTap: () => onSelect(person),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -122,7 +130,7 @@ class _PersonTile extends StatelessWidget {
               ExploreAvatar(
                 name: person.displayName,
                 photoUrl: person.primaryPhotoUrl,
-                size: 50,
+                size: 48,
                 selected: selected,
                 isOnline: person.isOnline,
               ),
@@ -182,19 +190,21 @@ class _IconTile extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 50,
-                height: 50,
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: active ? AppColors.blue : AppColors.card,
-                  border: active
-                      ? null
-                      : Border.all(color: AppColors.inputBorder, width: 1.4),
+                  border: Border.all(
+                    color: active ? AppColors.blue : AppColors.inputBorder,
+                    width: 1.4,
+                  ),
                 ),
                 child: Icon(
                   icon,
-                  size: 21,
+                  size: 22,
                   color: active ? AppColors.onImage : AppColors.primary,
                 ),
               ),

@@ -34,6 +34,10 @@ class ExploreScreen extends ConsumerStatefulWidget {
 class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   final _map = ExploreMapController();
 
+  /// Keeps the map controls clear of the focus pill / loading pill that sit at
+  /// the bottom centre of the map.
+  static const double _controlsLift = 84;
+
   @override
   void initState() {
     super.initState();
@@ -152,33 +156,36 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
             ),
             Column(
               children: [
-                SafeArea(
-                  bottom: false,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 16, bottom: 6),
-                    child: ExplorePeopleStrip(
-                      people: users,
-                      selectedId: selectedId,
-                      onSelect: _select,
-                      onShowAll: () => _openGrid(users),
-                    ),
+                _ExploreTopPanel(
+                  count: users.length,
+                  isLoading: exploreAsync.isLoading,
+                  viewMode: viewMode,
+                  onViewModeChanged: (mode) =>
+                  ref.read(exploreViewModeProvider.notifier).state = mode,
+                  strip: ExplorePeopleStrip(
+                    people: users,
+                    selectedId: selectedId,
+                    onSelect: _select,
+                    onShowAll: () => _openGrid(users),
                   ),
                 ),
                 Expanded(
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
+                      // Map controls: bottom-right, like Google Maps.
                       Positioned(
-                        top: 12,
-                        left: 14,
-                        child: ExploreCountPill(
-                          count: users.length,
-                          isLoading: exploreAsync.isLoading,
+                        right: 14,
+                        bottom: _controlsLift +
+                            (selected == null
+                                ? MediaQuery.paddingOf(context).bottom
+                                : 0),
+                        child: _MapControls(
+                          locating: location.isLoading,
+                          onZoomIn: () => _map.zoomBy(1),
+                          onZoomOut: () => _map.zoomBy(-1),
+                          onLocate: _centerOnMe,
                         ),
-                      ),
-                      _buildSideControls(
-                        viewMode: viewMode,
-                        locating: location.isLoading,
                       ),
                       _buildNotice(
                         exploreAsync: exploreAsync,
@@ -202,38 +209,6 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
         ),
       ),
     ).withGlobalBackHandler(context);
-  }
-
-  Widget _buildSideControls({
-    required ExploreViewMode viewMode,
-    required bool locating,
-  }) {
-    return Positioned(
-      top: 12,
-      right: 14,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          ExploreViewToggle(
-            mode: viewMode,
-            onChanged: (mode) =>
-            ref.read(exploreViewModeProvider.notifier).state = mode,
-          ),
-          const SizedBox(height: 10),
-          ExploreZoomButtons(
-            onZoomIn: () => _map.zoomBy(1),
-            onZoomOut: () => _map.zoomBy(-1),
-          ),
-          const SizedBox(height: 10),
-          ExploreCircleButton(
-            icon: Icons.my_location,
-            label: 'Center map on your location',
-            busy: locating,
-            onPressed: locating ? null : _centerOnMe,
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildNotice({
@@ -335,6 +310,204 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     }
 
     return const SizedBox.shrink();
+  }
+}
+
+/// A flat, opaque header above the map.
+///
+/// Top row: the "n vibing" pill on the left, the 2D / 3D toggle on the right.
+/// Under it, the people strip, which is its own rounded card. The header ends
+/// in a hairline so the map visibly starts right below it.
+class _ExploreTopPanel extends StatelessWidget {
+  const _ExploreTopPanel({
+    required this.count,
+    required this.isLoading,
+    required this.viewMode,
+    required this.onViewModeChanged,
+    required this.strip,
+  });
+
+  final int count;
+  final bool isLoading;
+  final ExploreViewMode viewMode;
+  final ValueChanged<ExploreViewMode> onViewModeChanged;
+  final Widget strip;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        border: Border(
+          bottom: BorderSide(color: AppColors.inputBorder, width: 1),
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  ExploreCountPill(count: count, isLoading: isLoading),
+                  ExploreViewToggle(
+                    mode: viewMode,
+                    onChanged: onViewModeChanged,
+                  ),
+                ],
+              ),
+              // The strip draws its own card; it collapses to nothing when
+              // there are no people, so the gap goes with it.
+              AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: strip,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Google Maps-style controls, bottom-right of the map: a zoom pill
+/// (+ / − with a divider) and a round "my location" button beneath it.
+class _MapControls extends StatelessWidget {
+  const _MapControls({
+    required this.locating,
+    required this.onZoomIn,
+    required this.onZoomOut,
+    required this.onLocate,
+  });
+
+  final bool locating;
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+  final VoidCallback onLocate;
+
+  static const double _size = 44;
+
+  static List<BoxShadow> get _shadow => [
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.18),
+      blurRadius: 8,
+      offset: const Offset(0, 2),
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        // Zoom pill.
+        Container(
+          width: _size,
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: _shadow,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _ControlButton(
+                  icon: Icons.add,
+                  label: 'Zoom in',
+                  onPressed: onZoomIn,
+                ),
+                Container(
+                  height: 1,
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  color: AppColors.inputBorder,
+                ),
+                _ControlButton(
+                  icon: Icons.remove,
+                  label: 'Zoom out',
+                  onPressed: onZoomOut,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        // My location.
+        Container(
+          width: _size,
+          height: _size,
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            shape: BoxShape.circle,
+            boxShadow: _shadow,
+          ),
+          child: ClipOval(
+            child: _ControlButton(
+              icon: Icons.my_location,
+              label: 'Center map on your location',
+              busy: locating,
+              onPressed: locating ? null : onLocate,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ControlButton extends StatelessWidget {
+  const _ControlButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.busy = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          child: SizedBox(
+            width: _MapControls._size,
+            height: _MapControls._size,
+            child: Center(
+              child: busy
+                  ? SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primary,
+                ),
+              )
+                  : Icon(icon, size: 22, color: AppColors.primary),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -207,7 +207,7 @@ class _FinishProfile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final photos = photoCount;
-    if (photos == null) return const SizedBox(height: 18);
+    if (photos == null) return const SizedBox(height: 10); // was 18
 
     final p = me.profile;
     final steps = <_TodoStep>[
@@ -248,10 +248,10 @@ class _FinishProfile extends StatelessWidget {
       ),
     ];
     final done = steps.where((s) => s.done).length;
-    if (done == steps.length) return const SizedBox(height: 18);
+    if (done == steps.length) return const SizedBox(height: 10); // was 18
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 18, 0, 14),
+      padding: const EdgeInsets.fromLTRB(0, 12, 0, 12), // was (0, 18, 0, 14)
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -281,7 +281,7 @@ class _FinishProfile extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10), // was 12
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),

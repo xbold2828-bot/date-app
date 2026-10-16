@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:dating_app/core/constants/app_constants.dart';
 import 'package:dating_app/core/constants/app_string.dart';
 import 'package:dating_app/core/extensions/global_back_extension.dart';
+import 'package:dating_app/core/utils/utils.dart';
 import 'package:dating_app/shared/widgets/empty_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -200,7 +201,7 @@ class _HomeScreenState extends ConsumerState<DashboardScreen>
               BannerAdWidget(visible: _showsBannerAd(_current)),
               SafeArea(
                 top: false,
-                minimum: const EdgeInsets.fromLTRB(20, 6, 20, 12),
+                minimum: const EdgeInsets.fromLTRB(20, 6, 15, 20),
                 child: _BottomNav(
                   current: _current,
                   unread: ref.watch(unreadCountProvider).valueOrNull ?? 0,
@@ -457,13 +458,29 @@ class _RadarTabState extends ConsumerState<_RadarTab> {
     final items = state.items;
 
     if (items.isEmpty && state.paywall == null) {
-      return SliverToBoxAdapter(
-        child: EmptyWidget(
-          title: 'Quiet in your radius right now',
-          body: 'Nobody nearby matches these filters. Clear a few and check '
-              'back — who is around changes through the day.',
-          actionLabel: 'Open filters',
-          onAction: () => showDiscoveryFilterSheet(context),
+      // SliverFillRemaining gives the Center a bounded height (whatever is
+      // left under the quick filters), so the empty state can be centred.
+      //
+      // The Scaffold uses extendBody, so this area runs underneath the floating
+      // bottom nav (and banner ad). Centring in the full area made the content
+      // look low. Padding the bottom by the nav's height moves the centre up to
+      // the middle of what the user can actually see.
+      final bottomInset = MediaQuery.of(context).padding.bottom;
+
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: Center(
+            child: EmptyWidget(
+              compact: true,
+              title: 'Quiet in your radius right now',
+              body: 'Nobody nearby matches these filters. Clear a few and '
+                  'check back — who is around changes through the day.',
+              actionLabel: 'Open filters',
+              onAction: () => showDiscoveryFilterSheet(context),
+            ),
+          ),
         ),
       );
     }
@@ -542,6 +559,12 @@ class _RadarTabState extends ConsumerState<_RadarTab> {
               child: _UnlockCard(message: state.paywall?.message),
             ),
           ),
+          
+          SliverToBoxAdapter(
+            child: spacerH(100),
+          ),
+        
+        
       ],
     );
   }

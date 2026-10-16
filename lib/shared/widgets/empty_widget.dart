@@ -10,12 +10,15 @@ import 'buttons/common_button.dart';
 
 class EmptyWidget extends StatelessWidget {
   final bool isLikePage;
+  final bool compact;
+
   const EmptyWidget({super.key,
     this.title,
-     this.body,
+    this.body,
     this.actionLabel,
     this.onAction,
     this.isLikePage=false,
+    this.compact = false,
   });
 
   final String? title;
@@ -27,6 +30,12 @@ class EmptyWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Gaps used below; the non-compact values are the original ones.
+    final gapAfterOrb = compact ? 16.0 : 28.0;
+    final gapAfterTitle = compact ? 8.0 : 10.0;
+    final gapBeforeAction = compact ? 18.0 : 28.0;
+    final titleSize = compact ? 20.0 : 22.0;
+
     // One-shot entrance animation (fade + slide up). No controller needed.
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
@@ -40,43 +49,45 @@ class EmptyWidget extends StatelessWidget {
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(32, 48, 32, 24),
+        padding: compact
+            ? const EdgeInsets.fromLTRB(32, 16, 32, 16)
+            : const EdgeInsets.fromLTRB(32, 48, 32, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _GlowOrb(isLikePage: isLikePage),
+            _GlowOrb(isLikePage: isLikePage, compact: compact),
             if (title != null) ...[
-            spacerH(28),
-            Text(
-              title!,
-              textAlign: TextAlign.center,
-              style: AppTextStyles.title.copyWith(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                height: 1.2,
-                letterSpacing: -0.3,
+              spacerH(gapAfterOrb),
+              Text(
+                title!,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.title.copyWith(
+                  fontSize: titleSize,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                  letterSpacing: -0.3,
+                ),
               ),
-            ),
             ],
 
             if(body!=null) ...[
-            const SizedBox(height: 10),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 300),
-              child: Text(
-                body!,
-                textAlign: TextAlign.center,
-                style: AppTextStyles.caption.copyWith(
-                  fontSize: 14,
-                  height: 1.5,
-                  color: AppColors.textGrey,
+              SizedBox(height: gapAfterTitle),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 300),
+                child: Text(
+                  body!,
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.caption.copyWith(
+                    fontSize: 14,
+                    height: 1.5,
+                    color: AppColors.textGrey,
+                  ),
                 ),
               ),
-            ),
 
             ],
             if (actionLabel != null && onAction != null) ...[
-              spacerH(28),
+              spacerH(gapBeforeAction),
               SizedBox(
                 width: 200,
                 child: CommonButton(
@@ -95,7 +106,8 @@ class EmptyWidget extends StatelessWidget {
 
 class _GlowOrb extends StatelessWidget {
   final bool isLikePage;
-  const _GlowOrb({this.isLikePage=false});
+  final bool compact;
+  const _GlowOrb({this.isLikePage=false, this.compact = false});
 
   /// Fine-tune the GIF position. Offset(0, 0) = exact center.
   /// e.g. Offset(-4, 0) moves it 4px left, Offset(0, 6) moves it 6px down.
@@ -103,7 +115,9 @@ class _GlowOrb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = 250.w.clamp(200.0, 290.0).toDouble();
+    final fullSize = 250.w.clamp(200.0, 290.0).toDouble();
+    // Compact: ~70% of the normal size (the normal size is untouched).
+    final size = compact ? fullSize * 0.7 : fullSize;
     final gifSize = size * 0.82;
 
     return RepaintBoundary(
@@ -153,7 +167,9 @@ class _GlowOrb extends StatelessWidget {
                     child: staticImage(
                       url: isLikePage? AppAnimation.likeMatchGif :AppAnimation.radarGif,
                       h: gifSize,
-                    ).paddingOnly(bottom: isLikePage ? 0: 20.h),
+                    ).paddingOnly(
+                      bottom: isLikePage ? 0 : (compact ? 14.h : 20.h),
+                    ),
                   ),
                 ),
               ),
