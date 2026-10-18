@@ -18,15 +18,12 @@ import 'settings_screen.dart';
 
 enum _YouTab { photos, about }
 
-/// The profile tab, laid out the way a profile is read on a phone: who you
-/// are and your numbers at the top, two buttons, then your photos and your
-/// details as tabs.
+/// The profile tab, laid out like Instagram's: username bar, avatar + stats,
+/// name / bio, two flat buttons, "complete your profile" strip, then a
+/// pinned Photos / About tab bar over an edge-to-edge grid.
 ///
-/// It used to be one long column of cards — location, metrics, gallery, vibe,
-/// bio, details, verification, premium, dark mode, blocked accounts, sign out —
-/// so the account's settings sat between you and your own photos. Settings now
-/// live behind the menu ([SettingsScreen]); editing lives behind "Edit
-/// profile" ([EditProfileScreen]).
+/// Settings live behind the menu ([SettingsScreen]); editing lives behind
+/// "Edit profile" ([EditProfileScreen]).
 class YouScreen extends ConsumerStatefulWidget {
   const YouScreen({super.key});
 
@@ -95,7 +92,7 @@ class _YouScreenState extends ConsumerState<YouScreen> {
       ),
       slivers: [
         SliverToBoxAdapter(
-          child: YouTopBar(me: me, onMenu: _openSettings),
+          child: YouTopBar(me: me, onAdd: _addPhoto, onMenu: _openSettings),
         ),
         SliverToBoxAdapter(
           child: YouProfileHeader(
@@ -144,7 +141,7 @@ class _YouScreenState extends ConsumerState<YouScreen> {
               child: switch (_tab) {
                 _YouTab.photos => Padding(
                   key: const ValueKey('you-photos'),
-                  padding: const EdgeInsets.only(top: 2),
+                  padding: const EdgeInsets.only(top: 1),
                   child: YouGallery(
                     key: _gallery,
                     primaryPhotoId: me.primaryPhotoId,
@@ -178,9 +175,8 @@ class _YouScreenState extends ConsumerState<YouScreen> {
   }
 }
 
-/// What is still missing from the profile, shown the way Instagram does its
-/// "Complete your profile" strip: a heading with "n of m complete", then a
-/// row of small cards — icon, title, one-line hint and a solid button.
+/// Instagram's "Complete your profile" strip: heading with "n of m
+/// complete", then a row of small cards — icon, title, hint, flat button.
 /// Gone once there is nothing left to do.
 class _FinishProfile extends StatelessWidget {
   const _FinishProfile({
@@ -207,7 +203,7 @@ class _FinishProfile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final photos = photoCount;
-    if (photos == null) return const SizedBox(height: 10); // was 18
+    if (photos == null) return const SizedBox(height: 8);
 
     final p = me.profile;
     final steps = <_TodoStep>[
@@ -248,10 +244,10 @@ class _FinishProfile extends StatelessWidget {
       ),
     ];
     final done = steps.where((s) => s.done).length;
-    if (done == steps.length) return const SizedBox(height: 10); // was 18
+    if (done == steps.length) return const SizedBox(height: 8);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 12, 0, 12), // was (0, 18, 0, 14)
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -264,12 +260,12 @@ class _FinishProfile extends StatelessWidget {
                 Text(
                   'Complete your profile',
                   style: AppTextStyles.bodyStrong.copyWith(
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                     fontVariations: const [FontVariation('wght', 700)],
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Text(
                   '$done of ${steps.length} complete',
                   style: AppTextStyles.caption.copyWith(
@@ -281,7 +277,7 @@ class _FinishProfile extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 10), // was 12
+          const SizedBox(height: 8),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -292,7 +288,7 @@ class _FinishProfile extends StatelessWidget {
                   for (final step in steps)
                     if (!step.done)
                       Padding(
-                        padding: const EdgeInsets.only(right: 10),
+                        padding: const EdgeInsets.only(right: 8),
                         child: _TodoCard(step: step),
                       ),
                 ],
@@ -324,7 +320,7 @@ class _TodoStep {
 }
 
 /// One "complete your profile" card: outlined icon circle, title, hint and a
-/// solid (flat, no gradient) action button.
+/// flat solid action button.
 class _TodoCard extends StatelessWidget {
   const _TodoCard({required this.step});
 
@@ -337,23 +333,23 @@ class _TodoCard extends StatelessWidget {
       label: '${step.title}. ${step.hint}',
       excludeSemantics: true,
       child: Material(
-        color: AppColors.card,
+        color: AppColors.background,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           side: BorderSide(color: AppColors.inputBorder, width: 1),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: step.onTap,
           child: SizedBox(
-            width: 158,
+            width: 150,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+              padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
               child: Column(
                 children: [
                   Container(
-                    width: 52,
-                    height: 52,
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
@@ -363,23 +359,23 @@ class _TodoCard extends StatelessWidget {
                     ),
                     child: Icon(
                       step.icon,
-                      size: 26,
+                      size: 24,
                       color: AppColors.textDark,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Text(
                     step.title,
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.bodyStrong.copyWith(
-                      fontSize: 14,
+                      fontSize: 13.5,
                       fontWeight: FontWeight.w700,
                       fontVariations: const [FontVariation('wght', 700)],
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
                     step.hint,
                     textAlign: TextAlign.center,
@@ -391,10 +387,10 @@ class _TodoCard extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Container(
                     width: double.infinity,
-                    height: 32,
+                    height: 30,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: AppColors.primary,
@@ -421,14 +417,14 @@ class _TodoCard extends StatelessWidget {
 }
 
 /// The Photos / About switch, pinned under the header while the content
-/// scrolls beneath it.
+/// scrolls beneath it. Icon-only with a thin underline, as on Instagram.
 class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   _TabBarDelegate({required this.selected, required this.onSelect});
 
   final _YouTab selected;
   final ValueChanged<_YouTab> onSelect;
 
-  static const double _height = 48;
+  static const double _height = 44;
 
   @override
   double get minExtent => _height;
@@ -441,14 +437,13 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlaps) {
-    // A pinned header has to paint its whole extent; left to the icons'
-    // own height it painted 24 of its 48 and the sliver refused it.
+    // A pinned header has to paint its whole extent.
     return Container(
       height: _height,
       decoration: BoxDecoration(
         color: AppColors.background,
         border: Border(
-          bottom: BorderSide(color: AppColors.inputBorder, width: 0.6),
+          bottom: BorderSide(color: AppColors.inputBorder, width: 0.5),
         ),
       ),
       child: Row(
@@ -486,7 +481,7 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
                 child: AnimatedOpacity(
                   opacity: on ? 1 : 0,
                   duration: const Duration(milliseconds: 160),
-                  child: Container(height: 1.5, color: AppColors.textDark),
+                  child: Container(height: 1, color: AppColors.textDark),
                 ),
               ),
             ],
@@ -519,7 +514,7 @@ class _AboutTab extends StatelessWidget {
     String label(String slug) => tagLabels[slug] ?? humanizeSlug(slug);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -528,11 +523,19 @@ class _AboutTab extends StatelessWidget {
               Expanded(
                 child: Text(
                   'About you',
-                  style: AppTextStyles.title.copyWith(fontSize: 19),
+                  style: AppTextStyles.title.copyWith(fontSize: 17),
                 ),
               ),
               TextButton(
                 onPressed: onEdit,
+                style: TextButton.styleFrom(
+                  minimumSize: Size.zero,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
+                  ),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
                 child: Text(
                   'Edit',
                   style: AppTextStyles.bodyStrong.copyWith(
@@ -599,7 +602,7 @@ class _Fact extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 18),
+      padding: const EdgeInsets.only(top: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -609,7 +612,7 @@ class _Fact extends StatelessWidget {
                 child: Text(
                   title,
                   style: AppTextStyles.bodyStrong.copyWith(
-                    fontSize: 13.5,
+                    fontSize: 13,
                     color: AppColors.textGrey,
                   ),
                 ),
@@ -627,7 +630,7 @@ class _Fact extends StatelessWidget {
               ],
             ],
           ),
-          const SizedBox(height: 7),
+          const SizedBox(height: 4),
           child,
         ],
       ),
@@ -644,7 +647,7 @@ class _Plain extends StatelessWidget {
   Widget build(BuildContext context) => Text(
     value ?? 'Not set',
     style: AppTextStyles.body.copyWith(
-      fontSize: 15,
+      fontSize: 14,
       color: value == null ? AppColors.textGrey : AppColors.textDark,
     ),
   );

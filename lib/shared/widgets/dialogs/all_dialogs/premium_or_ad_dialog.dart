@@ -46,18 +46,25 @@ class PremiumOrAdDialog extends ConsumerStatefulWidget {
 }
 
 class _PremiumOrAdDialogState extends ConsumerState<PremiumOrAdDialog> {
+  /// Drives the "Loading..." label. Ends the moment the ad opens.
   bool _loadingAd = false;
+
+  /// Blocks double taps for the whole flow (loading + playing the ad).
+  bool _busy = false;
 
   Future<void> _handleWatchAd() async {
     AppLogger.d('[PremiumOrAdDialog] Watch Ad tapped, unlockType=${widget.unlockType}');
 
-    if (_loadingAd) {
-      AppLogger.d('[PremiumOrAdDialog] Ignored tap — already loading an ad');
+    if (_busy) {
+      AppLogger.d('[PremiumOrAdDialog] Ignored tap — already busy with an ad');
       return;
     }
 
-    setState(() => _loadingAd = true);
-    AppLogger.d('[PremiumOrAdDialog] _loadingAd set to true');
+    setState(() {
+      _busy = true;
+      _loadingAd = true;
+    });
+    AppLogger.d('[PremiumOrAdDialog] _busy and _loadingAd set to true');
 
     bool earned = false;
     String? failureMessage;
@@ -66,7 +73,14 @@ class _PremiumOrAdDialogState extends ConsumerState<PremiumOrAdDialog> {
     try {
       earned = await ref
           .read(rewardedAdControllerProvider.notifier)
-          .showAdToUnlock(widget.unlockType);
+          .showAdToUnlock(
+        widget.unlockType,
+        // The ad is on screen now — stop showing "Loading...".
+        onAdShown: () {
+          AppLogger.d('[PremiumOrAdDialog] Ad is showing — clearing _loadingAd');
+          if (mounted) setState(() => _loadingAd = false);
+        },
+      );
       AppLogger.d('[PremiumOrAdDialog] showAdToUnlock resolved: earned=$earned');
     } catch (e, st) {
       AppLogger.e('[PremiumOrAdDialog] showAdToUnlock threw', error: e, stackTrace: st);
@@ -98,8 +112,11 @@ class _PremiumOrAdDialogState extends ConsumerState<PremiumOrAdDialog> {
       return;
     }
 
-    AppLogger.d('[PremiumOrAdDialog] earned=false — resetting _loadingAd, showing snackbar: ${failureMessage ?? 'default message'}');
-    setState(() => _loadingAd = false);
+    AppLogger.d('[PremiumOrAdDialog] earned=false — resetting flags, showing snackbar: ${failureMessage ?? 'default message'}');
+    setState(() {
+      _loadingAd = false;
+      _busy = false;
+    });
     AppSnackBar.showWarningSnackBar(
       message: failureMessage ??
           'You need to watch the full ad to unlock this.',
@@ -108,7 +125,7 @@ class _PremiumOrAdDialogState extends ConsumerState<PremiumOrAdDialog> {
 
   @override
   Widget build(BuildContext context) {
-    AppLogger.d('[PremiumOrAdDialog] build() — _loadingAd=$_loadingAd');
+    AppLogger.d('[PremiumOrAdDialog] build() — _loadingAd=$_loadingAd, _busy=$_busy');
     final colorScheme = Theme.of(context).colorScheme;
 
     return Dialog(
@@ -208,7 +225,9 @@ class _PremiumOrAdDialogState extends ConsumerState<PremiumOrAdDialog> {
                     child: CommonOutlinedButton(
                       height: 46,
                       text: _loadingAd ? 'Loading...' : widget.watchAdButtonText,
-                      onClick: _loadingAd ? null : _handleWatchAd,
+                      // _busy (not _loadingAd) disables the button, so it is
+                      // also locked while the ad is playing.
+                      onClick: _busy ? null : _handleWatchAd,
                     ),
                   ),
                 ],

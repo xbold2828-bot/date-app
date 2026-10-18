@@ -4,6 +4,7 @@ import 'package:dating_app/core/utils/utils.dart';
 import 'package:dating_app/shared/widgets/user_row_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/extensions/global_back_extension.dart';
 import '../../../core/theme/app_colors.dart';
@@ -230,7 +231,7 @@ class _RefreshableList extends ConsumerWidget {
       onRefresh: () => ref.read(conversationsProvider(state).notifier).refresh(),
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 100.h),
         itemCount: items.length,
         separatorBuilder: (_, _) => const SizedBox(height: 8),
         itemBuilder: (_, index) => ConversationTile(

@@ -27,12 +27,12 @@ class ExploreLoadingPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
+            const SizedBox(
               width: 14,
               height: 14,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: AppColors.primary,
+                color: AppColors.blue,
               ),
             ),
             const SizedBox(width: 10),
@@ -70,7 +70,7 @@ class ExploreNoticeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = tone == ExploreNoticeTone.warning
         ? AppColors.warning
-        : AppColors.primary;
+        : AppColors.blue;
 
     final hasPrimary = primaryLabel != null && onPrimary != null;
     final hasSecondary = secondaryLabel != null && onSecondary != null;
@@ -127,12 +127,12 @@ class ExploreNoticeCard extends StatelessWidget {
                   height: 1.4,
                 ),
               ),
-
               if (hasPrimary) ...[
                 const SizedBox(height: 16),
                 CommonOutlinedButton(
                   height: 40,
-                  text: primaryLabel!, onClick: onPrimary!,
+                  text: primaryLabel!,
+                  onClick: onPrimary!,
                 ),
               ],
               if (hasSecondary) ...[

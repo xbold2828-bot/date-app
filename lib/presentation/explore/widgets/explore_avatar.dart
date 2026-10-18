@@ -4,12 +4,8 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 
-/// One person's face, as a circle.
-///
-/// Used by the top strip, the grid and the composer, which is the whole point:
-/// the same person has to be recognisably the same object in all three, or
-/// picking somebody in the grid and then finding them in the strip becomes a
-/// puzzle. Ring, size and fallback all live here so they cannot drift.
+/// A person's face as a circle. Used by the strip, the grid and the composer
+/// so the same person looks the same everywhere.
 class ExploreAvatar extends StatelessWidget {
   const ExploreAvatar({
     super.key,
@@ -25,7 +21,7 @@ class ExploreAvatar extends StatelessWidget {
   final double size;
   final String? photoUrl;
 
-  /// Draws the blue-to-violet ring that marks the person the map is showing.
+  /// Draws a blue ring around the person the map is showing.
   final bool selected;
 
   final bool isOnline;
@@ -33,8 +29,6 @@ class ExploreAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The ring sits outside the photo rather than over it, so selecting
-    // somebody does not crop their face.
     const ringWidth = 2.4;
     final inner = size - (ringWidth + 2) * 2;
 
@@ -49,16 +43,7 @@ class ExploreAvatar extends StatelessWidget {
             height: size,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: selected
-                  ? const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        AppMapColors.markerStart,
-                        AppMapColors.markerEnd,
-                      ],
-                    )
-                  : null,
+              color: selected ? AppColors.blue : null,
               border: selected
                   ? null
                   : Border.all(color: AppColors.inputBorder, width: 1),
@@ -102,9 +87,7 @@ class ExploreAvatar extends StatelessWidget {
       fit: BoxFit.cover,
       width: inner,
       height: inner,
-      // These are thumbnails at 40–56 pt. Decoding a full-resolution portrait
-      // for each of a hundred grid cells is how a grid janks on a mid-range
-      // phone; the ceiling is generous enough for a 3x screen.
+      // Thumbnails only, so a large grid does not decode full-size photos.
       memCacheWidth: 180,
       placeholder: (_, _) => _initial(inner),
       errorWidget: (_, _, _) => _initial(inner),
@@ -112,20 +95,16 @@ class ExploreAvatar extends StatelessWidget {
   }
 
   Widget _initial(double inner) => Container(
-        width: inner,
-        height: inner,
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppMapColors.markerStart, AppMapColors.markerEnd],
-          ),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          name.trim().isEmpty ? '?' : name.trim()[0].toUpperCase(),
-          style: AppTextStyles.avatarInitial(inner * 0.42),
-        ),
-      );
+    width: inner,
+    height: inner,
+    decoration: const BoxDecoration(
+      shape: BoxShape.circle,
+      color: AppColors.blue,
+    ),
+    alignment: Alignment.center,
+    child: Text(
+      name.trim().isEmpty ? '?' : name.trim()[0].toUpperCase(),
+      style: AppTextStyles.avatarInitial(inner * 0.42),
+    ),
+  );
 }

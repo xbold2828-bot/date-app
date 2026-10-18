@@ -4,7 +4,9 @@ import 'package:dating_app/core/utils/utils.dart';
 import 'package:dating_app/shared/widgets/buttons/common_button.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart' hide BackButton;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/ads/app_open/app_open_ad_provider.dart'; // adjust path
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
@@ -12,16 +14,16 @@ import '../../../data/services/auth_service.dart';
 import '../../../shared/widgets/textfield/common_otp_field.dart';
 import '../../common/widgets/widgets.dart';
 
-class OtpScreen extends StatefulWidget {
+class OtpScreen extends ConsumerStatefulWidget {
   const OtpScreen({super.key, required this.phoneNumber});
 
   final String phoneNumber;
 
   @override
-  State<OtpScreen> createState() => _OtpScreenState();
+  ConsumerState<OtpScreen> createState() => _OtpScreenState();
 }
 
-class _OtpScreenState extends State<OtpScreen> {
+class _OtpScreenState extends ConsumerState<OtpScreen> {
   static const int _length = 6;
   static const int _resendSeconds = 30;
 
@@ -91,8 +93,13 @@ class _OtpScreenState extends State<OtpScreen> {
       );
 
       // The splash screen decides between onboarding and home.
-      if (response.user != null && mounted) {
-        context.go(AppRoutes.splash, extra: true);
+      if (response.user != null) {
+        // Start the 15-minute no-app-open-ad window. Done BEFORE navigating,
+        // and not behind `mounted`, so it is recorded even if this screen is
+        // already gone. Premium status lands a few seconds after login; this
+        // keeps ads off until it has been confirmed.
+        await ref.read(appOpenAdControllerProvider.notifier).onLoggedIn();
+        if (mounted) context.go(AppRoutes.splash, extra: true);
       }
     } catch (e) {
       if (!mounted) return;
@@ -154,7 +161,7 @@ class _OtpScreenState extends State<OtpScreen> {
                     ),
                     TextSpan(
                       text: displayPhoneNumber(widget.phoneNumber)
-                          .replaceAll(' ', ' '),
+                          .replaceAll(' ', ' '),
                       style: TextStyle(
                         color: AppColors.textDark,
                         fontWeight: FontWeight.w600,

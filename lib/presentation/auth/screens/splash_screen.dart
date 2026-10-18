@@ -12,6 +12,7 @@ import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pub_semver/pub_semver.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/ads/app_open/app_open_ad_provider.dart'; // adjust path
 import '../../../core/logger/app_logger.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
@@ -85,6 +86,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         context.go(AppRoutes.login);
         return;
       }
+
+      // Signed-in user: make sure a 15-min app-open-ad window exists. It never
+      // resets one that is already saved (e.g. right after OTP login), so
+      // restarting the app does not hand out a fresh delay each time.
+      await ref
+          .read(appOpenAdControllerProvider.notifier)
+          .ensureSessionStarted();
+      if (!mounted) return;
 
       // Invalidate first so a retry after a failure actually re-fetches.
       ref.invalidate(meProvider);
@@ -271,10 +280,22 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     }
   }
 
+  /// "Sign out" on the error screen. Clears the app-open-ad window first so
+  /// the next login starts a fresh 15 minutes.
+  Future<void> _signOutFromError() async {
+    await ref.read(appOpenAdControllerProvider.notifier).onLoggedOut();
+    await AuthService().signOut();
+    if (mounted) context.go(AppRoutes.login);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_error != null) {
-      return _ErrorRetry(message: _error.toString(), onRetry: _initialize);
+      return _ErrorRetry(
+        message: _error.toString(),
+        onRetry: _initialize,
+        onSignOut: _signOutFromError,
+      );
     }
 
     final colorScheme = Theme.of(context).colorScheme;
@@ -297,10 +318,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 }
 
 class _ErrorRetry extends StatelessWidget {
-  const _ErrorRetry({required this.message, required this.onRetry});
+  const _ErrorRetry({
+    required this.message,
+    required this.onRetry,
+    required this.onSignOut,
+  });
 
   final String message;
   final VoidCallback onRetry;
+  final VoidCallback onSignOut;
 
   @override
   Widget build(BuildContext context) {
@@ -353,10 +379,7 @@ class _ErrorRetry extends StatelessWidget {
               ),
               spacerH(12),
               TextButton(
-                onPressed: () async {
-                  await AuthService().signOut();
-                  if (context.mounted) context.go(AppRoutes.login);
-                },
+                onPressed: onSignOut,
                 child: Text(
                   'Sign out',
                   style: TextStyle(color: AppColors.textGrey),

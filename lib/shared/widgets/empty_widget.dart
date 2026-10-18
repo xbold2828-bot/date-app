@@ -31,10 +31,12 @@ class EmptyWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Gaps used below; the non-compact values are the original ones.
-    final gapAfterOrb = compact ? 16.0 : 28.0;
-    final gapAfterTitle = compact ? 8.0 : 10.0;
-    final gapBeforeAction = compact ? 18.0 : 28.0;
-    final titleSize = compact ? 20.0 : 22.0;
+    final gapAfterOrb = compact ? 12.0 : 28.0;
+    final gapAfterTitle = compact ? 6.0 : 10.0;
+    final gapBeforeAction = compact ? 15.0 : 28.0;
+    final titleSize = compact ? 18.5 : 22.0;
+    final bodySize = compact ? 13.0 : 14.0;
+    final buttonWidth = compact ? 180.0 : 200.0;
 
     // One-shot entrance animation (fade + slide up). No controller needed.
     return TweenAnimationBuilder<double>(
@@ -50,7 +52,7 @@ class EmptyWidget extends StatelessWidget {
       ),
       child: Padding(
         padding: compact
-            ? const EdgeInsets.fromLTRB(32, 16, 32, 16)
+            ? const EdgeInsets.fromLTRB(28, 12, 28, 12)
             : const EdgeInsets.fromLTRB(32, 48, 32, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -73,13 +75,13 @@ class EmptyWidget extends StatelessWidget {
             if(body!=null) ...[
               SizedBox(height: gapAfterTitle),
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 300),
+                constraints: BoxConstraints(maxWidth: compact ? 280 : 300),
                 child: Text(
                   body!,
                   textAlign: TextAlign.center,
                   style: AppTextStyles.caption.copyWith(
-                    fontSize: 14,
-                    height: 1.5,
+                    fontSize: bodySize,
+                    height: compact ? 1.45 : 1.5,
                     color: AppColors.textGrey,
                   ),
                 ),
@@ -89,7 +91,7 @@ class EmptyWidget extends StatelessWidget {
             if (actionLabel != null && onAction != null) ...[
               spacerH(gapBeforeAction),
               SizedBox(
-                width: 200,
+                width: buttonWidth,
                 child: CommonButton(
                   text: actionLabel!,
                   isLoading: false,
@@ -116,8 +118,8 @@ class _GlowOrb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fullSize = 250.w.clamp(200.0, 290.0).toDouble();
-    // Compact: ~70% of the normal size (the normal size is untouched).
-    final size = compact ? fullSize * 0.7 : fullSize;
+    // Compact: ~60% of the normal size (the normal size is untouched).
+    final size = compact ? fullSize * 0.6 : fullSize;
     final gifSize = size * 0.82;
 
     return RepaintBoundary(
@@ -168,7 +170,7 @@ class _GlowOrb extends StatelessWidget {
                       url: isLikePage? AppAnimation.likeMatchGif :AppAnimation.radarGif,
                       h: gifSize,
                     ).paddingOnly(
-                      bottom: isLikePage ? 0 : (compact ? 14.h : 20.h),
+                      bottom: isLikePage ? 0 : (compact ? 11.h : 20.h),
                     ),
                   ),
                 ),

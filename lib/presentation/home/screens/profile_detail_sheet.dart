@@ -6,6 +6,7 @@ import '../../../core/ads/rewarded/rewarded_unlock_type.dart';
 import '../../../core/constants/app_string.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_snack_bar.dart';
 import '../../../core/utils/screen_guard.dart';
 import '../../../data/models/profile_model.dart';
 import '../../../providers/chat_provider.dart';
@@ -86,15 +87,15 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
       if (mounted) Navigator.pop(context);
       // Raised after the pop, through the global messenger: the sheet's own
       // context is gone by now, and the confirmation belongs to the screen
-      // underneath anyway.
-      showRadiusToastGlobal('Message sent to $_name', tone: ToastTone.success);
+      // underneath anyway. AppSnackBar uses the global messenger key.
+      AppSnackBar.showSuccessSnackBar(message: 'Message sent to $_name');
     } on EntitlementRequiredException catch (gate) {
       // Out of free openers for today. The sheet stays open with the text
       // intact behind the paywall, so accepting the offer means one tap back
       // to what they already wrote.
       if (mounted) showMessageLimitPaywall(context, gate: gate);
     } on AppException catch (e) {
-      _toast(e.message, tone: ToastTone.error);
+      AppSnackBar.showErrorSnackBar(message: e.message);
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
@@ -113,7 +114,8 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
     }
 
     final quota = ref.read(likeQuotaProvider).valueOrNull;
-    final hasLikesLeft = quota == null || quota.unlimited || quota.remaining > 0;
+    final hasLikesLeft =
+        quota == null || quota.unlimited || quota.remaining > 0;
 
     if (!hasLikesLeft) {
       await _showOutOfLikesDialog();
@@ -134,7 +136,11 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
       descriptionText: AppString.outOfLikesDescription,
       unlockType: RewardedUnlockType.getMoreLikes,
       onAdEarned: () async {
-        await ref.read(likeQuotaProvider.notifier).unlockMore();
+        // unlockMore sends the idempotencyKey. On failure it has already
+        // shown the error snackbar and returns false — so we stop here:
+        // no like call, no refresh, no other API.
+        final ok = await ref.read(likeQuotaProvider.notifier).unlockMore();
+        if (!ok) return;
         if (mounted) await _performLike();
       },
     );
@@ -161,7 +167,7 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
         ref.read(matchCelebrationProvider.notifier).show(result.match!);
         ref.invalidate(mutualLikesProvider);
       } else if (!result.alreadyReacted) {
-        _toast('You liked $_name', tone: ToastTone.success);
+        AppSnackBar.showSuccessSnackBar(message: 'You liked $_name');
       }
 
       // Re-read the profile so `hasLiked` becomes the source of truth again
@@ -175,15 +181,15 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
         unawaited(ref.read(likeQuotaProvider.notifier).refresh());
       }
     } on EntitlementRequiredException {
-      // Server disagrees with our local quota read (e.g. stale cache) —
-      // fall back to the same dialog rather than a raw error toast.
+      // Server says no likes left (our local quota was stale). Put the heart
+      // back and open the same dialog. We deliberately do NOT refetch the
+      // quota here: an error must not trigger further API calls.
       if (mounted) setState(() => _likedOverride = null);
-      await ref.read(likeQuotaProvider.notifier).refresh();
       if (mounted) await _showOutOfLikesDialog();
     } on AppException catch (e) {
-      // Put the heart back where the server says it is.
+      // Put the heart back where the server says it is, and just report it.
       if (mounted) setState(() => _likedOverride = null);
-      _toast(e.message, tone: ToastTone.error);
+      AppSnackBar.showErrorSnackBar(message: e.message);
     } finally {
       if (mounted) setState(() => _likeInFlight = false);
     }
@@ -216,20 +222,15 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
       ref.read(likeQuotaProvider.notifier).setQuota(result.quota);
 
       if (result.removed) {
-        _toast('You unliked $_name', tone: ToastTone.neutral);
+        AppSnackBar.showWarningSnackBar(message: 'You unliked $_name');
       }
     } on AppException catch (e) {
       // Put the heart back where it was — the unlike didn't take.
       if (mounted) setState(() => _likedOverride = true);
-      _toast(e.message, tone: ToastTone.error);
+      AppSnackBar.showErrorSnackBar(message: e.message);
     } finally {
       if (mounted) setState(() => _likeInFlight = false);
     }
-  }
-
-  void _toast(String message, {ToastTone tone = ToastTone.neutral}) {
-    if (!mounted) return;
-    showRadiusToast(context, message, tone: tone);
   }
 
   @override
@@ -255,7 +256,8 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
     final keyboard = system.viewInsets.bottom;
 
     // Room that is actually free: below the status bar, above the keyboard.
-    final available = (screenHeight - topSafe - keyboard).clamp(0.0, screenHeight);
+    final available =
+    (screenHeight - topSafe - keyboard).clamp(0.0, screenHeight);
 
     // Normal height normally; shrinks to fit when the keyboard is up, so the
     // sheet can never poke above the safe area or push the action bar away.
@@ -385,5 +387,3 @@ class _PinnedCloseButton extends StatelessWidget {
     );
   }
 }
-
-

@@ -6,15 +6,24 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../providers/explore_provider.dart';
 
-/// The chrome that floats over the Explore map.
-///
-/// Everything here is glass rather than opaque panel: the map is the content,
-/// and a solid bar across the top would cut the city in half. Each control sits
-/// in a `SafeArea`-aware stack in [ExploreScreen] rather than at fixed offsets,
-/// so a notch, a tall phone and a tablet all place them correctly.
+/// Floating bar decoration that matches the bottom navigation bar.
+BoxDecoration floatingBarDecoration({double radius = 28}) {
+  return BoxDecoration(
+    color: AppColors.isDark
+        ? AppColors.greyColor.withValues(alpha: 0.5)
+        : AppColors.whiteColor,
+    borderRadius: BorderRadius.circular(radius),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.12),
+        blurRadius: 18,
+        offset: const Offset(0, 6),
+      ),
+    ],
+  );
+}
 
-/// A blurred, translucent surface. The single definition of "glass" for the
-/// whole feature, so the header, the pills and the buttons cannot drift apart.
+/// Blurred, translucent surface used by the pills and toggles over the map.
 class GlassSurface extends StatelessWidget {
   const GlassSurface({
     super.key,
@@ -35,8 +44,6 @@ class GlassSurface extends StatelessWidget {
     return ClipRRect(
       borderRadius: shape,
       child: BackdropFilter(
-        // Enough to separate text from whatever is under it, not so much that
-        // the map stops being visible through it.
         filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
         child: DecoratedBox(
           decoration: BoxDecoration(
@@ -68,13 +75,8 @@ class GlassSurface extends StatelessWidget {
   }
 }
 
-/// "5 people" — the whole of what the old header carried that was worth
-/// keeping.
-///
-/// It used to be a glass card with the word "Explore" on the Explore tab, a
-/// subtitle, and a search button for a set the strip underneath already shows
-/// in full. What people actually read off it was the number, so the number is
-/// what is left, floated over the map instead of taking a row of layout.
+/// "5 people vibing" pill. "Vibing" is the app's word for a conversation both
+/// people are in, which is exactly who appears on this map.
 class ExploreCountPill extends StatelessWidget {
   const ExploreCountPill({
     super.key,
@@ -87,9 +89,6 @@ class ExploreCountPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // "Vibing" is the app's own word for a conversation both people are in,
-    // and it is the exact rule for who is on this map. Anything vaguer —
-    // "nearby", "friends" — would describe a different set of people.
     final label = switch (count) {
       _ when isLoading => 'Finding your people…',
       0 => 'Nobody here yet',
@@ -106,10 +105,10 @@ class ExploreCountPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.auto_awesome,
-              size: 14,
-              color: AppColors.primary,
+            const Icon(
+              Icons.people_alt_outlined,
+              size: 16,
+              color: AppColors.blue,
             ),
             const SizedBox(width: 6),
             Text(
@@ -188,123 +187,7 @@ class ExploreViewToggle extends StatelessWidget {
   }
 }
 
-/// The stacked +/− pair.
-///
-/// Pinch already zooms, so this is not the only way in — it is for one-handed
-/// use and for the precise single steps that a pinch cannot give you.
-class ExploreZoomButtons extends StatelessWidget {
-  const ExploreZoomButtons({
-    super.key,
-    required this.onZoomIn,
-    required this.onZoomOut,
-  });
-
-  final VoidCallback onZoomIn;
-  final VoidCallback onZoomOut;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassSurface(
-      radius: 16,
-      padding: EdgeInsets.zero,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _button(Icons.add, 'Zoom in', onZoomIn),
-          Container(
-            width: 26,
-            height: 1,
-            color: AppColors.inputBorder.withValues(alpha: 0.8),
-          ),
-          _button(Icons.remove, 'Zoom out', onZoomOut),
-        ],
-      ),
-    );
-  }
-
-  Widget _button(IconData icon, String label, VoidCallback onTap) => Semantics(
-    button: true,
-    label: label,
-    excludeSemantics: true,
-    child: InkWell(
-      onTap: onTap,
-      child: SizedBox(
-        width: 46,
-        height: 42,
-        child: Icon(icon, size: 20, color: AppColors.textDark),
-      ),
-    ),
-  );
-}
-
-/// Round glass button. Used for centre-on-me, and for anything else that turns
-/// out to belong in that column.
-class ExploreCircleButton extends StatefulWidget {
-  const ExploreCircleButton({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-    this.busy = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback? onPressed;
-  final bool busy;
-
-  @override
-  State<ExploreCircleButton> createState() => _ExploreCircleButtonState();
-}
-
-class _ExploreCircleButtonState extends State<ExploreCircleButton> {
-  bool _down = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: widget.label,
-      excludeSemantics: true,
-      child: Listener(
-        onPointerDown: (_) => setState(() => _down = true),
-        onPointerUp: (_) => setState(() => _down = false),
-        onPointerCancel: (_) => setState(() => _down = false),
-        child: AnimatedScale(
-          scale: _down ? 0.92 : 1,
-          duration: const Duration(milliseconds: 120),
-          curve: Curves.easeOut,
-          child: GlassSurface(
-            radius: 999,
-            padding: EdgeInsets.zero,
-            onTap: widget.onPressed,
-            child: SizedBox(
-              width: 46,
-              height: 46,
-              child: widget.busy
-                  ? Padding(
-                padding: const EdgeInsets.all(13),
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.2,
-                  color: AppColors.primary,
-                ),
-              )
-                  : Icon(widget.icon, size: 21, color: AppColors.primary),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// "You are looking at Emma. Tap to go back to everyone."
-///
-/// With one person on the map, the map itself no longer says who — every other
-/// marker is gone, so there is nothing to compare against and no label on the
-/// remaining one. This is the caption for that state, and the one-tap way out
-/// of it: without it the only route back to everybody is through the grid,
-/// which is two taps and a full-screen sheet to undo a single tap.
+/// Shown when the map is focused on one person. Tap to show everyone again.
 class ExploreFocusPill extends StatelessWidget {
   const ExploreFocusPill({
     super.key,
@@ -315,12 +198,7 @@ class ExploreFocusPill extends StatelessWidget {
 
   final String name;
 
-  /// How far away they actually are — "450 m away", not a band.
-  ///
-  /// This is the one thing the map cannot show you. The marker is deliberately
-  /// generalized, so the gap between two pins is not a distance anybody should
-  /// read off the screen; the number is measured server-side between the real
-  /// points and stated here instead. Null when neither side has a location.
+  /// Real distance such as "450 m away". Null when it is unknown.
   final String? distance;
 
   final VoidCallback onShowEveryone;
@@ -340,10 +218,10 @@ class ExploreFocusPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
+            const Icon(
               Icons.person_pin_circle_outlined,
               size: 16,
-              color: AppColors.primary,
+              color: AppColors.blue,
             ),
             const SizedBox(width: 7),
             Flexible(

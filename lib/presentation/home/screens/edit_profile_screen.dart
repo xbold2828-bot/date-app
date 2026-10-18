@@ -9,8 +9,9 @@ import '../widgets/profile_edit_panel.dart';
 import '../widgets/profile_edit_sheets.dart';
 
 /// Every answer on the profile, editable in one place — what "Edit profile"
-/// opens. The bio leads because it is the one thing people read first; the
-/// rest is the onboarding answers, laid out open rather than folded away.
+/// opens. Like Instagram's edit screen: small grey label, value beneath, a
+/// blue action on the right. The bio leads; the rest is the onboarding
+/// answers, laid out open rather than folded away.
 class EditProfileScreen extends ConsumerWidget {
   const EditProfileScreen({super.key});
 
@@ -24,6 +25,8 @@ class EditProfileScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: AppColors.background,
         surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         leading: BackChevron(onTap: () => Navigator.of(context).maybePop()),
         titleSpacing: 0,
         title: Text('Edit profile', style: AppTextStyles.title),
@@ -31,38 +34,38 @@ class EditProfileScreen extends ConsumerWidget {
       body: me == null
           ? Center(child: CircularProgressIndicator(color: AppColors.primary))
           : GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-              child: ListView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  8,
-                  20,
-                  32 + MediaQuery.paddingOf(context).bottom,
-                ),
-                children: [
-                  _BioBlock(
-                    bio: bio,
-                    onEdit: () async {
-                      final saved = await showEditBioSheet(context, bio);
-                      if (saved && context.mounted) {
-                        showRadiusToast(
-                          context,
-                          'Bio updated',
-                          tone: ToastTone.success,
-                        );
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 22),
-                  Divider(color: AppColors.inputBorder, height: 1),
-                  const SizedBox(height: 22),
-                  ProfileEditPanel(me: me, embedded: true),
-                ],
-              ),
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: ListView(
+          keyboardDismissBehavior:
+          ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.fromLTRB(
+            16,
+            4,
+            16,
+            16 + MediaQuery.paddingOf(context).bottom,
+          ),
+          children: [
+            _BioBlock(
+              bio: bio,
+              onEdit: () async {
+                final saved = await showEditBioSheet(context, bio);
+                if (saved && context.mounted) {
+                  showRadiusToast(
+                    context,
+                    'Bio updated',
+                    tone: ToastTone.success,
+                  );
+                }
+              },
             ),
+            const SizedBox(height: 8),
+            Divider(color: AppColors.inputBorder, height: 1),
+            const SizedBox(height: 12),
+            ProfileEditPanel(me: me, embedded: true),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -80,9 +83,22 @@ class _BioBlock extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(child: Text('Bio', style: AppTextStyles.label)),
+            Expanded(
+              child: Text(
+                'Bio',
+                style: AppTextStyles.label.copyWith(color: AppColors.textGrey),
+              ),
+            ),
             TextButton(
               onPressed: onEdit,
+              style: TextButton.styleFrom(
+                minimumSize: Size.zero,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 6,
+                ),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               child: Text(
                 bio.isEmpty ? 'Write' : 'Edit',
                 style: AppTextStyles.bodyStrong.copyWith(
@@ -97,7 +113,8 @@ class _BioBlock extends StatelessWidget {
         Text(
           bio.isEmpty ? 'Say something worth replying to.' : bio,
           style: AppTextStyles.body.copyWith(
-            height: 1.5,
+            fontSize: 14,
+            height: 1.35,
             color: bio.isEmpty ? AppColors.textGrey : AppColors.textDark,
           ),
         ),

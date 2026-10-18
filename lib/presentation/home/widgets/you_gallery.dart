@@ -11,8 +11,8 @@ import '../../../providers/profile_provider.dart';
 import '../../../shared/widgets/dialogs/all_dialogs/radius_dialog.dart';
 import '../../common/widgets/widgets.dart';
 
-/// My public photos, as the profile's grid — edge to edge, three across, the
-/// way a profile grid is read everywhere else on a phone.
+/// My public photos as Instagram's grid — edge to edge, three across, 1px
+/// gaps, 4:5 tiles.
 ///
 /// Tap a photo to make it the cover or delete it; the last tile adds one.
 class YouGallery extends ConsumerStatefulWidget {
@@ -122,8 +122,8 @@ class YouGalleryState extends ConsumerState<YouGallery> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       padding: EdgeInsets.zero,
-      crossAxisSpacing: 2,
-      mainAxisSpacing: 2,
+      crossAxisSpacing: 1,
+      mainAxisSpacing: 1,
       childAspectRatio: 0.8,
       children: [
         for (final photo in photos)
@@ -136,15 +136,15 @@ class YouGalleryState extends ConsumerState<YouGallery> {
   /// Nothing uploaded yet: say what goes here and offer the one action.
   Widget _empty() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 36, 32, 12),
+      padding: const EdgeInsets.fromLTRB(32, 28, 32, 8),
       child: Column(
         children: [
           Container(
-            width: 64,
-            height: 64,
+            width: 62,
+            height: 62,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.textDark, width: 2),
+              border: Border.all(color: AppColors.textDark, width: 1.5),
             ),
             child: Icon(
               Icons.photo_camera_outlined,
@@ -152,18 +152,18 @@ class YouGalleryState extends ConsumerState<YouGallery> {
               color: AppColors.textDark,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Text(
             'Add your photos',
             style: AppTextStyles.title.copyWith(fontSize: 20),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             'Your cover photo is the first thing people nearby see.',
             textAlign: TextAlign.center,
             style: AppTextStyles.bodyMuted,
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 240),
             child: RadiusButton(
@@ -212,9 +212,9 @@ class YouGalleryState extends ConsumerState<YouGallery> {
                   : ColoredBox(color: AppColors.inputBorder),
             ),
             if (isPrimary)
-              Positioned(left: 6, bottom: 6, child: _badge('Cover'))
+              Positioned(left: 6, top: 6, child: _badge('Cover'))
             else if (photo.isPending)
-              Positioned(left: 6, bottom: 6, child: _badge('In review')),
+              Positioned(left: 6, top: 6, child: _badge('In review')),
           ],
         ),
       ),
@@ -222,9 +222,9 @@ class YouGalleryState extends ConsumerState<YouGallery> {
   }
 
   Widget _badge(String label) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
     decoration: BoxDecoration(
-      color: Colors.black.withValues(alpha: 0.55),
+      color: Colors.black.withValues(alpha: 0.6),
       borderRadius: BorderRadius.circular(999),
     ),
     child: Text(
@@ -265,7 +265,6 @@ class YouGalleryState extends ConsumerState<YouGallery> {
                   size: 28,
                   color: AppColors.textDark,
                 ),
-                const SizedBox(height: 2),
                 Text(
                   'Add',
                   style: AppTextStyles.caption.copyWith(
@@ -321,7 +320,6 @@ class YouGalleryState extends ConsumerState<YouGallery> {
                 _deletePhoto(photo);
               },
             ),
-            const SizedBox(height: 4),
           ],
         ),
       ),
@@ -344,7 +342,8 @@ class YouGalleryState extends ConsumerState<YouGallery> {
     final confirmed = await showRadiusConfirm(
       context,
       title: 'Delete photo?',
-      message: 'This removes it from your profile and from storage. '
+      message:
+      'This removes it from your profile and from storage. '
           'It cannot be undone.',
       confirmLabel: 'Delete',
       destructive: true,
@@ -392,12 +391,11 @@ class _SheetAction extends StatelessWidget {
       excludeSemantics: true,
       child: InkWell(
         onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(14),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
           child: Row(
             children: [
-              Icon(icon, size: 22, color: color),
+              Icon(icon, size: 24, color: color),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -407,7 +405,7 @@ class _SheetAction extends StatelessWidget {
                     Text(
                       label,
                       style: AppTextStyles.bodyStrong.copyWith(
-                        fontSize: 15.5,
+                        fontSize: 15,
                         color: color,
                       ),
                     ),

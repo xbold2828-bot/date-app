@@ -143,10 +143,11 @@ class MatchRepository {
     return LikeQuota.fromJson(Map<String, dynamic>.from(data as Map));
   }
 
-  /// `POST /likes/quota/unlock` — spends an ad credit for more likes.
-  /// Returns the updated quota so callers don't need a separate refetch.
-  Future<LikeQuota> unlockQuota() async {
-    final data = await _api.post(ApiConstants.likesQuotaUnlock);
+  Future<LikeQuota> unlockQuota({required String idempotencyKey}) async {
+    final data = await _api.post(
+      ApiConstants.likesQuotaUnlock,
+      body: {'idempotencyKey': idempotencyKey}, // use your _api body param name
+    );
     return LikeQuota.fromJson(Map<String, dynamic>.from(data as Map));
   }
 }

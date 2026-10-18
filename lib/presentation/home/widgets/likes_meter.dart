@@ -12,12 +12,16 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_snack_bar.dart';
 import '../../common/widgets/widgets.dart';
 import '../models/like_quota_model.dart';
 import '../providers/like_quota_provider/like_quota_provider.dart';
 import 'heart_shape.dart';
 
 const Cubic _easeOut = Cubic(0.23, 1, 0.32, 1);
+
+/// Most hearts drawn in the sheet. Anything above this is shown as "+N".
+const int _maxHearts = 10;
 
 /// Colour of the like heart, on the dashboard meter and in the sheet.
 Color get _likeRed => AppColors.danger;
@@ -33,12 +37,15 @@ class LikesMeter extends StatelessWidget {
   final LikeQuota quota;
   final VoidCallback onTap;
 
-  /// 0..1 — how full the heart is. An unknown allowance (before the first
-  /// fetch) reads as full rather than as "you have nothing".
+  /// 0..1 — how full the heart is, measured against the FREE DAILY limit
+  /// (not `allowance`, which grows with every ad watched and would make the
+  /// heart look emptier after each ad). Ad likes beyond the daily limit read
+  /// as full. An unknown limit (before the first fetch) reads as full rather
+  /// than as "you have nothing".
   static double fillOf(LikeQuota q) {
     if (q.unlimited) return 1;
-    if (q.allowance <= 0) return q.remaining > 0 ? 1 : 0;
-    return (q.remaining / q.allowance).clamp(0.0, 1.0);
+    if (q.dailyLimit <= 0) return q.remaining > 0 ? 1 : 0;
+    return (q.remaining / q.dailyLimit).clamp(0.0, 1.0);
   }
 
   @override
@@ -189,52 +196,71 @@ class _LikesTodaySheet extends ConsumerStatefulWidget {
 }
 
 class _LikesTodaySheetState extends ConsumerState<_LikesTodaySheet> {
+  /// Drives the "Loading" label. Ends the moment the ad opens.
   bool _watching = false;
+
+  /// Blocks double taps for the whole flow: ad loading, ad playing, and the
+  /// unlock request after it. Stays on after the ad opens, unlike [_watching].
+  bool _busy = false;
 
   @override
   void initState() {
     super.initState();
     // Re-read the quota whenever the sheet opens, so it is never stale.
+    // refresh() shows an AppSnackBar itself if the request fails.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref.read(likeQuotaProvider.notifier).refresh();
     });
   }
 
+  /// Watch an ad -> +likes. The user can repeat this as many times as the
+  /// server allows (`canEarnMore`); the button stays visible until then.
   Future<void> _watchAd() async {
-    if (_watching) return;
-    setState(() => _watching = true);
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _watching = true;
+    });
     try {
       final earned = await ref
           .read(rewardedAdControllerProvider.notifier)
-          .showAdToUnlock(RewardedUnlockType.getMoreLikes);
+          .showAdToUnlock(
+        RewardedUnlockType.getMoreLikes,
+        // The ad is on screen now — stop showing "Loading".
+        onAdShown: () {
+          if (mounted) setState(() => _watching = false);
+        },
+      );
       if (!mounted) return;
       if (!earned) {
-        showRadiusToast(
-          context,
-          'Watch the whole ad to get the like.',
-          tone: ToastTone.neutral,
+        AppSnackBar.showWarningSnackBar(
+          message: 'Watch the whole ad to get the like.',
         );
         return;
       }
-      await ref.read(likeQuotaProvider.notifier).unlockMore();
-      // Fetch the quota again so the new count comes from the server.
-      await ref.read(likeQuotaProvider.notifier).refresh();
-      if (mounted) {
-        showRadiusToast(context, 'Like added', tone: ToastTone.success);
-      }
+
+      // unlockMore sends the idempotencyKey and writes the fresh quota into
+      // state from the response, so no extra refresh() call is needed.
+      // If it fails it shows the error snackbar itself and returns false —
+      // we stop right here and hit no other API.
+      final ok = await ref.read(likeQuotaProvider.notifier).unlockMore();
+      if (!ok) return;
+
+      AppSnackBar.showSuccessSnackBar(message: 'Like added');
     } on AppException catch (e) {
-      if (mounted) showRadiusToast(context, e.message, tone: ToastTone.error);
+      AppSnackBar.showErrorSnackBar(message: e.message);
     } catch (_) {
-      if (mounted) {
-        showRadiusToast(
-          context,
-          'Ad not available right now. Try again shortly.',
-          tone: ToastTone.error,
-        );
-      }
+      AppSnackBar.showErrorSnackBar(
+        message: 'Ad not available right now. Try again shortly.',
+      );
     } finally {
-      if (mounted) setState(() => _watching = false);
+      if (mounted) {
+        setState(() {
+          _watching = false;
+          _busy = false;
+        });
+      }
     }
   }
 
@@ -246,11 +272,25 @@ class _LikesTodaySheetState extends ConsumerState<_LikesTodaySheet> {
     return 'Refills at $time';
   }
 
+  /// Always the plain count of likes left — never a fraction, because the
+  /// "total" moves every time an ad is watched.
+  String _headline(LikeQuota q) {
+    if (q.remaining == 0) return "You've used today's likes.";
+    return '${q.remaining} ${q.remaining == 1 ? 'like' : 'likes'} left';
+  }
+
+  /// Where today's likes came from, e.g. "3 daily + 4 from ads · 6 used".
+  String? _breakdown(LikeQuota q) {
+    if (q.bonusFromAds <= 0) return null;
+    return '${q.dailyLimit} daily + ${q.bonusFromAds} from ads · ${q.used} used';
+  }
+
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(likeQuotaProvider);
     final q = async.valueOrNull ?? LikeQuota.empty;
     final reset = _resetLabel(q);
+    final breakdown = _breakdown(q);
 
     return RadiusSheet(
       child: Column(
@@ -276,12 +316,10 @@ class _LikesTodaySheetState extends ConsumerState<_LikesTodaySheet> {
               ],
             )
           else ...[
-            _HeartRow(remaining: q.remaining, allowance: q.allowance),
+            _HeartRow(remaining: q.remaining, dailyLimit: q.dailyLimit),
             const SizedBox(height: 14),
             Text(
-              q.remaining == 0
-                  ? "You've used today's likes."
-                  : '${q.remaining} of ${q.allowance} left',
+              _headline(q),
               style: AppTextStyles.bodyStrong.copyWith(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
@@ -289,6 +327,10 @@ class _LikesTodaySheetState extends ConsumerState<_LikesTodaySheet> {
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
+            if (breakdown != null) ...[
+              const SizedBox(height: 2),
+              Text(breakdown, style: AppTextStyles.bodyMuted),
+            ],
             if (reset != null) ...[
               const SizedBox(height: 2),
               Text(reset, style: AppTextStyles.bodyMuted),
@@ -340,29 +382,43 @@ class _LikesTodaySheetState extends ConsumerState<_LikesTodaySheet> {
   }
 }
 
-/// One heart per like the day allows: full for the ones left, outlined for
-/// the ones spent. Capped so a ten-like day still fits a narrow phone.
+/// One heart per like left, on a base row of [dailyLimit] hearts: the daily
+/// ones show outlined once spent, and ad likes add full hearts on top. Spent
+/// ad likes do NOT leave empty hearts behind, so watching an ad never makes
+/// the row look emptier. Capped at [_maxHearts]; anything beyond reads "+N".
 class _HeartRow extends StatelessWidget {
-  const _HeartRow({required this.remaining, required this.allowance});
+  const _HeartRow({required this.remaining, required this.dailyLimit});
 
   final int remaining;
-  final int allowance;
+  final int dailyLimit;
 
   @override
   Widget build(BuildContext context) {
-    final total = math.max(allowance, remaining).clamp(1, 10);
+    // Never fewer hearts than likes left, so ad likes are not hidden.
+    final total = math.max(dailyLimit, remaining).clamp(1, _maxHearts);
+    final overflow = remaining > _maxHearts ? remaining - _maxHearts : 0;
+
     return Semantics(
-      label: '$remaining of $allowance likes left',
+      label: '$remaining likes left',
       excludeSemantics: true,
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           for (var i = 0; i < total; i++)
             HeartGauge(
               size: 30,
               fill: i < remaining ? 1 : 0,
               color: i < remaining ? _likeRed : AppColors.iconMuted,
+            ),
+          if (overflow > 0)
+            Text(
+              '+$overflow',
+              style: AppTextStyles.bodyStrong.copyWith(
+                fontSize: 16,
+                color: _likeRed,
+              ),
             ),
         ],
       ),

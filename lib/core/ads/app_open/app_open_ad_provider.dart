@@ -10,19 +10,32 @@ import 'app_open_ad_state.dart';
 
 const Duration kMinGapBetweenAppOpenAds = Duration(minutes: 15);
 const Duration kAppOpenAdMaxCacheAge = Duration(hours: 4);
+
+/// After a login, no app-open ad is shown for this long. Premium status
+/// arrives from the server a few seconds after login; this window makes sure
+/// it has long since been confirmed, so a premium user never sees an ad.
+const Duration kPostLoginAdDelay = Duration(minutes: 15);
+
 const String _kLastShownPrefsKey = 'app_open_ad_last_shown_at';
+const String _kSessionStartPrefsKey = 'app_open_ad_session_started_at';
 
 class AppOpenAdController extends Notifier<AppOpenAdState>
     with WidgetsBindingObserver {
   AppOpenAd? _appOpenAd;
   DateTime? _adLoadedAt;
   DateTime? _lastShownAt;
+
+  /// When the current login session began. Null = no login recorded yet,
+  /// in which case NO ad is shown.
+  DateTime? _sessionStartedAt;
+
   bool _disposed = false;
+
+  /// Completes once the saved timestamps have been read from disk.
+  Future<void> _ready = Future.value();
 
   @override
   AppOpenAdState build() {
-    // final isPremium = ref.watch(isUserHavePremiumProvider);
-
     _disposed = false;
     WidgetsBinding.instance.addObserver(this);
     ref.onDispose(() {
@@ -32,25 +45,62 @@ class AppOpenAdController extends Notifier<AppOpenAdState>
       _appOpenAd = null;
     });
 
-    // if (isPremium) return const AppOpenAdState();
+    // Reads prefs only; it does not touch `state`, so it is safe to start
+    // here. Until it finishes, _sessionStartedAt is null and nothing shows.
+    _ready = _restoreTimes();
 
     // Don't touch `state` synchronously inside build() — the provider
     // isn't initialized until build() returns. Defer to a microtask.
-    Future.microtask(() {
-      _restoreLastShownTime();
-      _loadAd();
-    });
+    // (Loading an ad is fine during the grace period; only SHOWING is gated.)
+    Future.microtask(_loadAd);
 
     return const AppOpenAdState();
   }
 
-  Future<void> _restoreLastShownTime() async {
-    if (_disposed) return;
+  // ── Login-session tracking ────────────────────────────────────────────────
+
+  /// Call when the user has just logged in (fresh sign-in, not a restored
+  /// session). Starts the [kPostLoginAdDelay] window.
+  Future<void> onLoggedIn() async {
+    await _ready;
+    _sessionStartedAt = DateTime.now();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(
+      _kSessionStartPrefsKey,
+      _sessionStartedAt!.millisecondsSinceEpoch,
+    );
+  }
+
+  /// Call when the app starts with an already-signed-in user. Only starts the
+  /// window if none is saved yet (e.g. an update from a version that did not
+  /// track it), so a restored session never resets an older, valid window.
+  Future<void> ensureSessionStarted() async {
+    await _ready;
+    if (_sessionStartedAt != null) return;
+    await onLoggedIn();
+  }
+
+  /// Call on logout so the next login starts a fresh window and no ad is
+  /// shown to a signed-out user.
+  Future<void> onLoggedOut() async {
+    await _ready;
+    _sessionStartedAt = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kSessionStartPrefsKey);
+  }
+
+  Future<void> _restoreTimes() async {
     final prefs = await SharedPreferences.getInstance();
     if (_disposed) return;
-    final millis = prefs.getInt(_kLastShownPrefsKey);
-    if (millis != null) {
-      _lastShownAt = DateTime.fromMillisecondsSinceEpoch(millis);
+
+    final shown = prefs.getInt(_kLastShownPrefsKey);
+    if (shown != null) {
+      _lastShownAt = DateTime.fromMillisecondsSinceEpoch(shown);
+    }
+
+    final started = prefs.getInt(_kSessionStartPrefsKey);
+    if (started != null) {
+      _sessionStartedAt = DateTime.fromMillisecondsSinceEpoch(started);
     }
   }
 
@@ -58,6 +108,8 @@ class AppOpenAdController extends Notifier<AppOpenAdState>
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_kLastShownPrefsKey, time.millisecondsSinceEpoch);
   }
+
+  // ── Eligibility ───────────────────────────────────────────────────────────
 
   bool get _isAdFresh {
     if (_adLoadedAt == null) return false;
@@ -70,6 +122,14 @@ class AppOpenAdController extends Notifier<AppOpenAdState>
     if (_lastShownAt == null) return true;
     return DateTime.now().difference(_lastShownAt!) >=
         kMinGapBetweenAppOpenAds;
+  }
+
+  /// True only once the user has been logged in for [kPostLoginAdDelay].
+  /// No recorded login (or prefs not read yet) means false.
+  bool get _loginDelayElapsed {
+    final started = _sessionStartedAt;
+    if (started == null) return false;
+    return DateTime.now().difference(started) >= kPostLoginAdDelay;
   }
 
   void _loadAd() {
@@ -102,7 +162,15 @@ class AppOpenAdController extends Notifier<AppOpenAdState>
 
   void showAdIfEligible() {
     if (_disposed) return;
+
+    // Premium users never see this ad…
     if (ref.read(isUserHavePremiumProvider)) return;
+
+    // …and nobody sees it until 15 minutes after login, by which time the
+    // premium flag has certainly been confirmed by the server. Without this,
+    // a premium user could get an ad in the few seconds before the flag lands.
+    if (!_loginDelayElapsed) return;
+
     if (state.isShowingAd || !_cooldownElapsed) return;
 
     if (!_isAdAvailable) {

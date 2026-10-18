@@ -297,7 +297,7 @@ class _BottomNav extends StatelessWidget {
                         alignment: Alignment.center,
                         child: Icon(
                           tab.icon,
-                          size: 22,
+                          size: 24,
                           color:
                           isActive ? Colors.white : AppColors.textDark,
                         ),

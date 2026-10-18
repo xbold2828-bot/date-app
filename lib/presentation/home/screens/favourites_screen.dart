@@ -154,7 +154,7 @@ class _LikedYouTab extends ConsumerWidget {
 
         // Grid
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20.w).copyWith(top: 10.h),
+          padding: EdgeInsets.symmetric(horizontal: 20.w).copyWith(top: 10.h, bottom: 100.h),
           child: GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -174,13 +174,11 @@ class _LikedYouTab extends ConsumerWidget {
             ),
           ),
         ),
+
       ],
     );
   }
 
-  /// Premium, or watch an ad. After the ad, [AdActions.unlockLikedYou] mints
-  /// the credit and — when [card] has a usable id — spends it to reveal this
-  /// specific card in the same round trip.
   Future<void> _showUnlockDialog(
       BuildContext context,
       WidgetRef ref,
@@ -302,7 +300,7 @@ class _MutualTab extends ConsumerWidget {
 
           return ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            padding:  EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 100.h),
             itemCount: page.items.length,
             separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (_, index) {

@@ -81,27 +81,19 @@ class _LiveLocationLineState extends ConsumerState<LiveLocationLine> {
         '${lng.abs().toStringAsFixed(4)}° ${lng >= 0 ? 'E' : 'W'}';
   }
 
-  String? _drift(Position fix) {
-    final lat = widget.anchorLatitude;
-    final lng = widget.anchorLongitude;
-    if (lat == null || lng == null) return null;
-
-    final metres = Geolocator.distanceBetween(
-      lat,
-      lng,
-      fix.latitude,
-      fix.longitude,
-    );
-    if (metres < 150) return 'on your saved location';
-    if (metres < 1000) return '${metres.round()} m from your saved location';
-    return '${(metres / 1000).toStringAsFixed(1)} km from your saved location';
-  }
-
   double? _driftMetres(Position fix) {
     final lat = widget.anchorLatitude;
     final lng = widget.anchorLongitude;
     if (lat == null || lng == null) return null;
     return Geolocator.distanceBetween(lat, lng, fix.latitude, fix.longitude);
+  }
+
+  String? _drift(Position fix) {
+    final metres = _driftMetres(fix);
+    if (metres == null) return null;
+    if (metres < 150) return 'on your saved location';
+    if (metres < 1000) return '${metres.round()} m from your saved location';
+    return '${(metres / 1000).toStringAsFixed(1)} km from your saved location';
   }
 
   Future<void> _moveAnchorHere() async {
@@ -151,23 +143,24 @@ class _LiveLocationLineState extends ConsumerState<LiveLocationLine> {
               Text(city, style: AppTextStyles.caption),
             ],
           ),
-        const SizedBox(height: 4),
         _detail(),
       ],
     );
   }
 
+  ButtonStyle get _linkStyle => TextButton.styleFrom(
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    minimumSize: Size.zero,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  );
+
   Widget _moveAnchorAction() => TextButton(
     onPressed: _saving ? null : _moveAnchorHere,
-    style: TextButton.styleFrom(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      minimumSize: Size.zero,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    ),
+    style: _linkStyle,
     child: Text(
       _saving ? 'Moving…' : 'Move my radar here',
       style: AppTextStyles.caption.copyWith(
-        fontSize: 11.5,
+        fontSize: 12,
         color: AppColors.primary,
         fontWeight: FontWeight.w700,
         fontVariations: const [FontVariation('wght', 700)],
@@ -220,17 +213,13 @@ class _LiveLocationLineState extends ConsumerState<LiveLocationLine> {
       case _Status.unavailable:
         return TextButton(
           onPressed: _locate,
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
+          style: _linkStyle,
           child: Text(
             _status == _Status.denied
                 ? 'Allow location to see where you are'
                 : 'Location unavailable — tap to retry',
             style: AppTextStyles.caption.copyWith(
-              fontSize: 11.5,
+              fontSize: 12,
               color: AppColors.primary,
             ),
           ),

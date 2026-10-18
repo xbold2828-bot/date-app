@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/ads/app_open/app_open_ad_provider.dart'; // adjust path
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/logger/app_logger.dart';
 import '../../../core/router/app_router.dart';
@@ -69,6 +70,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         AppLogger.d('[$tag] work done');
       } catch (e, st) {
         AppLogger.d('[$tag] ERROR in work: $e\n$st');
+      }
+
+      // Clear the ad window so the next login starts a fresh 15 minutes and
+      // nobody signed out is shown an app-open ad. Uses `container` (captured
+      // before the awaits) because this widget may already be disposed.
+      try {
+        await container
+            .read(appOpenAdControllerProvider.notifier)
+            .onLoggedOut();
+      } catch (e) {
+        AppLogger.d('[$tag] app-open ad reset failed: $e');
       }
 
       try {

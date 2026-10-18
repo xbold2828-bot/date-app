@@ -1,7 +1,8 @@
+import 'package:dating_app/core/extensions/padding_extension.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
-
 import '../../../core/errors/app_exceptions.dart';
 import '../../../core/extensions/global_back_extension.dart';
 import '../../../core/theme/app_colors.dart';
@@ -18,9 +19,8 @@ import '../widgets/explore_people_grid.dart';
 import '../widgets/explore_people_strip.dart';
 import '../widgets/explore_states.dart';
 
-/// Shows the people you are vibing with on a map.
-///
-/// Only conversations where the other person replied appear here.
+/// Map of the people you are chatting with. Only conversations where the
+/// other person replied show up here.
 class ExploreScreen extends ConsumerStatefulWidget {
   const ExploreScreen({super.key, this.onBrowsePeople});
 
@@ -34,8 +34,7 @@ class ExploreScreen extends ConsumerStatefulWidget {
 class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   final _map = ExploreMapController();
 
-  /// Keeps the map controls clear of the focus pill / loading pill that sit at
-  /// the bottom centre of the map.
+  /// Keeps the map controls above the focus / loading pill at the bottom.
   static const double _controlsLift = 84;
 
   @override
@@ -54,8 +53,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   void _clearSelection() =>
       ref.read(exploreSelectionProvider.notifier).state = null;
 
-  /// Opens the people grid in a sheet. A sheet is used instead of a route so
-  /// the map is not unmounted.
+  /// Opens the grid in a sheet so the native map is never unmounted.
   Future<void> _openGrid(List<MapUser> people) async {
     if (people.isEmpty) return;
     await showRadiusSheet<void>(
@@ -141,8 +139,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
         data: (styleString) => Stack(
           fit: StackFit.expand,
           children: [
-            // The map always fills the screen, so its size never changes.
-            // Resizing a native map view is what caused the crash.
+            // The map always fills the screen. Resizing a native map view
+            // causes crashes, so everything else floats on top of it.
             ExploreMap(
               key: const ValueKey('explore-map'),
               controller: _map,
@@ -160,6 +158,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                   count: users.length,
                   isLoading: exploreAsync.isLoading,
                   viewMode: viewMode,
+                  hasPeople: users.isNotEmpty,
                   onViewModeChanged: (mode) =>
                   ref.read(exploreViewModeProvider.notifier).state = mode,
                   strip: ExplorePeopleStrip(
@@ -168,12 +167,11 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                     onSelect: _select,
                     onShowAll: () => _openGrid(users),
                   ),
-                ),
+                ).paddingOnly(top: 15.h),
                 Expanded(
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      // Map controls: bottom-right, like Google Maps.
                       Positioned(
                         right: 14,
                         bottom: _controlsLift +
@@ -191,10 +189,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                         exploreAsync: exploreAsync,
                         location: location,
                         selected: selected,
-                        // With extendBody on, the screen runs under the
-                        // bottom nav (and banner). The composer already pads
-                        // for it; when it is hidden the notice must too, so it
-                        // sits above the nav.
+                        // The screen runs under the bottom nav, so when the
+                        // composer is hidden the notice pads for it itself.
                         bottomInset: selected == null
                             ? MediaQuery.paddingOf(context).bottom
                             : 0,
@@ -246,7 +242,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     );
   }
 
-  /// Picks the one notice to show, in priority order.
+  /// Picks the single notice to show, in priority order.
   Widget _noticeContent({
     required AsyncValue<List<MapUser>> exploreAsync,
     required AsyncValue<LatLng?> location,
@@ -313,16 +309,13 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   }
 }
 
-/// A flat, opaque header above the map.
-///
-/// Top row: the "n vibing" pill on the left, the 2D / 3D toggle on the right.
-/// Under it, the people strip, which is its own rounded card. The header ends
-/// in a hairline so the map visibly starts right below it.
+
 class _ExploreTopPanel extends StatelessWidget {
   const _ExploreTopPanel({
     required this.count,
     required this.isLoading,
     required this.viewMode,
+    required this.hasPeople,
     required this.onViewModeChanged,
     required this.strip,
   });
@@ -330,57 +323,47 @@ class _ExploreTopPanel extends StatelessWidget {
   final int count;
   final bool isLoading;
   final ExploreViewMode viewMode;
+  final bool hasPeople;
   final ValueChanged<ExploreViewMode> onViewModeChanged;
   final Widget strip;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        border: Border(
-          bottom: BorderSide(color: AppColors.inputBorder, width: 1),
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    return SafeArea(
+      bottom: false,
+      minimum: const EdgeInsets.fromLTRB(20, 10, 15, 0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: hasPeople
+                ? Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: strip,
+            )
+                : const SizedBox.shrink(),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  ExploreCountPill(count: count, isLoading: isLoading),
-                  ExploreViewToggle(
-                    mode: viewMode,
-                    onChanged: onViewModeChanged,
-                  ),
-                ],
-              ),
-              // The strip draws its own card; it collapses to nothing when
-              // there are no people, so the gap goes with it.
-              AnimatedSize(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOutCubic,
-                alignment: Alignment.topCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: strip,
-                ),
+              ExploreCountPill(count: count, isLoading: isLoading),
+              ExploreViewToggle(
+                mode: viewMode,
+                onChanged: onViewModeChanged,
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-/// Google Maps-style controls, bottom-right of the map: a zoom pill
-/// (+ / − with a divider) and a round "my location" button beneath it.
+/// Google Maps style controls: a zoom pill (+ / −) and a round locate button.
 class _MapControls extends StatelessWidget {
   const _MapControls({
     required this.locating,
@@ -394,12 +377,13 @@ class _MapControls extends StatelessWidget {
   final VoidCallback onZoomOut;
   final VoidCallback onLocate;
 
-  static const double _size = 44;
+  static const double _size = 42;
+  static const double _radius = 8;
 
   static List<BoxShadow> get _shadow => [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.18),
-      blurRadius: 8,
+      color: Colors.black.withValues(alpha: 0.2),
+      blurRadius: 6,
       offset: const Offset(0, 2),
     ),
   ];
@@ -410,32 +394,29 @@ class _MapControls extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        // Zoom pill.
         Container(
           width: _size,
           decoration: BoxDecoration(
             color: AppColors.card,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(_radius),
             boxShadow: _shadow,
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(_radius),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 _ControlButton(
                   icon: Icons.add,
                   label: 'Zoom in',
+                  color: AppColors.textDark,
                   onPressed: onZoomIn,
                 ),
-                Container(
-                  height: 1,
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
-                  color: AppColors.inputBorder,
-                ),
+                Container(height: 1, color: AppColors.inputBorder),
                 _ControlButton(
                   icon: Icons.remove,
                   label: 'Zoom out',
+                  color: AppColors.textDark,
                   onPressed: onZoomOut,
                 ),
               ],
@@ -443,7 +424,6 @@ class _MapControls extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        // My location.
         Container(
           width: _size,
           height: _size,
@@ -456,6 +436,7 @@ class _MapControls extends StatelessWidget {
             child: _ControlButton(
               icon: Icons.my_location,
               label: 'Center map on your location',
+              color: AppColors.blue,
               busy: locating,
               onPressed: locating ? null : onLocate,
             ),
@@ -470,12 +451,14 @@ class _ControlButton extends StatelessWidget {
   const _ControlButton({
     required this.icon,
     required this.label,
+    required this.color,
     required this.onPressed,
     this.busy = false,
   });
 
   final IconData icon;
   final String label;
+  final Color color;
   final VoidCallback? onPressed;
   final bool busy;
 
@@ -499,10 +482,10 @@ class _ControlButton extends StatelessWidget {
                 height: 18,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: AppColors.primary,
+                  color: color,
                 ),
               )
-                  : Icon(icon, size: 22, color: AppColors.primary),
+                  : Icon(icon, size: 22, color: color),
             ),
           ),
         ),

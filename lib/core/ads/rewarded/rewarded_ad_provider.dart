@@ -85,7 +85,16 @@ class RewardedAdController extends Notifier<RewardedAdState> {
     return completer.future;
   }
 
-  Future<bool> showAdToUnlock(RewardedUnlockType type) async {
+  /// Shows a rewarded ad. Resolves true only if the user earned the reward.
+  ///
+  /// [onAdShown] fires once, the moment the ad is actually on screen (not
+  /// when it starts loading). Callers use it to stop their "Loading" state.
+  /// It is NOT called when the user is premium (no ad is shown) or when the
+  /// ad fails to load or show.
+  Future<bool> showAdToUnlock(
+      RewardedUnlockType type, {
+        VoidCallback? onAdShown,
+      }) async {
     final isPremium = ref.read(isUserHavePremiumProvider);
     debugPrint('🐛 [RewardedAdController] showAdToUnlock($type) — isUserHavePremiumProvider=$isPremium');
 
@@ -128,6 +137,8 @@ class RewardedAdController extends Notifier<RewardedAdState> {
       onAdShowedFullScreenContent: (ad) {
         debugPrint('🐛 [RewardedAdController] onAdShowedFullScreenContent');
         if (!_disposed) state = state.copyWith(isShowingAd: true);
+        // Tell the caller the ad is visible so it can drop its spinner.
+        onAdShown?.call();
       },
       onAdDismissedFullScreenContent: (ad) {
         debugPrint('🐛 [RewardedAdController] onAdDismissedFullScreenContent — earnedReward=$earnedReward');

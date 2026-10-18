@@ -11,21 +11,27 @@ import '../../../data/models/user_model.dart';
 import '../../../providers/location_sharing_provider.dart';
 import '../../common/widgets/widgets.dart';
 
-/// The profile tab's top row: whose profile this is, and the way into
-/// settings. Everything that used to be a card further down the page — dark
-/// mode, blocked accounts, sign out — lives behind [onMenu] now.
-///
-/// Instagram-style: bold username on the left, menu icon on the right.
+/// Instagram's top row: bold username on the left, "+" (add photo) and the
+/// menu on the right. Dark mode, blocked accounts, sign out and the rest
+/// live behind [onMenu].
 class YouTopBar extends StatelessWidget {
-  const YouTopBar({super.key, required this.me, required this.onMenu});
+  const YouTopBar({
+    super.key,
+    required this.me,
+    required this.onMenu,
+    this.onAdd,
+  });
 
   final MeUser me;
   final VoidCallback onMenu;
 
+  /// Adds a photo. Hidden when null.
+  final VoidCallback? onAdd;
+
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 4, 0),
+      padding: const EdgeInsets.fromLTRB(16, 0, 4, 0),
       child: Row(
         children: [
           Expanded(
@@ -39,6 +45,17 @@ class YouTopBar extends StatelessWidget {
               tickSize: 16,
             ),
           ),
+          if (onAdd != null)
+            IconButton(
+              onPressed: onAdd,
+              visualDensity: VisualDensity.compact,
+              tooltip: 'Add photo',
+              icon: Icon(
+                Icons.add_box_outlined,
+                size: 26,
+                color: AppColors.textDark,
+              ),
+            ),
           Semantics(
             button: true,
             label: 'Settings',
@@ -60,8 +77,7 @@ class YouTopBar extends StatelessWidget {
   }
 }
 
-/// Photo on the left, the three numbers on the right — the profile header
-/// everyone already knows how to read.
+/// Photo on the left, the three numbers on the right.
 class YouProfileHeader extends StatelessWidget {
   const YouProfileHeader({
     super.key,
@@ -85,7 +101,7 @@ class YouProfileHeader extends StatelessWidget {
     final isPremium = me.premium.isActive;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
       child: Row(
         children: [
           PremiumAvatar(
@@ -103,7 +119,7 @@ class YouProfileHeader extends StatelessWidget {
             )
                 : _Monogram(name: me.displayName),
           ),
-          const SizedBox(width: 18),
+          const SizedBox(width: 16),
           Expanded(
             child: Row(
               children: [
@@ -119,6 +135,7 @@ class YouProfileHeader extends StatelessWidget {
   }
 }
 
+/// Initial on a flat colour — no gradient.
 class _Monogram extends StatelessWidget {
   const _Monogram({this.name});
 
@@ -127,8 +144,8 @@ class _Monogram extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final n = (name ?? '').trim();
-    return DecoratedBox(
-      decoration: BoxDecoration(gradient: avatarGradient(3)),
+    return ColoredBox(
+      color: AppColors.primary,
       child: Center(
         child: n.isEmpty
             ? const Icon(Icons.person, size: 38, color: AppColors.onImage)
@@ -161,7 +178,7 @@ class _Stat extends StatelessWidget {
               child: Text(
                 count == null ? '—' : compactCount(count),
                 maxLines: 1,
-                style: AppTextStyles.stat(18).copyWith(
+                style: AppTextStyles.stat(17).copyWith(
                   fontWeight: FontWeight.w700,
                   color: count == null
                       ? AppColors.textGrey
@@ -169,7 +186,6 @@ class _Stat extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 1),
             Text(
               label,
               maxLines: 1,
@@ -186,9 +202,7 @@ class _Stat extends StatelessWidget {
   }
 }
 
-/// Who you are in one line, then your bio and your three words.
-///
-/// Instagram-style: bold line first, then the bio as plain 14px text.
+/// Who you are in one bold line, then your bio and your three words.
 class YouIdentity extends StatelessWidget {
   const YouIdentity({
     super.key,
@@ -228,11 +242,10 @@ class YouIdentity extends StatelessWidget {
                 fontVariations: const [FontVariation('wght', 700)],
               ),
             ),
-          const SizedBox(height: 2),
           if (bio.isNotEmpty)
             Text(
               bio,
-              style: AppTextStyles.body.copyWith(fontSize: 14, height: 1.35),
+              style: AppTextStyles.body.copyWith(fontSize: 14, height: 1.3),
             )
           else
             Semantics(
@@ -241,23 +254,20 @@ class YouIdentity extends StatelessWidget {
               excludeSemantics: true,
               child: InkWell(
                 onTap: onWriteBio,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Text(
-                    'Add a bio — say something worth replying to.',
-                    style: AppTextStyles.body.copyWith(
-                      fontSize: 14,
-                      color: AppColors.primaryInk,
-                    ),
+                child: Text(
+                  'Add a bio — say something worth replying to.',
+                  style: AppTextStyles.body.copyWith(
+                    fontSize: 14,
+                    color: AppColors.primaryInk,
                   ),
                 ),
               ),
             ),
           if (p.personalityTags.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Wrap(
               spacing: 6,
-              runSpacing: 6,
+              runSpacing: 4,
               children: [
                 for (final vibe in p.personalityTags)
                   TagPill(
@@ -274,7 +284,7 @@ class YouIdentity extends StatelessWidget {
 }
 
 /// The two buttons under the header: edit, and where you stand on the map.
-/// Instagram-style: two equal grey buttons side by side.
+/// Two equal flat grey buttons side by side.
 class YouActions extends ConsumerWidget {
   const YouActions({super.key, required this.me, required this.onEdit});
 
@@ -288,7 +298,7 @@ class YouActions extends ConsumerWidget {
     final on = sharing.isSharingWithAnyone;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       child: Row(
         children: [
           Expanded(
@@ -320,9 +330,8 @@ class YouActions extends ConsumerWidget {
       : 'Live location is off. Choose who can see you';
 }
 
-/// A flat, neutral button for secondary actions on the profile — quieter than
-/// the app's primary blue, so "Edit profile" never competes with the things
-/// that actually move you forward. Sized like Instagram's profile buttons.
+/// A flat, neutral button for secondary actions on the profile, sized like
+/// Instagram's: 32 high, 8 radius, semi-bold 13.5 label.
 class TonalButton extends StatelessWidget {
   const TonalButton({
     super.key,

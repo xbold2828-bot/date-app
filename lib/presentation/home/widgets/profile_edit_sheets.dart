@@ -28,9 +28,9 @@ Future<bool> showEditBioSheet(BuildContext context, String initial) async {
 
 /// Edit the "My vibe" personality tags. Returns true when saved.
 Future<bool> showEditVibesSheet(
-  BuildContext context,
-  List<String> initial,
-) async {
+    BuildContext context,
+    List<String> initial,
+    ) async {
   final saved = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
@@ -40,7 +40,8 @@ Future<bool> showEditVibesSheet(
   return saved ?? false;
 }
 
-/// Rounded sheet chrome shared by both editors.
+/// Flat rounded sheet with a small handle and a centred title, as on
+/// Instagram.
 class _SheetShell extends StatelessWidget {
   const _SheetShell({required this.title, required this.child});
 
@@ -56,16 +57,16 @@ class _SheetShell extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.background,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         ),
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
               child: Container(
-                width: 40,
+                width: 36,
                 height: 4,
                 decoration: BoxDecoration(
                   color: AppColors.inputBorder,
@@ -73,12 +74,14 @@ class _SheetShell extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            Text(
-              title,
-              style: AppTextStyles.title,
+            const SizedBox(height: 12),
+            Center(
+              child: Text(
+                title,
+                style: AppTextStyles.title.copyWith(fontSize: 16),
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             child,
           ],
         ),
@@ -97,8 +100,9 @@ class _EditBioSheet extends ConsumerStatefulWidget {
 }
 
 class _EditBioSheetState extends ConsumerState<_EditBioSheet> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initial);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initial,
+  );
   bool _isSaving = false;
 
   @override
@@ -117,8 +121,9 @@ class _EditBioSheetState extends ConsumerState<_EditBioSheet> {
     } on AppException catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -130,34 +135,31 @@ class _EditBioSheetState extends ConsumerState<_EditBioSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Instagram edits text on a bare underline, not in a box.
           TextField(
             controller: _controller,
             maxLength: 150,
             maxLines: 5,
+            minLines: 2,
             autofocus: true,
             style: TextStyle(fontSize: 14, color: AppColors.textDark),
             decoration: InputDecoration(
               hintText: 'Say something worth replying to...',
               hintStyle: TextStyle(color: AppColors.textGrey),
-              filled: true,
-              fillColor: AppColors.card,
-              contentPadding: const EdgeInsets.all(16),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              border: UnderlineInputBorder(
                 borderSide: BorderSide(color: AppColors.inputBorder),
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+              enabledBorder: UnderlineInputBorder(
                 borderSide: BorderSide(color: AppColors.inputBorder),
               ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide:
-                    BorderSide(color: AppColors.primary, width: 1.5),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: AppColors.textDark, width: 1),
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           OnboardingButton(
             label: 'Save',
             isLoading: _isSaving,
@@ -196,8 +198,9 @@ class _EditVibesSheetState extends ConsumerState<_EditVibesSheet> {
     } on AppException catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -216,11 +219,8 @@ class _EditVibesSheetState extends ConsumerState<_EditVibesSheet> {
               Expanded(
                 child: Text(
                   'Pick the qualities that describe you. '
-                  '${selectionHint(SelectionLimits.vibes)}.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textGrey,
-                  ),
+                      '${selectionHint(SelectionLimits.vibes)}.',
+                  style: TextStyle(fontSize: 13, color: AppColors.textGrey),
                 ),
               ),
               const SizedBox(width: 10),
@@ -230,7 +230,7 @@ class _EditVibesSheetState extends ConsumerState<_EditVibesSheet> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           ConstrainedBox(
             constraints: BoxConstraints(
               maxHeight: MediaQuery.of(context).size.height * 0.4,
@@ -239,7 +239,7 @@ class _EditVibesSheetState extends ConsumerState<_EditVibesSheet> {
               child: tags.when(
                 loading: () => Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(20),
                     child: CircularProgressIndicator(color: AppColors.primary),
                   ),
                 ),
@@ -268,7 +268,7 @@ class _EditVibesSheetState extends ConsumerState<_EditVibesSheet> {
               ),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
           OnboardingButton(
             label: 'Save',
             isLoading: _isSaving,

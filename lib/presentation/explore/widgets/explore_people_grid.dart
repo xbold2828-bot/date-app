@@ -6,18 +6,10 @@ import '../../../data/models/map_user_model.dart';
 import '../../common/widgets/widgets.dart';
 import 'explore_avatar.dart';
 
-/// Everyone at once — the "All" view, reached from either "All" tile or from
-/// the header search.
+/// Everyone on the map as a searchable grid, opened from the strip.
 ///
-/// A horizontal strip is fine for picking somebody you can already see and
-/// hopeless for finding somebody specific. This is the other half: the whole
-/// set laid out to be scanned, with a search field for when even that is too
-/// many. Picking here selects and closes, landing back on the map focused on
-/// that person.
-///
-/// Presented as a full sheet rather than a route so the map underneath is never
-/// torn down and rebuilt — reloading vector tiles to show a list of faces would
-/// be an expensive way to answer a cheap question.
+/// Shown as a sheet instead of a route so the map underneath is never rebuilt.
+/// Picking someone selects them and closes the sheet.
 class ExplorePeopleGrid extends StatefulWidget {
   const ExplorePeopleGrid({
     super.key,
@@ -51,8 +43,7 @@ class _ExplorePeopleGridState extends State<ExplorePeopleGrid> {
     super.dispose();
   }
 
-  /// Hidden while searching: "All" is about the map, and a tile that ignores
-  /// the query sitting among results that respect it just reads as a bug.
+  /// The "All" tile is hidden while searching because it ignores the query.
   bool get _showsAllTile => _query.trim().isEmpty;
 
   List<MapUser> get _visible {
@@ -68,14 +59,6 @@ class _ExplorePeopleGridState extends State<ExplorePeopleGrid> {
     final people = _visible;
 
     return Container(
-      // Exactly the height a profile opens at — [kSheetHeightFraction], not a
-      // number of its own.
-      //
-      // It used to size itself to its contents, so the sheet was a different
-      // height for four people than for forty; with four it was a strip at the
-      // bottom of the screen that read as a toast rather than a destination.
-      // A sheet people open to browse should be the same object every time,
-      // and the same object as the other sheet they open to browse.
       height: MediaQuery.sizeOf(context).height * kSheetHeightFraction,
       decoration: BoxDecoration(
         color: AppColors.background,
@@ -91,37 +74,31 @@ class _ExplorePeopleGridState extends State<ExplorePeopleGrid> {
               child: people.isEmpty
                   ? _noMatches()
                   : GridView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-                      gridDelegate:
-                          const SliverGridDelegateWithMaxCrossAxisExtent(
-                        // Extent rather than a fixed count: five across on a
-                        // phone, more on a tablet, without a breakpoint table.
-                        maxCrossAxisExtent: 88,
-                        mainAxisSpacing: 14,
-                        crossAxisSpacing: 10,
-                        childAspectRatio: 0.78,
-                      ),
-                      // "All" leads the grid, exactly as it leads the strip —
-                      // it is the way to put everybody back on the map, and
-                      // it has to be reachable from here too or the grid
-                      // becomes a one-way door into a focused map.
-                      itemCount: people.length + (_showsAllTile ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        if (_showsAllTile && index == 0) {
-                          return _AllTile(
-                            active: widget.selectedId == null,
-                            onTap: widget.onShowAll,
-                          );
-                        }
-                        final person =
-                            people[_showsAllTile ? index - 1 : index];
-                        return _GridTile(
-                          person: person,
-                          selected: person.id == widget.selectedId,
-                          onTap: () => widget.onSelect(person),
-                        );
-                      },
-                    ),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                gridDelegate:
+                const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 88,
+                  mainAxisSpacing: 14,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 0.78,
+                ),
+                itemCount: people.length + (_showsAllTile ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (_showsAllTile && index == 0) {
+                    return _AllTile(
+                      active: widget.selectedId == null,
+                      onTap: widget.onShowAll,
+                    );
+                  }
+                  final person =
+                  people[_showsAllTile ? index - 1 : index];
+                  return _GridTile(
+                    person: person,
+                    selected: person.id == widget.selectedId,
+                    onTap: () => widget.onSelect(person),
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -130,13 +107,10 @@ class _ExplorePeopleGridState extends State<ExplorePeopleGrid> {
   }
 
   Widget _header() {
-    // The count is of everybody, not of what survived the search — "3 of 52"
-    // is the useful reading while filtering.
     final total = widget.people.length;
     final shown = _visible.length;
-    final title = _query.trim().isEmpty
-        ? 'All people ($total)'
-        : '$shown of $total';
+    final title =
+    _query.trim().isEmpty ? 'All people ($total)' : '$shown of $total';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(6, 6, 12, 2),
@@ -154,7 +128,10 @@ class _ExplorePeopleGridState extends State<ExplorePeopleGrid> {
           Expanded(
             child: Semantics(
               header: true,
-              child: Text(title, style: AppTextStyles.title.copyWith(fontSize: 18)),
+              child: Text(
+                title,
+                style: AppTextStyles.title.copyWith(fontSize: 18),
+              ),
             ),
           ),
         ],
@@ -174,22 +151,24 @@ class _ExplorePeopleGridState extends State<ExplorePeopleGrid> {
           isDense: true,
           hintText: 'Search by name',
           hintStyle: AppTextStyles.body.copyWith(color: AppColors.textGrey),
-          prefixIcon:
-              Icon(Icons.search, size: 20, color: AppColors.iconMuted),
+          prefixIcon: Icon(Icons.search, size: 20, color: AppColors.iconMuted),
           suffixIcon: _query.isEmpty
               ? null
               : IconButton(
-                  onPressed: () {
-                    _search.clear();
-                    setState(() => _query = '');
-                  },
-                  icon: Icon(Icons.close,
-                      size: 18, color: AppColors.iconMuted),
-                ),
+            onPressed: () {
+              _search.clear();
+              setState(() => _query = '');
+            },
+            icon: Icon(
+              Icons.close,
+              size: 18,
+              color: AppColors.iconMuted,
+            ),
+          ),
           filled: true,
           fillColor: AppColors.card,
           contentPadding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(color: AppColors.inputBorder),
@@ -200,7 +179,7 @@ class _ExplorePeopleGridState extends State<ExplorePeopleGrid> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+            borderSide: const BorderSide(color: AppColors.blue, width: 1.5),
           ),
         ),
       ),
@@ -208,29 +187,29 @@ class _ExplorePeopleGridState extends State<ExplorePeopleGrid> {
   }
 
   Widget _noMatches() => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 30, 24, 44),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.search_off, size: 34, color: AppColors.iconMuted),
-            const SizedBox(height: 12),
-            Text(
-              'Nobody here by that name',
-              style: AppTextStyles.bodyStrong,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Only the people currently on your map can be searched.',
-              style: AppTextStyles.caption,
-              textAlign: TextAlign.center,
-            ),
-          ],
+    padding: const EdgeInsets.fromLTRB(24, 30, 24, 44),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.search_off, size: 34, color: AppColors.iconMuted),
+        const SizedBox(height: 12),
+        Text(
+          'Nobody here by that name',
+          style: AppTextStyles.bodyStrong,
+          textAlign: TextAlign.center,
         ),
-      );
+        const SizedBox(height: 4),
+        Text(
+          'Only the people currently on your map can be searched.',
+          style: AppTextStyles.caption,
+          textAlign: TextAlign.center,
+        ),
+      ],
+    ),
+  );
 }
 
-/// The grid's counterpart to the strip's "All": everybody back on the map.
+/// Puts everybody back on the map.
 class _AllTile extends StatelessWidget {
   const _AllTile({required this.active, required this.onTap});
 
@@ -255,17 +234,7 @@ class _AllTile extends StatelessWidget {
               height: 58,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: active
-                    ? const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          AppMapColors.markerStart,
-                          AppMapColors.markerEnd,
-                        ],
-                      )
-                    : null,
-                color: active ? null : AppColors.card,
+                color: active ? AppColors.blue : AppColors.card,
                 border: active
                     ? null
                     : Border.all(color: AppColors.inputBorder, width: 1.4),
