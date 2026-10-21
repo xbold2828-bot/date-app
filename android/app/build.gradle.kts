@@ -21,7 +21,11 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.cozune.app"
-    compileSdk = flutter.compileSdkVersion
+    // Was: flutter.compileSdkVersion (36). The sms_autofill plugin is built
+    // against Android SDK 37 and requires the app to compile against 37 too.
+    // This only allows newer APIs at build time; it does not change minSdk,
+    // targetSdk, or which devices can install the app.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

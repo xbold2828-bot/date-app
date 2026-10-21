@@ -1,8 +1,42 @@
+// NOTE: `dart:async` and `debugPrint` are only used by Option A (sms_autofill).
+// While Option B (smart_auth) is active they are unused — that is a harmless
+// analyzer warning. They are kept so switching back is just comment/uncomment.
+import 'dart:async';
+
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform, debugPrint;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pinput/pinput.dart';
-import 'package:smart_auth/smart_auth.dart';
 import '../../../core/theme/app_styles.dart';
+
+// ═════════════════════════════════════════════════════════════════════════════
+// HOW TO SWITCH BETWEEN THE TWO SMS AUTOFILL OPTIONS
+//
+// There are three marked places in this file. In each one, comment out the
+// ACTIVE option and uncomment the other:
+//
+//   STEP 1  – the import            (just below)
+//   STEP 2  – the _smsRetriever line (inside CommonOtpField)
+//   STEP 3  – the SmsRetrieverImpl class (bottom of the file)
+//
+// Option A — sms_autofill  (INACTIVE)
+//   SMS Retriever API. Fully silent: no prompt, no tap. But the SMS must END
+//   with the app's 11-character hash or nothing is delivered.
+//
+// Option B — smart_auth    (ACTIVE)
+//   SMS User Consent API. Works with ANY SMS text, but Android shows an
+//   "Allow?" prompt the user must tap once.
+//
+// Both classes are named SmsRetrieverImpl, so only ONE of the two may be
+// uncommented at a time.
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ── STEP 1: import ───────────────────────────────────────────────────────────
+// Option A — sms_autofill (INACTIVE)
+// import 'package:sms_autofill/sms_autofill.dart';
+// Option B — smart_auth (ACTIVE)
+import 'package:smart_auth/smart_auth.dart';
 
 class CommonOtpField extends StatelessWidget {
   final int length;
@@ -32,8 +66,22 @@ class CommonOtpField extends StatelessWidget {
   static const double _maxBoxWidth = 54;
   static const double _minBoxWidth = 38;
 
-  static final SmsRetriever _smsRetriever =
-  SmsRetrieverImpl(SmartAuth.instance);
+  // ── STEP 2: which retriever to create ──────────────────────────────────────
+  // Only Android supports SMS autofill. Never create/use it on web (or iOS,
+  // which uses the oneTimeCode keyboard hint). `kIsWeb` is checked first:
+  // Chrome on an Android phone reports "android".
+
+  // Option A — sms_autofill (INACTIVE)
+  // static final SmsRetriever? _smsRetriever =
+  //     (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+  //     ? SmsRetrieverImpl(SmsAutoFill())
+  //     : null;
+
+  // Option B — smart_auth (ACTIVE)
+  static final SmsRetriever? _smsRetriever =
+  (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+      ? SmsRetrieverImpl(SmartAuth.instance)
+      : null;
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +152,7 @@ class CommonOtpField extends StatelessWidget {
               showCursor: true,
               separatorBuilder: (index) => const SizedBox(width: _gap),
 
-              // Android SMS autofill (iOS uses the default oneTimeCode hint).
+              // null on web/iOS -> Pinput skips SMS retrieval entirely.
               smsRetriever: _smsRetriever,
             ),
           ),
@@ -114,7 +162,65 @@ class CommonOtpField extends StatelessWidget {
   }
 }
 
+// ── STEP 3: the retriever class ──────────────────────────────────────────────
+// Keep exactly ONE of the two classes below uncommented.
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Option A — sms_autofill (INACTIVE)
+//
+// Reads the OTP with Google's SMS Retriever API. Needs NO permission, NO
+// "Allow?" dialog and no tap: the code is filled in the moment the SMS arrives.
+//
+// The catch: Google only hands over SMS messages that end with this app's
+// 11-character signature hash, e.g.
+//     <#> Your cozune code is 123456
+//     FA+9qCX9VSu
+// A message without it is never delivered to the app.
+// (Debug and release builds have DIFFERENT hashes. Read the current build's
+//  hash with:  print(await SmsAutoFill().getAppSignature);)
+// ─────────────────────────────────────────────────────────────────────────────
+// class SmsRetrieverImpl implements SmsRetriever {
+//   const SmsRetrieverImpl(this.smsAutoFill);
+//
+//   final SmsAutoFill smsAutoFill;
+//
+//   /// How long one listen lasts. The platform stops listening after 5 minutes.
+//   static const Duration _listenWindow = Duration(minutes: 5);
+//
+//   @override
+//   Future<void> dispose() async {
+//     try {
+//       await smsAutoFill.unregisterListener();
+//     } catch (e) {
+//       debugPrint('SMS listener cleanup failed: $e');
+//     }
+//   }
+//
+//   @override
+//   Future<String?> getSmsCode() async {
+//     try {
+//       await smsAutoFill.listenForCode();
+//       final code = await smsAutoFill.code.first.timeout(_listenWindow);
+//       return code.isEmpty ? null : code;
+//     } on TimeoutException {
+//       return null; // nothing arrived in the window
+//     } catch (e) {
+//       debugPrint('SMS retrieval failed: $e');
+//       return null;
+//     }
+//   }
+//
+//   // Keep listening after a code arrives, so "Resend code" is picked up too.
+//   @override
+//   bool get listenForMultipleSms => true;
+// }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Option B — smart_auth (ACTIVE)
+//
+// Reads the OTP with Google's SMS User Consent API. Works with ANY SMS text
+// (no hash needed), but Android asks the user to tap "Allow" first.
+// ─────────────────────────────────────────────────────────────────────────────
 class SmsRetrieverImpl implements SmsRetriever {
   const SmsRetrieverImpl(this.smartAuth);
 

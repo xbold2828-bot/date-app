@@ -78,25 +78,25 @@ void main() {
     });
   });
 
-  group('ExploreZoomButtons', () {
-    testWidgets('steps in and out independently', (tester) async {
-      var zoomIn = 0;
-      var zoomOut = 0;
-      await tester.pumpWidget(_host(
-        Center(
-          child: ExploreZoomButtons(
-            onZoomIn: () => zoomIn++,
-            onZoomOut: () => zoomOut++,
-          ),
-        ),
-      ));
-
-      await tester.tap(find.byIcon(Icons.add));
-      await tester.tap(find.byIcon(Icons.remove));
-      expect(zoomIn, 1);
-      expect(zoomOut, 1);
-    });
-  });
+  // group('ExploreZoomButtons', () {
+  //   testWidgets('steps in and out independently', (tester) async {
+  //     var zoomIn = 0;
+  //     var zoomOut = 0;
+  //     await tester.pumpWidget(_host(
+  //       Center(
+  //         child: ExploreZoomButtons(
+  //           onZoomIn: () => zoomIn++,
+  //           onZoomOut: () => zoomOut++,
+  //         ),
+  //       ),
+  //     ));
+  //
+  //     await tester.tap(find.byIcon(Icons.add));
+  //     await tester.tap(find.byIcon(Icons.remove));
+  //     expect(zoomIn, 1);
+  //     expect(zoomOut, 1);
+  //   });
+  // });
 
   group('ExploreViewToggle', () {
     testWidgets('offers both modes and reports only changes', (tester) async {

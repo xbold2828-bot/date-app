@@ -1301,6 +1301,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "7.1.0"
+  pin_input_text_field:
+    dependency: transitive
+    description:
+      name: pin_input_text_field
+      sha256: c2a32d26f0447da0c4bd246625363d91c00d2d51e8148dd3053c448488057c31
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.5.3"
   pinput:
     dependency: "direct main"
     description:
@@ -1474,6 +1482,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.2.0"
+  sms_autofill:
+    dependency: "direct main"
+    description:
+      name: sms_autofill
+      sha256: "2cc46fcba580119fb46e06ab6733c387a14736494c6598f92f09e02dae1cd249"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.6.1"
   socket_io_client:
     dependency: "direct main"
     description:
@@ -1940,4 +1956,4 @@ packages:
     version: "2.1.1"
 sdks:
   dart: ">=3.13.4 <4.0.0"
-  flutter: ">=3.47.0"
+  flutter: ">=3.47.1"

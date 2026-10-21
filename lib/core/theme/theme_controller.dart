@@ -4,63 +4,79 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Holds the user's light / dark choice and remembers it between launches.
 ///
-/// The default is [ThemeMode.system], so a phone already in dark mode opens the
-/// app dark without anyone touching the switch. Once the user flips it by hand
-/// the choice is explicit and sticks.
+/// The app NEVER follows the phone's system theme. It starts in
+/// [ThemeMode.light], and only the user changes it — with the dark-mode switch
+/// in Settings. That choice is saved in SharedPreferences and restored on the
+/// next launch.
+///
+/// Optional, to avoid a one-frame flash of light on launch for a user who saved
+/// dark: call `await ThemeController.preload();` in `main()` before `runApp`
+/// (after `WidgetsFlutterBinding.ensureInitialized()`). Without it the app still
+/// works; the saved theme is simply applied a moment after the first frame.
 class ThemeController extends StateNotifier<ThemeMode> {
-  ThemeController() : super(ThemeMode.system) {
-    _restore();
+  ThemeController() : super(_preloaded ?? ThemeMode.light) {
+    // If preload() already ran, the saved value is already applied.
+    if (_preloaded == null) _restore();
   }
 
   static const _key = 'theme_mode';
 
-  Future<void> _restore() async {
-    // A missing or unreadable preference is not worth surfacing — the app just
-    // follows the system, which is what a first launch does anyway.
+  /// Filled by [preload]. Null means "not preloaded".
+  static ThemeMode? _preloaded;
+
+  /// Reads the saved choice before the first frame. See the class comment.
+  static Future<void> preload() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      state = _decode(prefs.getString(_key)) ?? ThemeMode.system;
+      _preloaded = _decode(prefs.getString(_key)) ?? ThemeMode.light;
     } catch (_) {
-      // keep ThemeMode.system
+      _preloaded = ThemeMode.light;
+    }
+  }
+
+  Future<void> _restore() async {
+    // A missing or unreadable preference is not worth surfacing — the app just
+    // stays light, which is what a first launch does.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      state = _decode(prefs.getString(_key)) ?? ThemeMode.light;
+    } catch (_) {
+      // keep ThemeMode.light
     }
   }
 
   Future<void> set(ThemeMode mode) async {
-    if (state == mode) return;
-    state = mode;
+    // The app only ever uses light or dark; "system" is not an option.
+    final next = mode == ThemeMode.dark ? ThemeMode.dark : ThemeMode.light;
+    if (state == next) return;
+    state = next;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_key, mode.name);
+      await prefs.setString(_key, next.name);
     } catch (_) {
       // The theme still changed for this session; only the memory is lost.
     }
   }
 
-  /// What the 🌙 switch calls. Flipping it is always an explicit choice, so it
-  /// lands on [ThemeMode.light] or [ThemeMode.dark] and stops following the
-  /// system.
+  /// What the 🌙 switch calls.
   Future<void> toggle({required bool dark}) =>
       set(dark ? ThemeMode.dark : ThemeMode.light);
 
+  /// Only 'dark' means dark. Anything else — 'light', an old 'system' value
+  /// saved by an earlier version, or nothing — is light.
   static ThemeMode? _decode(String? name) => switch (name) {
-        'light' => ThemeMode.light,
-        'dark' => ThemeMode.dark,
-        'system' => ThemeMode.system,
-        _ => null,
-      };
+    'dark' => ThemeMode.dark,
+    'light' || 'system' => ThemeMode.light,
+    _ => null,
+  };
 }
 
 final themeModeProvider =
-    StateNotifierProvider<ThemeController, ThemeMode>((ref) {
+StateNotifierProvider<ThemeController, ThemeMode>((ref) {
   return ThemeController();
 });
 
-/// Whether the app is *currently* being drawn dark, with [ThemeMode.system]
-/// resolved against the platform. This is what the switch shows, so that a
-/// user on system-dark sees the switch already on.
-bool isDarkMode(BuildContext context, ThemeMode mode) => switch (mode) {
-      ThemeMode.dark => true,
-      ThemeMode.light => false,
-      ThemeMode.system =>
-        MediaQuery.platformBrightnessOf(context) == Brightness.dark,
-    };
+/// Whether the app is currently drawn dark — what the Settings switch shows.
+/// The phone's system brightness is deliberately ignored.
+bool isDarkMode(BuildContext context, ThemeMode mode) =>
+    mode == ThemeMode.dark;
