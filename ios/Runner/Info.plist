@@ -43,6 +43,8 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>cozune uses your front camera for the quick face check that verifies your profile.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Radius uses your location to show people nearby.</string>
 	<key>UIApplicationSceneManifest</key>

@@ -59,11 +59,11 @@ abstract final class ApiConstants {
   static String mediaPrimary(String id) => '/media/$id/primary';
   static String mediaItem(String id) => '/media/$id';
 
-  // ── Identity verification (unlocks messaging) ───────────────────────────
+  // ── Identity verification (the live face check behind the tick) ─────────
   static const String verificationSession = '/verification/session';
   static const String verificationMe = '/verification/me';
-  static String verificationComplete(String sessionId) =>
-      '/verification/session/$sessionId/complete';
+  static String verificationSubmit(String sessionId) =>
+      '/verification/session/$sessionId/submit';
 
   // ── Premium subscription (LEGACY — superseded by the Payments section
   // below, which is backed by RevenueCat via `publicKeys`/`appUserId` in

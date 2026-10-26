@@ -9,6 +9,7 @@ abstract final class AppRoutes {
   static const String buyPremium = '/buy-premium';
   static const String internet = '/internet';
   static const String locationSharing = '/location-sharing';
+  static const String verification = '/verification';
 
   // Onboarding funnel, in order.
   static const String age = '/onboarding/age';

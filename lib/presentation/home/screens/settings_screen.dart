@@ -208,8 +208,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             title: 'Verification',
             subtitle: verified
                 ? 'Your profile shows the verified tick'
-                : 'Not verified yet',
+                : 'Get the tick — a 30-second face check',
             trailing: verified ? const VerificationTick(size: 22) : null,
+            onTap: () => context.push(AppRoutes.verification),
           ),
           const _Section('Privacy'),
           _Row(

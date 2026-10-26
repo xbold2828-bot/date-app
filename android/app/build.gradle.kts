@@ -81,6 +81,16 @@ flutter {
     source = "../.."
 }
 
+// Face detection for verification. The google_mlkit_face_detection plugin
+// links ML Kit's bundled model (~6.9 MB per install); the Google Play services
+// build of the same API is ~0.8 MB and downloads its model once, through Play
+// (see the DEPENDENCIES meta-data in AndroidManifest.xml). Same classes, same
+// package, so the plugin works unchanged on top of it.
+configurations.all {
+    exclude(group = "com.google.mlkit", module = "face-detection")
+}
+
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    implementation("com.google.android.gms:play-services-mlkit-face-detection:17.1.0")
 }

@@ -83,6 +83,12 @@ dependencies:
   smart_auth: ^3.2.0
   sms_autofill: ^2.6.1
 
+  # On-device face detection for the verification check (head turns, blink,
+  # smile). On Android the bundled model is swapped for the Google Play
+  # services one in android/app/build.gradle.kts — ~0.8 MB instead of ~6.9 MB.
+  # Needs iOS 15.5 (set in ios/Podfile and the Xcode project).
+  google_mlkit_face_detection: ^0.15.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

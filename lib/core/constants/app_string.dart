@@ -254,25 +254,82 @@ abstract final class AppString {
   static const String locationError =
       'Could not get your location. Please try again.';
 
-  // ---------- ONBOARDING: IDENTITY VERIFICATION ----------
-  static const String verifyTitle = 'Verify your identity';
-  static const String verifyBody =
-      'A quick live check to unlock messaging and show others you are real. '
-      'Your video is never stored.';
-  static const String verifyStepLeft = 'Turn your head slowly to the left';
-  static const String verifyStepRight = 'Now turn your head to the right';
-  static const String verifyStepStraight = 'Look straight into the camera';
-  static const String cameraUnavailable = 'Camera not available on this device';
-  static const String cameraReady = 'Camera ready. Tap to begin.';
-  static const String cameraStarting = 'Starting camera...';
-  static const String startFaceCheck = 'Start Face Check';
-  static const String identityVerified = 'Identity verified successfully!';
-  static const String verifyFinishing = 'Finishing up...';
-  static const String verifyPending =
-      "We've got your check — verification finishes shortly.";
-  static const String verifyPrivacy =
-      'Powered by a secure verification provider. Your privacy is protected. '
-      'Data is encrypted and automatically deleted after verification.';
+  // ---------- IDENTITY VERIFICATION (live face check) ----------
+  // Every claim here is what the code does: four photos, kept privately,
+  // compared with later photos, deleted with the account. Change the code
+  // before changing a sentence.
+  static const String verifyTitle = 'Get verified';
+  static const String verifyIntro =
+      'Show people you are who your photos say. It takes about 30 seconds.';
+  static const String verifyHowSteps =
+      'Look at the camera, then follow the prompts: turn your head each way, '
+      'blink and smile.';
+  static const String verifyHowPhotos =
+      'We take 4 photos and check it’s a real person, that it’s you in all '
+      'of them, and that your profile photos match.';
+  static const String verifyHowPrivate =
+      'They’re stored privately and never shown on your profile. They’re '
+      'deleted after 12 months, or sooner if you delete your account.';
+  static const String verifyHowLater =
+      'Once you’re verified, new photos with a face need to include you. '
+      'The tick lasts 12 months; then a quick check renews it.';
+  // The written consent the privacy policy promises before capture. It names
+  // what is captured, the one purpose, and how long it is kept.
+  static const String verifyConsent =
+      'By tapping “Agree and start”, you agree that cozune may take these '
+      'photos and compare your face in them with your profile photos, only to '
+      'confirm it’s you, and keep them for up to 12 months.';
+  static const String verifyStart = 'Agree and start';
+  static const String verifyCheckAgain = 'Agree and check again';
+  static const String verifyAlready = 'You’re verified';
+  static const String verifyAlreadyBody =
+      'Your profile shows the tick. Check again if you’ve changed how you '
+      'look, so new photos keep matching.';
+  static String verifyValidUntil(String date) => 'Your tick lasts until $date.';
+  static const String verifyUnavailable =
+      'Verification isn’t available right now. Try again later.';
+
+  static const String verifyStepStraight = 'Look straight at the camera';
+  static const String verifyStepTurn = 'Slowly turn your head to one side';
+  static const String verifyStepTurnBack = 'Now turn to the other side';
+  static const String verifyStepBlink = 'Blink slowly';
+  static const String verifyStepSmile = 'Give us a big smile';
+
+  static const String verifyHintNoFace = 'Fit your face inside the circle';
+  static const String verifyHintManyFaces = 'Make sure only you are in view';
+  static const String verifyHintCloser = 'Move a little closer';
+  static const String verifyHintBack = 'Move back a little';
+  static const String verifyHintStraight = 'Face the camera straight on';
+  static const String verifyHintDark =
+      'We can’t see your face. Find some light.';
+  static const String verifyHintPreparing = 'Getting the camera ready…';
+
+  static const String verifyChecking = 'Checking your photos…';
+  static const String verifyCheckingBody = 'This takes a few seconds.';
+  static const String verifyDone = 'You’re verified';
+  static const String verifyDoneBody =
+      'Your profile now shows the tick, everywhere people see you.';
+  static const String verifyFailedTitle = 'Not verified yet';
+  static const String verifyRecheckFailed = 'That check didn’t pass';
+  static const String verifyStillVerified =
+      'You’re still verified — your earlier check stands.';
+  static const String verifyCouldNotFinish = 'Couldn’t finish';
+  static const String verifyPhotoUnreadable = 'Can’t be checked';
+  static const String verifyTryAgain = 'Try again';
+  static const String verifyNotNow = 'Not now';
+  static const String verifyDoneButton = 'Done';
+  static const String verifyPhotosTitle = 'Almost there';
+  static const String verifyRemoveAndFinish = 'Remove and finish';
+  static const String verifyRemoving = 'Removing photos…';
+  static const String verifyUploadFailed =
+      'Your photos didn’t upload. Check your connection and try again.';
+  static const String verifyCameraDenied =
+      'cozune needs your camera for this. Allow camera access in your phone’s '
+      'Settings, then come back.';
+  static const String verifyCameraUnavailable =
+      'We couldn’t open your front camera.';
+  static const String verifyTooManyTries =
+      'You’ve tried a lot today. Try again tomorrow.';
 
   // ---------- ONBOARDING: AGREEMENT ----------
   static const String agreementTitle = 'The vibe agreement';
