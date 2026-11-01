@@ -683,12 +683,30 @@ class RadarHeader extends ConsumerWidget {
                 quota: quota,
                 onTap: () => showLikesTodaySheet(context),
               ),
+              const _VisitorsButton(),
               _NotificationButton(unreadCount: unreadCount),
               const _FilterButton(),
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Who visited my profile. An icon here rather than a tab — the same screen
+/// also opens from the Visits number on the Me tab.
+class _VisitorsButton extends StatelessWidget {
+  const _VisitorsButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      padding: const EdgeInsets.all(8),
+      constraints: const BoxConstraints(),
+      tooltip: AppString.visitorsOpen,
+      onPressed: () => context.push(AppRoutes.visitors),
+      icon: const Icon(Icons.visibility_outlined, size: 26),
     );
   }
 }

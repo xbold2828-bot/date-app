@@ -26,6 +26,12 @@ abstract final class ApiConstants {
   /// Counts one visit to someone's profile (deduplicated per day, server-side).
   static String profileView(String userId) => '/profiles/$userId/view';
 
+  /// `GET` → who opened my profile, gated like Liked-you; `POST .../unlock`
+  /// reveals the person behind one visit.
+  static const String myVisitors = '/profiles/me/visitors';
+  static String visitorUnlock(String visitId) =>
+      '/profiles/me/visitors/$visitId/unlock';
+
   // ── Onboarding funnel ───────────────────────────────────────────────────
   /// GET → resume progress; PATCH → set relationshipStatus (step 4).
   static const String onboardingStatus = '/onboarding/status';

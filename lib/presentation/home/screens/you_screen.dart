@@ -15,6 +15,7 @@ import '../widgets/you_gallery.dart';
 import '../widgets/you_header.dart';
 import 'edit_profile_screen.dart';
 import 'settings_screen.dart';
+import 'visitors_screen.dart';
 
 enum _YouTab { photos, about }
 
@@ -52,6 +53,11 @@ class _YouScreenState extends ConsumerState<YouScreen> {
   void _openEdit() => Navigator.push(
     context,
     MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+  );
+
+  void _openVisitors() => Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const VisitorsScreen()),
   );
 
   void _openSettings() => Navigator.push(
@@ -101,6 +107,7 @@ class _YouScreenState extends ConsumerState<YouScreen> {
             visits: stats?.profileViews,
             likes: stats?.likesReceived,
             friends: friends,
+            onVisitsTap: _openVisitors,
           ),
         ),
         SliverToBoxAdapter(

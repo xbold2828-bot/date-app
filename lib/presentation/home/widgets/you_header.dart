@@ -86,10 +86,14 @@ class YouProfileHeader extends StatelessWidget {
     required this.visits,
     required this.likes,
     required this.friends,
+    this.onVisitsTap,
   });
 
   final MeUser me;
   final String? avatarUrl;
+
+  /// Opens the Visitors list — the people behind the number.
+  final VoidCallback? onVisitsTap;
 
   /// Each null renders as a dash — "we could not load this" is not "zero".
   final int? visits;
@@ -123,7 +127,7 @@ class YouProfileHeader extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                _Stat(value: visits, label: 'Visits'),
+                _Stat(value: visits, label: 'Visits', onTap: onVisitsTap),
                 _Stat(value: likes, label: 'Likes'),
                 _Stat(value: friends, label: 'Friends'),
               ],
@@ -156,10 +160,11 @@ class _Monogram extends StatelessWidget {
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.value, required this.label});
+  const _Stat({required this.value, required this.label, this.onTap});
 
   final int? value;
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -169,33 +174,38 @@ class _Stat extends StatelessWidget {
         label: count == null
             ? '$label unavailable'
             : '$count ${label.toLowerCase()}',
+        button: onTap != null,
         excludeSemantics: true,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                count == null ? '—' : compactCount(count),
-                maxLines: 1,
-                style: AppTextStyles.stat(17).copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: count == null
-                      ? AppColors.textGrey
-                      : AppColors.textDark,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  count == null ? '—' : compactCount(count),
+                  maxLines: 1,
+                  style: AppTextStyles.stat(17).copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: count == null
+                        ? AppColors.textGrey
+                        : AppColors.textDark,
+                  ),
                 ),
               ),
-            ),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.caption.copyWith(
-                fontSize: 13,
-                color: AppColors.textDark,
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.caption.copyWith(
+                  fontSize: 13,
+                  color: AppColors.textDark,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

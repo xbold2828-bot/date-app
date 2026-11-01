@@ -3,5 +3,6 @@ enum RewardedUnlockType {
   unlockChat,
   getMoreProfiles,
   seeWhoLikedYou,
+  seeWhoVisitedYou,
   unlockNext30Profile,
 }

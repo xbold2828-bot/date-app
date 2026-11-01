@@ -4,6 +4,7 @@ import '../../core/constants/api_constants.dart';
 import '../../providers/is_user_have_premium_provider.dart';
 import '../models/profile_model.dart';
 import '../models/user_model.dart';
+import '../models/visitor_model.dart';
 import '../services/api_service.dart';
 
 /// Reads/writes the authenticated user's own account and views other users'
@@ -50,6 +51,27 @@ class ProfileRepository {
   Future<ProfileStats> myStats() async {
     final data = await _api.get(ApiConstants.myProfileStats);
     return ProfileStats.fromJson(Map<String, dynamic>.from(data as Map));
+  }
+
+  /// `GET /profiles/me/visitors` — who opened my profile. Locked cards come
+  /// back already redacted; [unlockVisitor] reveals one.
+  Future<VisitorsPage> visitors({int page = 1, int limit = 30}) async {
+    final data = await _api.get(
+      ApiConstants.myVisitors,
+      query: {'page': page, 'limit': limit},
+    );
+    return VisitorsPage.fromJson(Map<String, dynamic>.from(data as Map));
+  }
+
+  /// `POST /profiles/me/visitors/:visitId/unlock` — reveal one visitor,
+  /// permanently. Spends a free reveal, then credits; with neither, the
+  /// server answers 402 (an [EntitlementRequiredException]).
+  Future<VisitorCard> unlockVisitor(String visitId) async {
+    final data = await _api.post(ApiConstants.visitorUnlock(visitId));
+    final map = Map<String, dynamic>.from(data as Map);
+    return VisitorCard.fromJson(
+      Map<String, dynamic>.from(map['visitor'] as Map),
+    );
   }
 
   /// `POST /profiles/:id/view` — count a visit to someone's profile.

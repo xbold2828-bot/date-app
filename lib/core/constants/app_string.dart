@@ -84,6 +84,21 @@ abstract final class AppString {
   static const String seeWhoLikedYouDescription =
       "Unlock Premium to see who it is instantly, or watch an ad to reveal one now.";
 
+  static const String seeWhoVisitedYouTitle = 'Someone visited you';
+  static const String seeWhoVisitedYouDescription =
+      'Go Premium to see everyone who visits, or watch a short ad to reveal '
+      'this person.';
+
+  // ---------- VISITORS ----------
+  static const String visitorsTitle = 'Visitors';
+  static const String visitorsOpen = 'Who visited your profile';
+  static const String visitorsEmptyTitle = 'No visitors yet';
+  static const String visitorsEmptyBody =
+      'When someone opens your profile, they show up here.';
+  static const String visitorsLoadFailed = "Couldn't load your visitors";
+  static const String visitorsWindow = 'From the last 90 days.';
+  static const String visitorsAdEach = 'Watch an ad to reveal each one.';
+
   static const String rewindTitle = "Want a Do-Over?";
   static const String rewindDescription =
       "Rewind your last swipe with Premium, or watch a short ad to undo it now.";

@@ -20,6 +20,7 @@ import '../../presentation/common/force_update_maintenance/presentation/pages/fo
 import '../../presentation/home/screens/location_sharing_screen.dart';
 import '../../presentation/internet/view/screens/internet_screen.dart';
 import '../../presentation/notifications/view/pages/notification_screen.dart';
+import '../../presentation/home/screens/visitors_screen.dart';
 import '../../presentation/verification/verification_screen.dart';
 import 'app_router.dart';
 
@@ -77,6 +78,10 @@ GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.verification,
       pageBuilder: (c, s) => _rtl(const VerificationScreen()),
+    ),
+    GoRoute(
+      path: AppRoutes.visitors,
+      pageBuilder: (c, s) => _rtl(const VisitorsScreen()),
     ),
 
     // ── Onboarding ──────────────────────────────────────────────────────────
