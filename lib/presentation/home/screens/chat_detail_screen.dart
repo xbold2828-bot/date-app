@@ -25,6 +25,8 @@ import '../widgets/chat_actions_menu.dart';
 import '../widgets/message_limit_paywall.dart';
 import '../widgets/send_failure.dart';
 import './profile_detail_sheet.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 // ═════════════════════════════════════════════════════════════════════
 // UI-only theme helpers (all derived from AppColors, so light & dark
@@ -246,7 +248,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
       if (mounted) {
         showRadiusToast(
           context,
-          'Something went wrong. Please try again.',
+          AppString.chatDetailSendError,
           tone: ToastTone.error,
         );
       }
@@ -270,6 +272,10 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
     ref
         .read(chatServiceProvider)
         .sendTyping(toUserId: _otherId, conversationId: convId);
+  }
+
+  void _onSwipe(DragEndDetails details) {
+    // No-op for now, but could be used to exit.
   }
 
   void _scrollToBottom() {
@@ -340,7 +346,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
                         padding: EdgeInsets.only(top: topInset),
                         child: Center(
                           child: Text(
-                            "Couldn't load messages.\n$err",
+                            AppString.chatLoadError,
                             textAlign: TextAlign.center,
                             style: TextStyle(color: AppColors.textGrey),
                           ),
@@ -401,7 +407,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
   Future<void> _openActions() async {
     final convId = _convId;
     if (convId == null) {
-      showRadiusToast(context, 'Say something first');
+      showRadiusToast(context, AppString.chatDetailSayFirst);
       return;
     }
     final result = await showChatActionsMenu(
@@ -449,7 +455,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
           children: [
             _GlassButton(
               icon: Icons.arrow_back_ios_new_rounded,
-              label: 'Back',
+              label: AppString.chatDetailBack,
               iconSize: 19,
               onTap: () => Navigator.pop(context),
             ),
@@ -457,7 +463,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
             Expanded(
               child: Semantics(
                 button: true,
-                label: "Open $name's profile",
+                label: AppString.profileDetails,
                 excludeSemantics: true,
                 child: InkWell(
                   onTap: _openProfile,
@@ -503,7 +509,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
             const SizedBox(width: 8),
             _GlassButton(
               icon: Icons.more_vert_rounded,
-              label: 'More options',
+              label: AppString.chatDetailMoreOptions,
               onTap: _openActions,
             ),
           ],
@@ -581,7 +587,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
               boxShadow: _softShadow(light: 0.05, blur: 10),
             ),
             child: Text(
-              'Say hello 👋',
+              AppString.chatDetailSayHello,
               style: TextStyle(
                 color: AppColors.textGrey,
                 fontSize: 14,
@@ -597,7 +603,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
       padding: EdgeInsets.fromLTRB(12, topInset, 12, 10),
       itemCount: messages.length + 1,
       itemBuilder: (_, index) {
-        if (index == 0) return _buildDateHeader('TODAY');
+        if (index == 0) return _buildDateHeader(AppString.chatDetailTodayHeader);
         final msg = messages[index - 1];
         final prev = index - 2 >= 0 ? messages[index - 2] : null;
         final firstInGroup = prev == null || prev.fromMe != msg.fromMe;
@@ -692,7 +698,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
             children: [
               if (msg.edited) ...[
                 Text(
-                  'edited',
+                  AppString.chatDetailEdited,
                   style: TextStyle(
                     fontSize: 10,
                     color: metaColor,
@@ -739,7 +745,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
           Flexible(
             child: Semantics(
               button: !deleted,
-              label: deleted ? null : 'Message options',
+              label: deleted ? null : AppString.chatDetailMessageOptions,
               child: GestureDetector(
                 onLongPress: deleted ? null : () => _openMessageActions(msg),
                 child: Container(
@@ -802,7 +808,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
     switch (action) {
       case _MessageAction.copy:
         await Clipboard.setData(ClipboardData(text: msg.body));
-        if (mounted) showRadiusToast(context, 'Copied', tone: ToastTone.success);
+        if (mounted) showRadiusToast(context, AppString.chatDetailCopied, tone: ToastTone.success);
       case _MessageAction.edit:
         await _editMessage(msg);
       case _MessageAction.delete:
@@ -811,7 +817,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
         if (mounted) {
           showRadiusToast(
             context,
-            'Editing and deleting messages are premium features',
+            AppString.chatDetailEditDeletePremium,
           );
         }
     }
@@ -852,19 +858,18 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
           side: BorderSide(color: AppColors.inputBorder),
         ),
         title: Text(
-          'Delete this message?',
+          AppString.chatDetailDeleteMsgTitle,
           style: AppTextStyles.title.copyWith(fontSize: 18),
         ),
         content: Text(
-          'It disappears for both of you. ${widget.userName} will see that a '
-              'message was deleted, in the place it was.',
+          AppString.chatDetailDeleteMsgBody(widget.userName),
           style: AppTextStyles.bodyMuted,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
             child: Text(
-              'Cancel',
+              AppString.chatDetailDeleteMsgCancel,
               style: AppTextStyles.bodyStrong
                   .copyWith(color: AppColors.textGrey),
             ),
@@ -872,7 +877,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             child: Text(
-              'Delete',
+              AppString.chatDetailDeleteMsgConfirm,
               style: AppTextStyles.bodyStrong.copyWith(
                 color: AppColors.danger,
                 fontWeight: FontWeight.w700,
@@ -933,7 +938,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
                       height: 1.3,
                     ),
                     decoration: InputDecoration(
-                      hintText: 'Say something nice...',
+                      hintText: AppString.chatDetailHintText,
                       hintStyle: TextStyle(
                         color: AppColors.textGrey,
                         fontSize: 15,
@@ -1132,13 +1137,13 @@ class _MessageActionsSheet extends StatelessWidget {
         children: [
           _MessageActionRow(
             icon: Icons.copy_rounded,
-            label: 'Copy',
+            label: AppString.chatDetailCopyLabel,
             onTap: () => Navigator.pop(context, _MessageAction.copy),
           ),
           if (canModify) ...[
             _MessageActionRow(
               icon: Icons.edit_rounded,
-              label: 'Edit',
+              label: AppString.edit,
               locked: !isPremium,
               onTap: () => Navigator.pop(
                 context,
@@ -1147,7 +1152,7 @@ class _MessageActionsSheet extends StatelessWidget {
             ),
             _MessageActionRow(
               icon: Icons.delete_rounded,
-              label: 'Delete',
+              label: AppString.delete,
               danger: true,
               locked: !isPremium,
               onTap: () => Navigator.pop(
@@ -1265,7 +1270,7 @@ class _EditMessageSheetState extends State<_EditMessageSheet> {
   @override
   Widget build(BuildContext context) {
     return RadiusSheet(
-      title: 'Edit message',
+      title: AppString.chatDetailEditMsgTitle,
       child: Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.viewInsetsOf(context).bottom,
@@ -1300,7 +1305,7 @@ class _EditMessageSheetState extends State<_EditMessageSheet> {
             ),
             const SizedBox(height: 14),
             RadiusButton(
-              label: 'Save',
+              label: AppString.save,
               onPressed: () =>
                   Navigator.pop(context, _controller.text.trim()),
             ),
@@ -1341,13 +1346,13 @@ class _EmptyThread extends StatelessWidget {
               RadarMark(size: 76, color: AppColors.iconMuted),
               const SizedBox(height: 18),
               Text(
-                'You matched with $name',
+                AppString.chatDetailMatchedWith(name),
                 textAlign: TextAlign.center,
                 style: AppTextStyles.title.copyWith(fontSize: 18),
               ),
               const SizedBox(height: 8),
               Text(
-                'Neither of you has said anything yet. Someone has to go first.',
+                AppString.chatDetailNobodyFirst(name),
                 textAlign: TextAlign.center,
                 style: AppTextStyles.caption,
               ),
@@ -1373,16 +1378,16 @@ class _StatusFlags extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (other?.isDeactivated ?? false) {
-      return const _Flag(
+      return _Flag(
         icon: Icons.person_off_outlined,
-        label: 'Account deactivated',
+        label: AppString.chatDetailAccountDeactivated,
         tone: _FlagTone.muted,
       );
     }
 
     if (typing) {
       return Text(
-        'typing…',
+        AppString.chatDetailTyping,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: AppTextStyles.caption.copyWith(
@@ -1395,7 +1400,7 @@ class _StatusFlags extends StatelessWidget {
     }
 
     final city = other?.city;
-    final activity = online ? 'Active now' : other?.activityLabel;
+    final activity = online ? AppString.chatDetailActiveNow : other?.activityLabel;
 
     return Row(
       children: [

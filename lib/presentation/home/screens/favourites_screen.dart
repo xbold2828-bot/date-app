@@ -54,9 +54,9 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
         spacerH(10),
         PremiumTabBar(
           controller: _tabs,
-          tabs: const [
-            PremiumTabItem(label: 'Likes', icon: Icons.favorite_rounded),
-            PremiumTabItem(label: 'Mutual', icon: Icons.people_alt_rounded),
+          tabs: [
+            PremiumTabItem(label: AppString.youHeaderLikes, icon: Icons.favorite_rounded),
+            PremiumTabItem(label: AppString.likesTabMutual, icon: Icons.people_alt_rounded),
           ],
         ),
         Expanded(
@@ -81,10 +81,10 @@ class _LikedYouTab extends ConsumerWidget {
   }
 
   String _subtitle(LikedYouPage? page) {
-    if (page == null) return 'They already made the first move.';
+    if (page == null) return AppString.likesMadeFirstMove;
     final total = _totalLikes(page);
-    if (total == 0) return 'They already made the first move.';
-    return total == 1 ? '1 person liked you' : '$total people liked you';
+    if (total == 0) return AppString.likesMadeFirstMove;
+    return AppString.likesPersonCount(total);
   }
 
   @override
@@ -106,9 +106,9 @@ class _LikedYouTab extends ConsumerWidget {
                   padding: EdgeInsets.only(top: 80),
                   child: Center(child: LoaderWidget()),
                 ),
-                error: (err, _) => const EmptyWidget(
-                  title: "Couldn't load your likes",
-                  body: 'Pull down to try again.',
+                error: (err, _) => EmptyWidget(
+                  title: AppString.likesLoadFailed,
+                  body: AppString.pullDownToRetry,
                 ),
                 data: (page) => _body(context, ref, page),
               ),
@@ -122,11 +122,10 @@ class _LikedYouTab extends ConsumerWidget {
 
   Widget _body(BuildContext context, WidgetRef ref, LikedYouPage page) {
     if (page.isEmpty) {
-      return const EmptyWidget(
+      return EmptyWidget(
         isLikePage: true,
-        title: 'No likes yet',
-        body: 'Keep an eye on your radar — the people you like can see you '
-            'too.',
+        title: AppString.likesEmptyTitle,
+        body: AppString.likesEmptyBody,
       ).paddingOnly(top: 20.h);
     }
 
@@ -144,7 +143,7 @@ class _LikedYouTab extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Liked you', style: AppTextStyles.display),
+              Text(AppString.likedYouTitle, style: AppTextStyles.display),
               const SizedBox(height: 6),
               Text(_subtitle(page), style: AppTextStyles.bodyMuted),
             ],
@@ -187,7 +186,7 @@ class _LikedYouTab extends ConsumerWidget {
     if (card.id.isEmpty) {
       showRadiusToast(
         context,
-        "User Id is Empty",
+        AppString.error,
         tone: ToastTone.error,
       );
 
@@ -233,7 +232,7 @@ class _LikedYouTab extends ConsumerWidget {
       );
     }
 
-    final name = card.displayName ?? 'Someone';
+    final name = card.displayName ?? AppString.someoneFallback;
     return ProfileGridCard(
       name: name,
       age: card.age,
@@ -277,10 +276,10 @@ class _MutualTab extends ConsumerWidget {
         loading: () => const Center(child: LoaderWidget()),
         error: (err, _) => ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          children: const [
+          children: [
             EmptyWidget(
-              title: "Couldn't load your matches",
-              body: 'Pull down to try again.',
+              title: AppString.matchesLoadFailed,
+              body: AppString.pullDownToRetry,
             ),
           ],
         ),
@@ -288,11 +287,10 @@ class _MutualTab extends ConsumerWidget {
           if (page.items.isEmpty) {
             return ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              children: const [
+              children: [
                 EmptyWidget(
-                  title: 'No matches yet',
-                  body: 'When you like someone who already liked you, they '
-                      'show up here — free to message, always.',
+                  title: AppString.mutualEmptyTitle,
+                  body: AppString.mutualEmptyBody,
                 ),
               ],
             );
@@ -330,7 +328,7 @@ class _MutualRow extends ConsumerWidget {
   final int colorIndex;
   final bool online;
 
-  String get _name => match.user.displayName ?? 'Someone';
+  String get _name => match.user.displayName ?? AppString.someoneFallback;
 
   void _openProfile(BuildContext context) {
     showRadiusSheet<void>(
@@ -384,13 +382,13 @@ class _MutualRow extends ConsumerWidget {
       colorIndex: colorIndex,
       online: online,
       subtitle: match.conversationId == null
-          ? 'You both liked each other'
-          : 'You have a conversation going',
-      semanticLabel: 'Match with $_name${online ? ', online now' : ''}',
+          ? AppString.mutualBothLiked
+          : AppString.mutualConversationGoing,
+      semanticLabel: '${AppString.verification}: $_name${online ? ', ${AppString.chatDetailActiveNow}' : ''}',
       onTap: () => _openProfile(context),
       trailing: Semantics(
         button: true,
-        label: 'Message $_name',
+        label: AppString.mutualMessageLabel(_name),
         excludeSemantics: true,
         child: InkWell(
           onTap: () => _openChat(context, ref),
@@ -440,8 +438,8 @@ class _UnlockCardState extends ConsumerState<_UnlockCard> {
       showRadiusToast(
         context,
         credits > 0
-            ? 'Unlocked — $credits credits added'
-            : 'That one was already counted',
+            ? AppString.likesUnlocked(credits)
+            : AppString.likesAlreadyCounted,
         tone: credits > 0 ? ToastTone.success : ToastTone.neutral,
       );
     } on AppException catch (e) {
@@ -459,19 +457,19 @@ class _UnlockCardState extends ConsumerState<_UnlockCard> {
       child: Column(
         children: [
           Text(
-            n == 1 ? '1 more person liked you' : '$n more people liked you',
+            AppString.likesRemainingCount(n),
             textAlign: TextAlign.center,
             style: AppTextStyles.title.copyWith(fontSize: 18),
           ),
           const SizedBox(height: 6),
           Text(
-            'Premium reveals every one of them, and lets you reply.',
+            AppString.likesPremiumRevealBody,
             textAlign: TextAlign.center,
             style: AppTextStyles.caption,
           ),
           const SizedBox(height: 16),
           RadiusButton(
-            label: 'Reveal everyone with Premium',
+            label: AppString.likesRevealWithPremium,
             kind: RadiusButtonKind.premium,
             onPressed: () => Navigator.push(
               context,
@@ -480,7 +478,7 @@ class _UnlockCardState extends ConsumerState<_UnlockCard> {
           ),
           const SizedBox(height: 10),
           RadiusButton(
-            label: _watching ? 'Loading' : 'Watch an ad',
+            label: _watching ? AppString.loading : AppString.watchAnAd,
             kind: RadiusButtonKind.ghost,
             isLoading: _watching,
             onPressed: _watchAd,

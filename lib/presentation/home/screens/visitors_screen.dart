@@ -65,17 +65,17 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
             loading: () => const Center(child: LoaderWidget()),
             error: (_, _) => ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              children: const [
+              children: [
                 EmptyWidget(
                   title: AppString.visitorsLoadFailed,
-                  body: 'Pull down to try again.',
+                  body: AppString.pullDownToRetry,
                 ),
               ],
             ),
             data: (page) => page.isEmpty
                 ? ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    children: const [
+                    children: [
                       EmptyWidget(
                         title: AppString.visitorsEmptyTitle,
                         body: AppString.visitorsEmptyBody,
@@ -100,9 +100,7 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  page.total == 1
-                      ? '1 person visited you'
-                      : '${page.total} people visited you',
+                  AppString.visitorsPersonCount(page.total),
                   style: AppTextStyles.title.copyWith(fontSize: 18),
                 ),
                 const SizedBox(height: 4),
@@ -135,9 +133,7 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
     if (unlocks == null || !page.locked) return AppString.visitorsWindow;
     final free = unlocks.freeRemaining;
     if (free > 0) {
-      return free == 1
-          ? 'Tap a photo to reveal them. 1 free reveal left.'
-          : 'Tap a photo to reveal them. $free free reveals left.';
+      return AppString.visitorsFreeRevealsLeft(free);
     }
     return AppString.visitorsAdEach;
   }
@@ -154,7 +150,7 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
       );
     }
 
-    final name = user.displayName ?? 'Someone';
+    final name = user.displayName ?? AppString.someoneFallback;
     return ProfileGridCard(
       name: name,
       age: user.age,
@@ -191,11 +187,9 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
         final cost = unlocks.creditCost;
         final ok = await showRadiusConfirm(
           context,
-          title: 'Reveal this visitor?',
-          message:
-              'Uses ${cost == 1 ? '1 credit' : '$cost credits'}. '
-              'You have ${unlocks.creditBalance}.',
-          confirmLabel: 'Reveal',
+          title: AppString.visitorsRevealConfirmTitle,
+          message: AppString.visitorsRevealCreditCost(cost, unlocks.creditBalance),
+          confirmLabel: AppString.visitorsRevealLabel,
         );
         if (!ok) return;
       }
@@ -225,7 +219,7 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
       if (mounted) {
         showRadiusToast(
           context,
-          'Revealed ${revealed.user.displayName ?? 'your visitor'}',
+          AppString.visitorsRevealed(revealed.user.displayName),
           tone: ToastTone.success,
         );
       }
@@ -234,7 +228,7 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
       if (afterAd && mounted) {
         showRadiusToast(
           context,
-          "That didn't unlock them. Try again in a moment.",
+          AppString.visitorsUnlockFailed,
           tone: ToastTone.error,
         );
       }

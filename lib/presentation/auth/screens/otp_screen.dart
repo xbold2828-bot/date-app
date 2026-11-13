@@ -13,6 +13,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../shared/widgets/textfield/common_otp_field.dart';
 import '../../common/widgets/widgets.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 class OtpScreen extends ConsumerStatefulWidget {
   const OtpScreen({super.key, required this.phoneNumber});
@@ -77,7 +79,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
     if (_isLoading) return; // prevent double submit
     if (otp.length < _length) {
-      _showSnack('Please enter the complete OTP');
+      _showSnack(AppString.otpIncomplete);
       return;
     }
 
@@ -104,7 +106,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _hasError = true);
-      _showSnack('Invalid OTP. Please try again.');
+      _showSnack(AppString.otpInvalid(e));
       _otpController.clear();
       _otpFocus.requestFocus();
     } finally {
@@ -120,9 +122,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       _otpController.clear();
       setState(() => _hasError = false);
       _startTimer();
-      _showSnack('OTP resent!');
+      _showSnack(AppString.otpResent);
     } catch (e) {
-      if (mounted) _showSnack('Failed to resend: $e');
+      if (mounted) _showSnack(AppString.otpResendFailed(e));
     }
   }
 
@@ -149,15 +151,15 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               spacerH(20),
               Semantics(
                 header: true,
-                child:  Text("Verify it's you", style: AppTextStyles.display),
+                child:  Text(AppString.otpTitle, style: AppTextStyles.display),
               ),
               spacerH( 12),
               Text.rich(
                 TextSpan(
                   style: AppTextStyles.bodyMuted.copyWith(fontSize: 15),
                   children: [
-                    const TextSpan(
-                      text: 'Enter the 6-digit code we sent to ',
+                    TextSpan(
+                      text: AppString.otpSentTo,
                     ),
                     TextSpan(
                       text: displayPhoneNumber(widget.phoneNumber)
@@ -172,7 +174,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                     ),
                     const TextSpan(text: '. '),
                     TextSpan(
-                      text: 'Wrong number?',
+                      text: AppString.otpWrongNumber,
                       style: TextStyle(
                         color: AppColors.primaryInk,
                         fontWeight: FontWeight.w600,
@@ -204,13 +206,13 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               Row(
                 children: [
                   Text(
-                    "Didn't receive a code?  ",
+                    AppString.otpDidntReceive,
                     style: TextStyle(fontSize: 13, color: AppColors.textGrey),
                   ),
                   GestureDetector(
                     onTap: canResend ? _onResendCode : null,
                     child: Text(
-                      canResend ? 'Resend code' : 'Resend in ${_secondsLeft}s',
+                      canResend ? AppString.otpResend : '${AppString.otpResendIn}${_secondsLeft}s',
                       style: TextStyle(
                         fontSize: 13,
                         color: canResend
@@ -227,7 +229,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               // Kept as a fallback; OTP verifies automatically when complete.
               CommonButton(
                 isLoading: _isLoading,
-                text: 'Verify & Continue',
+                text: AppString.otpVerifyButton,
                 onClick: () => _onVerify(),
               ),
 

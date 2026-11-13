@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// The bottom bar: like button, opener text field, send button.
 class ProfileActionBar extends StatelessWidget {
@@ -61,7 +63,7 @@ class ProfileActionBar extends StatelessWidget {
                 textInputAction: TextInputAction.send,
                 style: AppTextStyles.body,
                 decoration: InputDecoration(
-                  hintText: 'Send an opener...',
+                  hintText: AppString.sendOpenerHint,
                   hintStyle: AppTextStyles.body.copyWith(
                     color: AppColors.textGrey,
                   ),
@@ -78,7 +80,7 @@ class ProfileActionBar extends StatelessWidget {
           const SizedBox(width: 10),
           Semantics(
             button: true,
-            label: 'Send opener',
+            label: AppString.sendOpener,
             excludeSemantics: true,
             child: GestureDetector(
               onTap: isSending ? null : onSend,

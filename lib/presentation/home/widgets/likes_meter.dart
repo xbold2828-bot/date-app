@@ -17,6 +17,8 @@ import '../../common/widgets/widgets.dart';
 import '../models/like_quota_model.dart';
 import '../providers/like_quota_provider/like_quota_provider.dart';
 import 'heart_shape.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 const Cubic _easeOut = Cubic(0.23, 1, 0.32, 1);
 
@@ -235,7 +237,7 @@ class _LikesTodaySheetState extends ConsumerState<_LikesTodaySheet> {
       if (!mounted) return;
       if (!earned) {
         AppSnackBar.showWarningSnackBar(
-          message: 'Watch the whole ad to get the like.',
+          message: AppString.watchAdToGetLike,
         );
         return;
       }
@@ -247,12 +249,12 @@ class _LikesTodaySheetState extends ConsumerState<_LikesTodaySheet> {
       final ok = await ref.read(likeQuotaProvider.notifier).unlockMore();
       if (!ok) return;
 
-      AppSnackBar.showSuccessSnackBar(message: 'Like added');
+      AppSnackBar.showSuccessSnackBar(message: AppString.likeAdded);
     } on AppException catch (e) {
       AppSnackBar.showErrorSnackBar(message: e.message);
     } catch (_) {
       AppSnackBar.showErrorSnackBar(
-        message: 'Ad not available right now. Try again shortly.',
+        message: AppString.likesAdNotAvailable,
       );
     } finally {
       if (mounted) {
@@ -349,7 +351,7 @@ class _LikesTodaySheetState extends ConsumerState<_LikesTodaySheet> {
               const SizedBox(height: 10),
             ],
             RadiusButton(
-              label: 'Unlimited likes with Premium',
+              label: AppString.unlimitedLikesWithPremium,
               kind: RadiusButtonKind.premium,
               onPressed: () {
                 Navigator.pop(context);

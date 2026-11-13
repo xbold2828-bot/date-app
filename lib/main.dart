@@ -1,3 +1,4 @@
+import 'package:dating_app/core/constants/app_string.dart';
 import 'dart:async';
 import 'package:dating_app/core/constants/app_constants.dart';
 import 'package:dating_app/presentation/internet/viewmodel/providers/internet_provider/internet_provider.dart';
@@ -9,6 +10,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -18,6 +20,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/constants/app_text_styles.dart';
 import 'core/constants/env.dart';
+import 'core/localization/app_language.dart';
+import 'core/localization/locale_provider.dart';
 import 'core/logger/app_logger.dart';
 import 'core/notification/notification_helper.dart';
 import 'core/notification/push_deep_link.dart';
@@ -43,6 +47,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await ThemeController.preload();
+  await LocaleController.preload();
 
   try {
     await dotenv.load(fileName: ".env");
@@ -172,7 +177,7 @@ Future<void> _runSecurityGate() async {
 // just asks SecurityService to build the message and displays it.
 void _showSecurityRiskWarning(List<SecurityRisk> risks) {
   AppSnackBar.showErrorSnackBar(
-    title: 'Security notice',
+    title: AppString.settingsSecurityNotice,
     message: SecurityService.buildWarningMessage(risks),
     seconds: 5,
   );
@@ -401,6 +406,13 @@ class MyApp extends ConsumerWidget {
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
           themeMode: ref.watch(themeModeProvider),
+          locale: ref.watch(localeProvider),
+          supportedLocales: AppLanguage.supportedLocales,
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
           scaffoldMessengerKey: scaffoldMessengerKey,
           routerConfig: appRouter,
           builder: (context, child) {

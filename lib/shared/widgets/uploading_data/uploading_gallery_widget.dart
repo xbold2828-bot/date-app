@@ -9,6 +9,8 @@ import '../../../core/utils/utils.dart';
 import '../app_text.dart';
 import '../buttons/common_small_button.dart';
 import '../document_viewer/document_viewer_widget.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 class UploadingGalleryWidget extends StatelessWidget {
   final VoidCallback onBrowseTap;
@@ -38,7 +40,7 @@ class UploadingGalleryWidget extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12.r),
         ),
-        title: const Text("Remove Photo"),
+        title: Text(AppString.removePhoto),
         content: Text(
           "Are you sure you want to remove '$selectedFileName'?",
           style: TextStyle(color: colorScheme.primary),
@@ -46,7 +48,7 @@ class UploadingGalleryWidget extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text("Cancel", style: TextStyle(color: colorScheme.surface)),
+            child: Text(AppString.cancel, style: TextStyle(color: colorScheme.surface)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),

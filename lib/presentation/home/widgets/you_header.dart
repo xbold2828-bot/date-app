@@ -10,6 +10,8 @@ import '../../../core/utils/onboarding_maps.dart';
 import '../../../data/models/user_model.dart';
 import '../../../providers/location_sharing_provider.dart';
 import '../../common/widgets/widgets.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// Instagram's top row: bold username on the left, "+" (add photo) and the
 /// menu on the right. Dark mode, blocked accounts, sign out and the rest
@@ -58,7 +60,7 @@ class YouTopBar extends StatelessWidget {
             ),
           Semantics(
             button: true,
-            label: 'Settings',
+            label: AppString.youHeaderSettings,
             excludeSemantics: true,
             child: IconButton(
               onPressed: onMenu,
@@ -127,9 +129,9 @@ class YouProfileHeader extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                _Stat(value: visits, label: 'Visits', onTap: onVisitsTap),
-                _Stat(value: likes, label: 'Likes'),
-                _Stat(value: friends, label: 'Friends'),
+                _Stat(value: visits, label: AppString.youHeaderVisits, onTap: onVisitsTap),
+                _Stat(value: likes, label: AppString.youHeaderLikes),
+                _Stat(value: friends, label: AppString.youHeaderFriends),
               ],
             ),
           ),
@@ -260,7 +262,7 @@ class YouIdentity extends StatelessWidget {
           else
             Semantics(
               button: true,
-              label: 'Write a bio',
+              label: AppString.youHeaderWriteBio,
               excludeSemantics: true,
               child: InkWell(
                 onTap: onWriteBio,
@@ -312,7 +314,7 @@ class YouActions extends ConsumerWidget {
       child: Row(
         children: [
           Expanded(
-            child: TonalButton(label: 'Edit profile', onTap: onEdit),
+            child: TonalButton(label: AppString.editProfileTitle, onTap: onEdit),
           ),
           const SizedBox(width: 6),
           Expanded(

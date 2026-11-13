@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/static_assets/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// The backend owns the canonical funnel length, so screens label themselves
 /// with their real step number rather than a per-screen count that drifts as
@@ -159,7 +161,7 @@ class BackChevron extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Go back',
+      label: AppString.goBack,
       excludeSemantics: true,
       child: SizedBox(
         width: 48,
@@ -191,7 +193,7 @@ class BackButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Go back',
+      label: AppString.goBack,
       excludeSemantics: true,
       child: Material(
         color: AppColors.card,

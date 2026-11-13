@@ -16,6 +16,8 @@ import '../../../shared/widgets/premium_tab_bar.dart';
 import '../../common/widgets/widgets.dart';
 import '../widgets/chat_actions_menu.dart';
 import './chat_detail_screen.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 // ============================================================================
 // Screen
@@ -49,18 +51,16 @@ class _RequestsScreenState extends ConsumerState<ChatsScreen>
         Expanded(
           child: TabBarView(
             controller: _tabController,
-            children: const [
+            children: [
               _ConversationList(
                 state: 'vibing',
-                emptyTitle: 'No conversations yet',
-                emptyBody: 'When someone replies to your opener, the '
-                    'conversation moves here.',
+                emptyTitle: AppString.chatConvoEmptyTitle,
+                emptyBody: AppString.chatConvoEmptyBody,
               ),
               _ConversationList(
                 state: 'new_energy',
-                emptyTitle: 'Nothing new',
-                emptyBody: 'Openers waiting for a reply — yours or theirs — '
-                    'show up here.',
+                emptyTitle: AppString.chatInboxEmptyTitle,
+                emptyBody: AppString.chatInboxEmptyBody,
               ),
             ],
           ),
@@ -87,7 +87,7 @@ class _Header extends StatelessWidget {
           ),
           Semantics(
             button: true,
-            label: 'Archived chats',
+            label: AppString.chatArchivedLabel,
             excludeSemantics: true,
             child: InkWell(
               onTap: () => context.push(AppRoutes.archivedChats),
@@ -129,13 +129,13 @@ class _TabBarSection extends ConsumerWidget {
       controller: tabController,
       tabs: [
         PremiumTabItem(
-          label: 'Vibing',
+          label: AppString.chatTabVibing,
           icon: Icons.favorite_rounded,
           count: vibing,
           semanticLabel: sem('Vibing', vibing),
         ),
         PremiumTabItem(
-          label: 'New Energy',
+          label: AppString.chatTabNewEnergy,
           icon: Icons.bolt_rounded,
           count: fresh,
           semanticLabel: sem('New Energy', fresh),
@@ -169,9 +169,9 @@ class _ConversationList extends ConsumerWidget {
       loading: () => const Center(
         child: LoaderWidget(),
       ),
-      error: (err, _) => const EmptyWidget(
-        title: "Couldn't load conversations",
-        body: 'Pull down to try again.',
+      error: (err, _) => EmptyWidget(
+        title: AppString.chatLoadConversationsError,
+        body: AppString.pullDownToRetry,
       ),
       data: (items) {
         if (items.isEmpty) {

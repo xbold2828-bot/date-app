@@ -47,7 +47,7 @@ class UploadingFileWidget extends StatelessWidget {
           ),
           content: Text(
             "Are you sure you want to remove this file?\n'${selectedFileName ?? 'this file'}'",
-            style: TextStyle(fontSize: 14.sp),
+            style: const TextStyle(fontSize: 14),
           ),
           actions: [
             TextButton(

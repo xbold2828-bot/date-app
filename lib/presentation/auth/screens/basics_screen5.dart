@@ -56,7 +56,7 @@ class _BasicsScreen5State extends ConsumerState<BasicsScreen5> {
       body: SafeArea(
         child: Column(
           children: [
-            const StepHeader(step: 7, label: AppString.sectionLocation),
+            StepHeader(step: 7, label: AppString.sectionLocation),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),

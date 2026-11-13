@@ -2,6 +2,7 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_string.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../providers/explore_provider.dart';
@@ -89,12 +90,9 @@ class ExploreCountPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = switch (count) {
-      _ when isLoading => 'Finding your people…',
-      0 => 'Nobody here yet',
-      1 => '1 person vibing',
-      _ => '$count people vibing',
-    };
+    final label = isLoading
+        ? AppString.exploreCountLoading
+        : AppString.exploreCount(count);
 
     return Semantics(
       label: label,
@@ -111,13 +109,17 @@ class ExploreCountPill extends StatelessWidget {
               color: AppColors.blue,
             ),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: AppTextStyles.caption.copyWith(
-                fontSize: 12,
-                color: AppColors.textDark,
-                fontWeight: FontWeight.w700,
-                fontVariations: const [FontVariation('wght', 700)],
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.caption.copyWith(
+                  fontSize: 12,
+                  color: AppColors.textDark,
+                  fontWeight: FontWeight.w700,
+                  fontVariations: const [FontVariation('wght', 700)],
+                ),
               ),
             ),
           ],

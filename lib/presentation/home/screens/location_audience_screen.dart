@@ -6,6 +6,8 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../data/models/message_model.dart';
 import '../../../providers/location_sharing_provider.dart';
 import '../../common/widgets/widgets.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// Pick which friends can see me on the map.
 ///
@@ -84,15 +86,14 @@ class _LocationAudienceScreenState
           loading: () => Center(
             child: CircularProgressIndicator(color: AppColors.primary),
           ),
-          error: (_, _) => const _Message(
-            title: "Couldn't load your friends",
-            body: 'Go back and try again in a moment.',
+          error: (_, _) => _Message(
+            title: AppString.locationFriendsLoadError,
+            body: AppString.locationAudienceLoadErrorRetry,
           ),
           data: (friends) => friends.isEmpty
-              ? const _Message(
-                  title: 'No friends yet',
-                  body: 'A friend is someone you have got talking to. Reply to '
-                      'an opener, or send one, and they will show up here.',
+              ? _Message(
+                  title: AppString.locationAudienceNoFriends,
+                  body: AppString.locationAudienceNoFriendsBody,
                 )
               : _list(friends),
         ),
@@ -118,7 +119,7 @@ class _LocationAudienceScreenState
             onChanged: (value) => setState(() => _query = value),
             style: AppTextStyles.body,
             decoration: InputDecoration(
-              hintText: 'Search friends',
+              hintText: AppString.locationAudienceSearchHint,
               hintStyle: AppTextStyles.bodyMuted,
               prefixIcon: Icon(
                 Icons.search,
@@ -159,9 +160,9 @@ class _LocationAudienceScreenState
         ),
         Expanded(
           child: matching.isEmpty
-              ? const _Message(
-                  title: 'Nobody by that name',
-                  body: 'Only people you are vibing with can be picked.',
+              ? _Message(
+                  title: AppString.locationAudienceNoResults,
+                  body: AppString.locationAudienceNoResultsBody,
                 )
               : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),

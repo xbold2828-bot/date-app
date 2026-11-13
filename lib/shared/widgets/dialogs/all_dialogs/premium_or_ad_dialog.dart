@@ -259,7 +259,7 @@ class _PremiumOrAdDialogState extends ConsumerState<PremiumOrAdDialog> {
                 ),
                 child: Icon(
                   Icons.close_rounded,
-                  size: 18.sp,
+                  size: 18,
                   color: colorScheme.onSurface,
                 ),
               ),

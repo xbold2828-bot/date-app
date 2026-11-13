@@ -6,6 +6,8 @@ import '../../../../core/errors/app_exceptions.dart';
 import '../../../../core/utils/app_snack_bar.dart';
 import '../../../../providers/core_providers.dart';
 import '../../models/like_quota_model.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 class LikeQuotaNotifier extends AsyncNotifier<LikeQuota> {
   @override
@@ -25,7 +27,7 @@ class LikeQuotaNotifier extends AsyncNotifier<LikeQuota> {
       AppSnackBar.showErrorSnackBar(message: e.message);
     } catch (_) {
       state = previous;
-      AppSnackBar.showErrorSnackBar(message: 'Could not load your likes.');
+      AppSnackBar.showErrorSnackBar(message: AppString.likesLoadError);
     }
   }
 
@@ -49,7 +51,7 @@ class LikeQuotaNotifier extends AsyncNotifier<LikeQuota> {
       return false;
     } catch (_) {
       AppSnackBar.showErrorSnackBar(
-        message: 'Could not add the like. Please try again.',
+        message: AppString.likesAddError,
       );
       return false;
     }

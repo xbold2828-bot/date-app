@@ -33,8 +33,8 @@ class ForceUpdateScreen extends StatelessWidget {
       );
     } else {
       AppSnackBar.showErrorSnackBar(
-        title: "Error",
-        message: "Unsupported Platform",
+        title: AppString.error,
+        message: AppString.unsupportedPlatform,
       );
       return;
     }
@@ -105,7 +105,7 @@ class ForceUpdateScreen extends StatelessWidget {
                         spacerH(30),
 
                         // 2. --- EXCITING TITLE ---
-                        const AppText(
+                        AppText(
                           text: AppString.forceUpdateTitle,
                           textAlign: TextAlign.center,
                           fontSize: 28,
@@ -116,7 +116,7 @@ class ForceUpdateScreen extends StatelessWidget {
                         spacerH(12),
 
                         // 3. --- EXPLANATORY SUBTITLE ---
-                        const AppText(
+                        AppText(
                           text: AppString.forceUpdateSubTitle,
                           textAlign: TextAlign.center,
                           fontSize: 15,
@@ -137,7 +137,7 @@ class ForceUpdateScreen extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const AppText(
+                              AppText(
                                 text: AppString.whatsNew,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,

@@ -9,6 +9,8 @@ import '../../../core/utils/utils.dart';
 import '../app_text.dart';
 import '../buttons/common_small_button.dart';
 import '../document_viewer/document_viewer_widget.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 class UploadingFileWidget2 extends StatelessWidget {
   final VoidCallback onBrowseTap;
@@ -37,7 +39,7 @@ class UploadingFileWidget2 extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12.r),
             ),
-            title: const Text("Remove File"),
+            title: Text(AppString.removeFile),
             content: Text(
               "Are you sure you want to remove \"$selectedFileName\"?",
             ),

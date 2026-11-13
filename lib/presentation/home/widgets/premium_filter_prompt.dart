@@ -4,6 +4,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../common/widgets/widgets.dart';
 import '../screens/premium_screen.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// Shown when a free member taps a locked filter.
 ///
@@ -57,7 +59,7 @@ Future<void> showPremiumFilterPrompt(
             ),
             const SizedBox(height: 22),
             RadiusButton(
-              label: 'See Premium',
+              label: AppString.premiumFilterSeePremium,
               kind: RadiusButtonKind.premium,
               onPressed: () {
                 Navigator.pop(sheetContext);

@@ -340,9 +340,9 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen>
     _Phase.loading => const _Centered(child: _Spinner()),
     _Phase.intro => _intro(),
     _Phase.preparing || _Phase.capturing => _capture(),
-    _Phase.checking => const _Centered(
+    _Phase.checking => _Centered(
       child: _Message(
-        leading: _Spinner(),
+        leading: const _Spinner(),
         title: AppString.verifyChecking,
         body: AppString.verifyCheckingBody,
       ),
@@ -423,16 +423,16 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen>
           Text(AppString.verifyIntro, style: AppTextStyles.bodyMuted),
         ],
         const SizedBox(height: 28),
-        const _Point(
+        _Point(
           icon: Icons.face_retouching_natural_outlined,
           text: AppString.verifyHowSteps,
         ),
-        const _Point(
+         _Point(
           icon: Icons.photo_camera_front_outlined,
           text: AppString.verifyHowPhotos,
         ),
-        const _Point(icon: Icons.lock_outline, text: AppString.verifyHowPrivate),
-        const _Point(
+        _Point(icon: Icons.lock_outline, text: AppString.verifyHowPrivate),
+        _Point(
           icon: Icons.verified_outlined,
           text: AppString.verifyHowLater,
         ),

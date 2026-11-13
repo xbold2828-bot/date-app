@@ -8,6 +8,8 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../providers/chat_provider.dart';
 import '../../../providers/realtime_provider.dart';
 import 'request_screen.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 class ArchivedChatsScreen extends ConsumerWidget {
   const ArchivedChatsScreen({super.key});
@@ -32,7 +34,7 @@ class ArchivedChatsScreen extends ConsumerWidget {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Archived',
+          AppString.archivedTitle,
           style: AppTextStyles.title.copyWith(fontSize: 18),
         ),
       ),
@@ -50,10 +52,10 @@ class ArchivedChatsScreen extends ConsumerWidget {
                   ),
                   error: (err, _) => ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    children: const [
+                    children: [
                       EmptyWidget(
-                        title: "Couldn't load your archive",
-                        body: 'Pull down to try again.',
+                        title: AppString.couldntLoadYourArchive,
+                        body: AppString.pullDownToRetry,
                       ),
                     ],
                   ),
@@ -61,11 +63,10 @@ class ArchivedChatsScreen extends ConsumerWidget {
                     if (items.isEmpty) {
                       return ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        children: const [
+                        children: [
                           EmptyWidget(
-                            title: 'Nothing archived',
-                            body: 'Chats you archive are kept here, out of your '
-                                'inbox but not deleted.',
+                            title: AppString.archivedEmptyTitle,
+                            body: AppString.archivedEmptyBody,
                           ),
                         ],
                       );

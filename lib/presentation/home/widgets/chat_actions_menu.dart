@@ -7,6 +7,8 @@ import '../../../core/errors/app_exceptions.dart';
 import '../../../data/repositories/safety_repository.dart';
 import '../../../providers/chat_provider.dart';
 import '../../common/widgets/widgets.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// What happened, so the caller can react — a screen sitting *inside* the
 /// conversation has to leave when that conversation stops existing.
@@ -98,12 +100,12 @@ class _ChatActionsSheetState extends ConsumerState<_ChatActionsSheet> {
         ? _run(
             () => actions.unarchive(widget.conversationId),
             result: ChatActionResult.unarchived,
-            confirmation: 'Moved back to your inbox',
+            confirmation: AppString.chatActionMoveToInbox,
           )
         : _run(
             () => actions.archive(widget.conversationId),
             result: ChatActionResult.archived,
-            confirmation: 'Archived',
+            confirmation: AppString.archivedTitle,
           );
   }
 
@@ -118,37 +120,35 @@ class _ChatActionsSheetState extends ConsumerState<_ChatActionsSheet> {
         ? _run(
             () => actions.setMuted(widget.conversationId, false),
             result: ChatActionResult.unmuted,
-            confirmation: 'Notifications on',
+            confirmation: AppString.chatActionNotificationsOn,
           )
         : _run(
             () => actions.setMuted(widget.conversationId, true),
             result: ChatActionResult.muted,
-            confirmation: 'Muted — messages still arrive, quietly',
+            confirmation: AppString.mutedMessagesStillArriveQuietly,
           );
   }
 
   Future<void> _delete() async {
     final ok = await _confirm(
-      title: 'Delete this conversation?',
+      title: AppString.chatActionDeleteTitle,
       body: 'It disappears from your inbox. ${widget.userName} keeps their '
           'copy, and if they message you again the chat comes back.',
-      confirmLabel: 'Delete',
+      confirmLabel: AppString.delete,
     );
     if (!ok) return;
     await _run(
       () => ref.read(chatActionsProvider).deleteConversation(widget.conversationId),
       result: ChatActionResult.deleted,
-      confirmation: 'Conversation deleted',
+      confirmation: AppString.chatActionConversationDeleted,
     );
   }
 
   Future<void> _block() async {
     final ok = await _confirm(
       title: 'Block ${widget.userName}?',
-      body: 'They will not be able to message you, and you will not see each '
-          'other anywhere in cozune. Anything they send from now on will not '
-          'reach you.\n\nYou can undo this in You → Blocked accounts.',
-      confirmLabel: 'Block',
+      body: AppString.chatActionBlockBody,
+      confirmLabel: AppString.chatActionBlock,
     );
     if (!ok) return;
     await _run(
@@ -163,7 +163,7 @@ class _ChatActionsSheetState extends ConsumerState<_ChatActionsSheet> {
       title: 'Unblock ${widget.userName}?',
       body: 'You will be able to see and message each other again. Anything '
           'they sent while blocked stays undelivered.',
-      confirmLabel: 'Unblock',
+      confirmLabel: AppString.unblock,
     );
     if (!ok) return;
     await _run(
@@ -184,7 +184,7 @@ class _ChatActionsSheetState extends ConsumerState<_ChatActionsSheet> {
           .read(chatActionsProvider)
           .reportUser(widget.userId, reason: reason),
       result: ChatActionResult.reported,
-      confirmation: 'Reported — thank you',
+      confirmation: AppString.reportedThankYou,
     );
   }
 
@@ -258,7 +258,7 @@ class _ChatActionsSheetState extends ConsumerState<_ChatActionsSheet> {
           ),
           _ActionRow(
             icon: Icons.delete_outline,
-            label: 'Delete chat',
+            label: AppString.chatDeleteChat,
             onTap: _busy ? null : _delete,
           ),
           if (isBlocked)
@@ -276,7 +276,7 @@ class _ChatActionsSheetState extends ConsumerState<_ChatActionsSheet> {
             ),
           _ActionRow(
             icon: Icons.flag_outlined,
-            label: 'Report',
+            label: AppString.report,
             tone: _ActionTone.danger,
             onTap: _busy ? null : _report,
           ),

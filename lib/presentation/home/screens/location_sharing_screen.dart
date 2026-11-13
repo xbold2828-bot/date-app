@@ -9,6 +9,8 @@ import '../../../data/models/message_model.dart';
 import '../../../providers/location_sharing_provider.dart';
 import '../../common/widgets/widgets.dart';
 import './location_audience_screen.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// Who can see me on the Explore map.
 ///
@@ -117,12 +119,12 @@ class _Body extends ConsumerWidget {
         ),
         const SizedBox(height: 24),
 
-        Text('WHO CAN SEE MY LOCATION', style: AppTextStyles.label),
+        Text(AppString.whoCanSeeMyLocation, style: AppTextStyles.label),
         const SizedBox(height: 10),
 
         RadiusOptionTile(
-          title: 'Everyone',
-          subtitle: 'Anyone who has messaged you, replied or not',
+          title: AppString.locationAudienceEveryone,
+          subtitle: AppString.locationAudienceAnyoneDesc,
           selected: sharing.enabled &&
               sharing.audience == LocationAudience.everyone,
           onTap: () => _apply(
@@ -133,8 +135,8 @@ class _Body extends ConsumerWidget {
         const SizedBox(height: 10),
 
         RadiusOptionTile(
-          title: 'All friends',
-          subtitle: "Everyone you're vibing with",
+          title: AppString.locationAudienceAllFriends,
+          subtitle: AppString.locationAudienceVibingDesc,
           selected:
               sharing.enabled && sharing.audience == LocationAudience.friends,
           onTap: () => _apply(
@@ -145,8 +147,8 @@ class _Body extends ConsumerWidget {
         const SizedBox(height: 10),
 
         RadiusOptionTile(
-          title: 'Selected friends',
-          subtitle: 'Only the people you pick',
+          title: AppString.locationSharingSelectedFriends,
+          subtitle: AppString.locationAudienceSelectedDesc,
           selected:
               sharing.enabled && sharing.audience == LocationAudience.selected,
           onTap: () => _openPicker(context, ref),
@@ -166,8 +168,8 @@ class _Body extends ConsumerWidget {
         const SizedBox(height: 10),
 
         RadiusOptionTile(
-          title: 'No one',
-          subtitle: 'Turn off location sharing',
+          title: AppString.locationAudienceNoOne,
+          subtitle: AppString.turnOffLocationSharing,
           selected: !sharing.enabled,
           onTap: () => _apply(context, () => notifier.setEnabled(false)),
         ),
@@ -258,7 +260,7 @@ class _MasterToggle extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Semantics(
-            label: 'Share live location',
+            label: AppString.shareLiveLocation,
             toggled: enabled,
             child: Switch(
               value: enabled,
@@ -304,7 +306,7 @@ class _SelectedFriends extends ConsumerWidget {
     if (allowedUserIds.isEmpty) {
       return _ManageRow(
         onManage: onManage,
-        actionLabel: 'Choose',
+        actionLabel: AppString.choose,
         child: Text(
           'No one picked yet — nobody can see you',
           style: AppTextStyles.caption.copyWith(color: AppColors.primaryInk),
@@ -314,7 +316,7 @@ class _SelectedFriends extends ConsumerWidget {
 
     return _ManageRow(
       onManage: onManage,
-      actionLabel: 'Manage',
+      actionLabel: AppString.manage,
       child: Row(
         children: [
           if (chosen.isNotEmpty)
@@ -499,7 +501,7 @@ class _ErrorState extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           RadiusButton(
-            label: 'Try again',
+            label: AppString.verifyTryAgain,
             onPressed: onRetry,
             kind: RadiusButtonKind.ghost,
             expand: false,

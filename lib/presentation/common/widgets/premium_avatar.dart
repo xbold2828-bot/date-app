@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// An avatar wearing its owner's premium status.
 ///
@@ -145,7 +147,7 @@ class _PremiumAvatarState extends State<PremiumAvatar>
     }
 
     return Semantics(
-      label: 'Premium member',
+      label: AppString.premiumMember,
       child: SizedBox(
         // Room above the rim for the crown to float in without being clipped.
         width: extent,

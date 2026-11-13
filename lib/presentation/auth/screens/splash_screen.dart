@@ -23,6 +23,8 @@ import '../../../data/services/auth_service.dart';
 import '../../../providers/notification_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../common/force_update_maintenance/presentation/pages/maintenance_screen.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key, this.skipStartupChecks = false});
@@ -262,7 +264,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   if (mounted) context.go(AppRoutes.splash);
                 } else {
                   AppSnackBar.showWarningSnackBar(
-                    message: "Current App is in Maintenance Mode!",
+                    message: AppString.currentAppIsInMaintenance,
                   );
                 }
               },

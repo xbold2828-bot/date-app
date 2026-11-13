@@ -5,6 +5,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/models/map_user_model.dart';
 import 'explore_avatar.dart';
 import 'explore_controls.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// Floating row of faces over the map. Same height, radius, fill and shadow
 /// as the bottom navigation bar.
@@ -228,7 +230,7 @@ class _AllTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _IconTile(
     icon: Icons.groups_outlined,
-    label: 'All',
+    label: AppString.all,
     active: active,
     onTap: onTap,
     semanticLabel: active
@@ -246,7 +248,7 @@ class _ShowAllTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _IconTile(
     icon: Icons.grid_view_rounded,
-    label: 'See all',
+    label: AppString.seeAll,
     active: false,
     onTap: onTap,
     semanticLabel: 'See all $count people in a grid',

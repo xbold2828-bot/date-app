@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/extensions/global_back_extension.dart';
+import '../../../core/localization/locale_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/onboarding_maps.dart';
 import '../../../data/models/user_model.dart';
@@ -16,8 +16,18 @@ import '../widgets/you_header.dart';
 import 'edit_profile_screen.dart';
 import 'settings_screen.dart';
 import 'visitors_screen.dart';
+import 'package:dating_app/core/constants/app_string.dart';
 
 enum _YouTab { photos, about }
+
+/// Bold text used by several small widgets in this file.
+TextStyle _strong(double size, {Color? color}) =>
+    AppTextStyles.bodyStrong.copyWith(
+      fontSize: size,
+      color: color,
+      fontWeight: FontWeight.w700,
+      fontVariations: const [FontVariation('wght', 700)],
+    );
 
 /// The profile tab, laid out like Instagram's: username bar, avatar + stats,
 /// name / bio, two flat buttons, "complete your profile" strip, then a
@@ -33,64 +43,103 @@ class YouScreen extends ConsumerStatefulWidget {
 }
 
 class _YouScreenState extends ConsumerState<YouScreen> {
+  /// Minimum horizontal fling speed that switches tabs.
+  static const double _swipeVelocity = 250;
+
   _YouTab _tab = _YouTab.photos;
   final _gallery = GlobalKey<YouGalleryState>();
+
+  // ── Actions ────────────────────────────────────────────────────────────────
 
   Future<void> _onEditBio(String bio) async {
     final saved = await showEditBioSheet(context, bio);
     if (saved && mounted) {
-      showRadiusToast(context, 'Bio updated', tone: ToastTone.success);
+      showRadiusToast(context, AppString.editProfileBioUpdated, tone: ToastTone.success);
     }
   }
 
   Future<void> _onEditVibes(List<String> vibes) async {
     final saved = await showEditVibesSheet(context, vibes);
     if (saved && mounted) {
-      showRadiusToast(context, 'Vibes updated', tone: ToastTone.success);
+      showRadiusToast(context, AppString.youVibesUpdated, tone: ToastTone.success);
     }
   }
 
-  void _openEdit() => Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const EditProfileScreen()),
-  );
+  void _push(Widget page) =>
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
 
-  void _openVisitors() => Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const VisitorsScreen()),
-  );
+  void _openEdit() => _push(const EditProfileScreen());
+  void _openVisitors() => _push(const VisitorsScreen());
+  void _openSettings() => _push(const SettingsScreen());
 
-  void _openSettings() => Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const SettingsScreen()),
-  );
-
-  /// Adding a photo lives in the grid; from anywhere else, show the grid
-  /// first and then ask it.
+  /// Adding a photo lives in the grid. From the About tab, show the grid
+  /// first, then ask it once it has been built.
   void _addPhoto() {
-    if (_tab != _YouTab.photos) setState(() => _tab = _YouTab.photos);
-    WidgetsBinding.instance.addPostFrameCallback(
-          (_) => _gallery.currentState?.addPhoto(),
-    );
+    if (_tab == _YouTab.photos) {
+      _gallery.currentState?.addPhoto();
+      return;
+    }
+    setState(() => _tab = _YouTab.photos);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _gallery.currentState?.addPhoto();
+    });
   }
 
   void _selectTab(_YouTab tab) {
     if (tab != _tab) setState(() => _tab = tab);
   }
 
+  void _onSwipe(DragEndDetails details) {
+    final v = details.primaryVelocity ?? 0;
+    if (v < -_swipeVelocity) _selectTab(_YouTab.about);
+    if (v > _swipeVelocity) _selectTab(_YouTab.photos);
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-    final me = ref.watch(meProvider).valueOrNull;
+    // AppString is static, so Riverpod can't tell this screen depends on the
+    // language. Watching the locale makes it rebuild the moment the language
+    // changes, even while another screen (Settings) is on top of it.
+    final localeCode = ref.watch(localeProvider).languageCode;
+
+    final meAsync = ref.watch(meProvider);
+    final me = meAsync.valueOrNull;
 
     if (me == null) {
+      // Failed with nothing cached: offer a retry instead of spinning forever.
+      if (meAsync.hasError) {
+        return _LoadError(
+          onRetry: () => ref.read(meProvider.notifier).refresh(),
+        );
+      }
       return Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
 
     final stats = ref.watch(myProfileStatsProvider).valueOrNull;
     final friends = ref.watch(activeConversationCountProvider);
     final tagLabels = ref.watch(tagLabelsProvider).valueOrNull ?? const {};
-    final media = ref.watch(myMediaProvider).valueOrNull;
-    final photoCount = media?.where((m) => m.isPublicPhoto).length;
+
+    // Narrow watches: the screen rebuilds only when the count or the avatar
+    // URL actually changes, not on every refresh of the media list.
+    final photoCount = ref.watch(
+      myMediaProvider.select(
+            (a) => a.valueOrNull?.where((m) => m.isPublicPhoto).length,
+      ),
+    );
+    final primaryId = me.primaryPhotoId;
+    final avatarUrl = ref.watch(
+      myMediaProvider.select((a) {
+        if (primaryId == null) return null;
+        for (final asset in a.valueOrNull ?? const []) {
+          if (asset.id == primaryId) return asset.url;
+        }
+        return null;
+      }),
+    );
+
+    void writeBio() => _onEditBio(me.profile.bio ?? '');
 
     return CustomScrollView(
       physics: const BouncingScrollPhysics(
@@ -103,7 +152,7 @@ class _YouScreenState extends ConsumerState<YouScreen> {
         SliverToBoxAdapter(
           child: YouProfileHeader(
             me: me,
-            avatarUrl: _primaryPhotoUrl(me.primaryPhotoId),
+            avatarUrl: avatarUrl,
             visits: stats?.profileViews,
             likes: stats?.likesReceived,
             friends: friends,
@@ -114,7 +163,7 @@ class _YouScreenState extends ConsumerState<YouScreen> {
           child: YouIdentity(
             me: me,
             tagLabels: tagLabels,
-            onWriteBio: () => _onEditBio(me.profile.bio ?? ''),
+            onWriteBio: writeBio,
           ),
         ),
         SliverToBoxAdapter(
@@ -125,23 +174,23 @@ class _YouScreenState extends ConsumerState<YouScreen> {
             me: me,
             photoCount: photoCount,
             onAddPhoto: _addPhoto,
-            onWriteBio: () => _onEditBio(me.profile.bio ?? ''),
+            onWriteBio: writeBio,
             onPickVibes: () => _onEditVibes(me.profile.personalityTags),
             onSetPreferences: _openEdit,
           ),
         ),
         SliverPersistentHeader(
           pinned: true,
-          delegate: _TabBarDelegate(selected: _tab, onSelect: _selectTab),
+          delegate: _TabBarDelegate(
+            selected: _tab,
+            onSelect: _selectTab,
+            localeCode: localeCode,
+          ),
         ),
         SliverToBoxAdapter(
           child: GestureDetector(
             // Swipe between the two tabs, as a profile's tabs always allow.
-            onHorizontalDragEnd: (details) {
-              final v = details.primaryVelocity ?? 0;
-              if (v < -250) _selectTab(_YouTab.about);
-              if (v > 250) _selectTab(_YouTab.photos);
-            },
+            onHorizontalDragEnd: _onSwipe,
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 180),
               switchInCurve: const Cubic(0.23, 1, 0.32, 1),
@@ -149,17 +198,13 @@ class _YouScreenState extends ConsumerState<YouScreen> {
                 _YouTab.photos => Padding(
                   key: const ValueKey('you-photos'),
                   padding: const EdgeInsets.only(top: 1),
-                  child: YouGallery(
-                    key: _gallery,
-                    primaryPhotoId: me.primaryPhotoId,
-                  ),
+                  child: YouGallery(key: _gallery, primaryPhotoId: primaryId),
                 ),
                 _YouTab.about => _AboutTab(
                   key: const ValueKey('you-about'),
                   me: me,
                   tagLabels: tagLabels,
                   onEdit: _openEdit,
-                  onWriteBio: () => _onEditBio(me.profile.bio ?? ''),
                 ),
               },
             ),
@@ -170,17 +215,41 @@ class _YouScreenState extends ConsumerState<YouScreen> {
       ],
     ).withGlobalBackHandler(context);
   }
+}
 
-  String? _primaryPhotoUrl(String? primaryId) {
-    if (primaryId == null) return null;
-    final media = ref.watch(myMediaProvider).valueOrNull ?? const [];
+/// Shown when the profile fails to load and there is nothing cached.
+class _LoadError extends StatelessWidget {
+  const _LoadError({required this.onRetry});
 
-    for (final asset in media) {
-      if (asset.id == primaryId) return asset.url;
-    }
-    return null;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            AppString.youLoadError,
+            style: AppTextStyles.bodyMuted,
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: onRetry,
+            child: Text(
+              AppString.retry,
+              style: _strong(14, color: AppColors.primaryInk),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Complete your profile
+// ═════════════════════════════════════════════════════════════════════════════
 
 /// Instagram's "Complete your profile" strip: heading with "n of m
 /// complete", then a row of small cards — icon, title, hint, flat button.
@@ -213,45 +282,49 @@ class _FinishProfile extends StatelessWidget {
     if (photos == null) return const SizedBox(height: 8);
 
     final p = me.profile;
+    final photosLeft = _photoGoal - photos;
+
     final steps = <_TodoStep>[
       _TodoStep(
-        done: photos >= _photoGoal,
+        done: photosLeft <= 0,
         icon: Icons.add_photo_alternate_outlined,
         title: photos == 0
-            ? 'Add photos'
-            : 'Add ${_photoGoal - photos} more '
-            '${_photoGoal - photos == 1 ? 'photo' : 'photos'}',
-        hint: 'Show people who you are.',
-        action: 'Add',
+            ? AppString.youAddPhotos
+            : AppString.youAddMorePhotos(photosLeft),
+        hint: AppString.youShowPeopleWhoYouAre,
+        action: AppString.add,
         onTap: onAddPhoto,
       ),
       _TodoStep(
         done: (p.bio ?? '').trim().isNotEmpty,
         icon: Icons.short_text_rounded,
-        title: 'Write a bio',
-        hint: 'Tell people about yourself.',
-        action: 'Add',
+        title: AppString.youHeaderWriteBio,
+        hint: AppString.youTellPeopleAboutYourself,
+        action: AppString.add,
         onTap: onWriteBio,
       ),
       _TodoStep(
         done: p.personalityTags.isNotEmpty,
         icon: Icons.local_offer_outlined,
-        title: 'Pick your three words',
-        hint: 'Describe your vibe.',
-        action: 'Add',
+        title: AppString.youPickThreeWords,
+        hint: AppString.youDescribeYourVibe,
+        action: AppString.add,
         onTap: onPickVibes,
       ),
       _TodoStep(
         done: p.preferenceTags.isNotEmpty,
         icon: Icons.tune_rounded,
-        title: 'Set your kind of night',
-        hint: 'Share what you are into.',
-        action: 'Set',
+        title: AppString.youSetKindOfNight,
+        hint: AppString.youShareWhatYouAreInto,
+        action: AppString.set,
         onTap: onSetPreferences,
       ),
     ];
-    final done = steps.where((s) => s.done).length;
-    if (done == steps.length) return const SizedBox(height: 8);
+
+    final pending = steps.where((s) => !s.done).toList(growable: false);
+    if (pending.isEmpty) return const SizedBox(height: 8);
+
+    final done = steps.length - pending.length;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -264,21 +337,25 @@ class _FinishProfile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.baseline,
               textBaseline: TextBaseline.alphabetic,
               children: [
-                Text(
-                  'Complete your profile',
-                  style: AppTextStyles.bodyStrong.copyWith(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    fontVariations: const [FontVariation('wght', 700)],
+                Flexible(
+                  child: Text(
+                    AppString.youCompleteProfile,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _strong(14),
                   ),
                 ),
                 const SizedBox(width: 6),
-                Text(
-                  '$done of ${steps.length} complete',
-                  style: AppTextStyles.caption.copyWith(
-                    fontSize: 12.5,
-                    color: AppColors.textGrey,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+                Flexible(
+                  child: Text(
+                    AppString.youCompleteSteps(done, steps.length),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.caption.copyWith(
+                      fontSize: 12.5,
+                      color: AppColors.textGrey,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
               ],
@@ -292,12 +369,11 @@ class _FinishProfile extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  for (final step in steps)
-                    if (!step.done)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: _TodoCard(step: step),
-                      ),
+                  for (final step in pending)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _TodoCard(step: step),
+                    ),
                 ],
               ),
             ),
@@ -376,11 +452,7 @@ class _TodoCard extends StatelessWidget {
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.bodyStrong.copyWith(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                      fontVariations: const [FontVariation('wght', 700)],
-                    ),
+                    style: _strong(13.5),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -405,12 +477,7 @@ class _TodoCard extends StatelessWidget {
                     ),
                     child: Text(
                       step.action,
-                      style: AppTextStyles.bodyStrong.copyWith(
-                        fontSize: 13.5,
-                        color: AppColors.onAccent,
-                        fontWeight: FontWeight.w700,
-                        fontVariations: const [FontVariation('wght', 700)],
-                      ),
+                      style: _strong(13.5, color: AppColors.onAccent),
                     ),
                   ),
                 ],
@@ -423,13 +490,25 @@ class _TodoCard extends StatelessWidget {
   }
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// Pinned tab bar
+// ═════════════════════════════════════════════════════════════════════════════
+
 /// The Photos / About switch, pinned under the header while the content
 /// scrolls beneath it. Icon-only with a thin underline, as on Instagram.
 class _TabBarDelegate extends SliverPersistentHeaderDelegate {
-  _TabBarDelegate({required this.selected, required this.onSelect});
+  _TabBarDelegate({
+    required this.selected,
+    required this.onSelect,
+    required this.localeCode,
+  });
 
   final _YouTab selected;
   final ValueChanged<_YouTab> onSelect;
+
+  /// Only here so a language change makes the pinned header rebuild and pick
+  /// up the new Photos / About labels.
+  final String localeCode;
 
   static const double _height = 44;
 
@@ -440,7 +519,10 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => _height;
 
   @override
-  bool shouldRebuild(_TabBarDelegate old) => old.selected != selected;
+  bool shouldRebuild(_TabBarDelegate old) =>
+      old.selected != selected ||
+          old.onSelect != onSelect ||
+          old.localeCode != localeCode;
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlaps) {
@@ -456,8 +538,8 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _tab(_YouTab.photos, Icons.grid_on_rounded, 'Photos'),
-          _tab(_YouTab.about, Icons.person_outline_rounded, 'About'),
+          _tab(_YouTab.photos, Icons.grid_on_rounded, AppString.youTabPhotos),
+          _tab(_YouTab.about, Icons.person_outline_rounded, AppString.youTabAbout),
         ],
       ),
     );
@@ -499,6 +581,10 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   }
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// About tab
+// ═════════════════════════════════════════════════════════════════════════════
+
 /// Everything you said about yourself, read-only, in the order someone
 /// opening your profile meets it.
 class _AboutTab extends StatelessWidget {
@@ -507,13 +593,11 @@ class _AboutTab extends StatelessWidget {
     required this.me,
     required this.tagLabels,
     required this.onEdit,
-    required this.onWriteBio,
   });
 
   final MeUser me;
   final Map<String, String> tagLabels;
   final VoidCallback onEdit;
-  final VoidCallback onWriteBio;
 
   @override
   Widget build(BuildContext context) {
@@ -529,7 +613,7 @@ class _AboutTab extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'About you',
+                  AppString.youAboutTitle,
                   style: AppTextStyles.title.copyWith(fontSize: 17),
                 ),
               ),
@@ -544,24 +628,23 @@ class _AboutTab extends StatelessWidget {
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: Text(
-                  'Edit',
-                  style: AppTextStyles.bodyStrong.copyWith(
+                  AppString.edit,
+                  style: _strong(
+                    AppTextStyles.bodyStrong.fontSize ?? 14,
                     color: AppColors.primaryInk,
-                    fontWeight: FontWeight.w700,
-                    fontVariations: const [FontVariation('wght', 700)],
                   ),
                 ),
               ),
             ],
           ),
           _Fact(
-            title: 'Here for',
+            title: AppString.youFactHereFor,
             child: _Plain(
               p.intent.isEmpty ? null : p.intent.map(intentLabel).join(', '),
             ),
           ),
           _Fact(
-            title: 'Situation',
+            title: AppString.youFactSituation,
             child: _Plain(
               p.relationshipStatus == null
                   ? null
@@ -569,23 +652,23 @@ class _AboutTab extends StatelessWidget {
             ),
           ),
           _Fact(
-            title: 'In three words',
+            title: AppString.youFactInThreeWords,
             child: _Pills([for (final v in p.personalityTags) label(v)]),
           ),
           _Fact(
-            title: 'Your kind of night',
-            note: 'Private until you match',
+            title: AppString.youFactYourKindOfNight,
+            note: AppString.youFactPrivateUntilMatch,
             child: _Pills([for (final t in p.preferenceTags) label(t)]),
           ),
           _Fact(
-            title: "Hard no's",
+            title: AppString.hardNos,
             note: p.showHardNosOnProfile
-                ? 'Shown on your profile'
-                : 'Hidden from your profile',
+                ? AppString.youFactHardNosShown
+                : AppString.youFactHardNosHidden,
             child: _Pills([for (final t in p.hardNos) label(t)]),
           ),
           _Fact(
-            title: 'Where you are',
+            title: AppString.youFactWhereYouAre,
             child: LiveLocationLine(
               city: me.location?.city,
               anchorLatitude: me.location?.latitude,
@@ -652,7 +735,7 @@ class _Plain extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(
-    value ?? 'Not set',
+    value ?? AppString.youNotSet,
     style: AppTextStyles.body.copyWith(
       fontSize: 14,
       color: value == null ? AppColors.textGrey : AppColors.textDark,

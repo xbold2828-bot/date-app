@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../common/widgets/widgets.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// The photo strip. Swipe, or tap either edge.
 ///
@@ -124,12 +126,12 @@ class _PhotoCarouselState extends State<PhotoCarousel> {
           if (count > 1) ...[
             _TapZone(
               alignment: Alignment.centerLeft,
-              label: 'Previous photo',
+              label: AppString.previousPhoto,
               onTap: () => _step(-1),
             ),
             _TapZone(
               alignment: Alignment.centerRight,
-              label: 'Next photo',
+              label: AppString.nextPhoto,
               onTap: () => _step(1),
             ),
           ],

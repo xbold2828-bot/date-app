@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart'
-    show kIsWeb, defaultTargetPlatform, TargetPlatform; // ADDED
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:sms_autofill/sms_autofill.dart'; // ADDED
+import 'package:sms_autofill/sms_autofill.dart';
 import 'package:dating_app/core/extensions/global_back_extension.dart';
 import 'package:dating_app/core/extensions/unfocus_on_tap_extension.dart';
 import 'package:dating_app/core/router/app_router.dart';
@@ -24,6 +24,8 @@ import '../widgets/login/login_header.dart';
 import '../widgets/login/login_terms.dart';
 import '../widgets/login/or_divider.dart';
 import '../widgets/login/phone_field.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -35,8 +37,6 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final TextEditingController _phoneController = TextEditingController();
 
-  // ADDED: the SIM-number picker is offered once per visit to this screen, so
-  // it does not pop up again when the user comes back from the OTP screen.
   bool _hintRequested = false;
 
   @override
@@ -46,10 +46,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ref.read(loginProvider.notifier).setPhone(_phoneController.text.trim());
     });
 
-    // ADDED: pick the starting country (US only if the phone is in the US,
-    // otherwise India), then offer the SIM-number suggestion. After the first
-    // frame, because a provider must not be changed while the widget tree is
-    // being built.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _applyDefaultCountry();
       _requestPhoneHint();
@@ -62,20 +58,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // ADDED: starting country
-  //
-  // US (+1) only when the phone is in the US. Every other case — India, an
-  // unknown place, anything — is India (+91).
-  //
-  // "In the US" means the phone's clock is on a US time zone: UTC-4 to UTC-10
-  // in whole hours (Eastern through Hawaii, with and without daylight saving).
-  // India is UTC+5:30, so it can never match.
-  //
-  // The phone's language / region setting is deliberately NOT used: many phones
-  // in India are set to "English (US)", which wrongly picked +1.
-  // Needs no permission and no package. (On web it is the browser's time zone.)
-  // ───────────────────────────────────────────────────────────────────────────
   bool get _phoneIsInUs {
     final minutes = DateTime.now().timeZoneOffset.inMinutes;
     final wholeHours = minutes % 60 == 0;
@@ -88,21 +70,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final country = _phoneIsInUs ? Country.us : Country.india;
 
     if (ref.read(loginProvider).country != country) {
-      ref.read(loginProvider.notifier).setCountry(country); // also clears phone
+      ref.read(loginProvider.notifier).setCountry(country);
     }
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // ADDED: SIM / phone-number suggestion
-  //
-  // Android only. On web (including Chrome on an Android phone, where
-  // defaultTargetPlatform still reads "android") and on iOS there is no such
-  // API, so the feature switches itself off and the screen behaves as before.
-  // Dismissing the sheet also changes nothing.
-  // ───────────────────────────────────────────────────────────────────────────
-
-  /// True only in a native Android app. `kIsWeb` is checked FIRST because web
-  /// on an Android phone would otherwise pass the platform test.
   bool get _phoneHintSupported =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
@@ -110,22 +81,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (_hintRequested) return;
     _hintRequested = true;
 
-    if (!_phoneHintSupported) return; // web / iOS / desktop: do nothing
+    if (!_phoneHintSupported) return;
 
     try {
       final hint = await SmsAutoFill().hint;
       if (!mounted || hint == null || hint.trim().isEmpty) return;
       _applyPhoneHint(hint.trim());
     } catch (e) {
-      // No Google Play Services, no SIM, plugin missing, etc.
       debugPrint('Phone hint unavailable: $e');
     }
   }
 
-  /// Works out which country a number belongs to, from the digits alone.
-  /// A match needs the right dial code AND the right total length, using the
-  /// countries in [kCountries] — so adding a country there adds it here.
-  ///   India: "91" + 10 digits     US: "1" + 10 digits
   Country? _countryFromDigits(String digits) {
     for (final country in kCountries) {
       final dial = country.code.replaceAll('+', '');
@@ -137,19 +103,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return null;
   }
 
-  /// Fills the field from the picked SIM number — country first, then the
-  /// local digits only (never the dial code) — and continues if it is complete.
   void _applyPhoneHint(String rawHint) {
     final digits = rawHint.replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.isEmpty) return;
 
     final notifier = ref.read(loginProvider.notifier);
 
-    // 1) Which country? From the number itself when it carries a dial code,
-    //    otherwise whatever is selected now.
     Country country = _countryFromDigits(digits) ?? ref.read(loginProvider).country;
 
-    // 2) Local digits only: drop the dial code, or keep the last N digits.
     final dial = country.code.replaceAll('+', '');
     String nsn;
     if (_countryFromDigits(digits) == country) {
@@ -160,39 +121,44 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       nsn = digits;
     }
 
-    // 3) Switch country first (this clears the phone), then set the digits.
     if (ref.read(loginProvider).country != country) {
       notifier.setCountry(country);
     }
     _phoneController.text = nsn;
     _phoneController.selection = TextSelection.collapsed(offset: nsn.length);
 
-    // 4) A complete number goes straight to OTP, through the same path as the
-    //    Continue button — so the Terms check still applies.
     if (nsn.length == country.digits) {
       _onContinue();
     }
   }
 
+  bool _ensureTermsAccepted() {
+    if (ref.read(termsAcceptedProvider)) return true;
+
+    AppSnackBar.showWarningSnackBar(
+      message: AppString.loginAcceptTermsWarning,
+    );
+    return false;
+  }
+
   Future<void> _onContinue() async {
     removeFocus();
 
-    if (!ref.read(termsAcceptedProvider)) {
-      AppSnackBar.showWarningSnackBar(
-        message: 'Please accept the Terms and Privacy Policy to continue.',
-      );
-      return;
-    }
+    if (!_ensureTermsAccepted()) return;
 
     try {
       final fullPhone = await ref.read(loginProvider.notifier).sendOtp();
       if (mounted) context.push(AppRoutes.signInOtp, extra: fullPhone);
     } catch (_) {
-      if (mounted) showRadiusToast(context, "Couldn't send the code. Try again.");
+      if (mounted) showRadiusToast(context, AppString.couldntSendTheCodeTry);
     }
   }
 
   Future<void> _onGoogleSignIn() async {
+    removeFocus();
+
+    if (!_ensureTermsAccepted()) return;
+
     try {
       final success = await ref.read(loginProvider.notifier).signInWithGoogle();
       if (success && mounted) context.go(AppRoutes.splash, extra: true);
@@ -205,7 +171,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   String _googleSignInMessage(Object error) {
     if (error is! PlatformException) {
-      return "Couldn't sign in with Google. Try again.";
+      return AppString.googleFailed;
     }
 
     final status = int.tryParse(
@@ -214,15 +180,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     switch (status) {
       case 10:
-        return 'Google sign-in not configured for this build (DEVELOPER_ERROR 10).';
+        return AppString.googleNotConfigured;
       case 12501:
-        return 'Sign-in cancelled.';
+        return AppString.googleCancelled;
       case 12500:
-        return 'Google sign-in failed (12500) — check the Play Services account.';
+        return AppString.googlePlayServices;
       case 7:
-        return 'Network error reaching Google. Check the connection.';
+        return AppString.googleNetwork;
       default:
-        return 'Google sign-in failed: ${error.code}';
+        return AppString.googleUnknown(error.code, error.message);
     }
   }
 
@@ -232,7 +198,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     showRadiusSheet<void>(
       context: context,
       builder: (sheetContext) => RadiusSheet(
-        title: 'Country',
+        title: AppString.country,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: kCountries.map((country) {
@@ -240,7 +206,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               padding: const EdgeInsets.only(bottom: 10),
               child: RadiusOptionTile(
                 title: country.name,
-                subtitle: '${country.code} · ${country.digits} digits',
+                subtitle: AppString.countryOptionSubtitle(country.code, country.digits.toString()),
                 selected: selectedCode == country.code,
                 leading: Text(
                   country.flag,
@@ -263,7 +229,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Scroll only while the keyboard is open; otherwise the page is fixed.
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
 
     return Scaffold(
@@ -283,7 +248,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const LoginHeader(),
-                    const SectionLabel('Phone number', topSpacing: 0),
+                    SectionLabel(AppString.phoneNumberLabel, topSpacing: 0),
                     Row(
                       children: [
                         CountryButton(onTap: _pickCountry),

@@ -11,6 +11,8 @@ import '../../../data/models/map_user_model.dart';
 import '../../../providers/explore_provider.dart';
 import '../marker_layout.dart';
 import 'explore_marker_images.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// Lets the screen move the camera (zoom and locate buttons). What the map
 /// shows is passed in as props, not through this controller.
@@ -219,8 +221,7 @@ class _ExploreMapState extends State<ExploreMap>
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Explore map. People near you, shown where they roughly are. '
-          'Pinch to zoom, drag with two fingers to tilt and rotate.',
+      label: AppString.exploreMapSemantics,
       child: MapLibreMap(
         styleString: widget.styleString,
         initialCameraPosition: CameraPosition(

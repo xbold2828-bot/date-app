@@ -7,6 +7,8 @@ import '../../../data/models/match_model.dart';
 import '../providers/match_provider/match_provider.dart';
 import '../../common/widgets/widgets.dart';
 import '../screens/chat_detail_screen.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// Hosts the match celebration above whatever screen is open.
 ///
@@ -190,7 +192,7 @@ class _MatchCelebrationOverlayState extends State<MatchCelebrationOverlay>
                                 child: Column(
                                   children: [
                                     RadiusButton(
-                                      label: 'Send a message',
+                                      label: AppString.matchCelebrationSendMessage,
                                       onPressed: _openChat,
                                     ),
                                     const SizedBox(height: 10),

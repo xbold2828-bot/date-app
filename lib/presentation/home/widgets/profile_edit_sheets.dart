@@ -10,6 +10,8 @@ import '../../../data/models/tag_model.dart';
 import '../../../providers/profile_provider.dart';
 import '../../auth/widgets/onboarding_widgets.dart';
 import '../../common/widgets/widgets.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// Post-onboarding profile edits. Both sheets write through
 /// `PATCH /users/me/profile`, which is the only editable surface after the
@@ -131,7 +133,7 @@ class _EditBioSheetState extends ConsumerState<_EditBioSheet> {
   @override
   Widget build(BuildContext context) {
     return _SheetShell(
-      title: 'Edit bio',
+      title: AppString.editBioSheetTitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -144,7 +146,7 @@ class _EditBioSheetState extends ConsumerState<_EditBioSheet> {
             autofocus: true,
             style: TextStyle(fontSize: 14, color: AppColors.textDark),
             decoration: InputDecoration(
-              hintText: 'Say something worth replying to...',
+              hintText: AppString.editBioHint,
               hintStyle: TextStyle(color: AppColors.textGrey),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(vertical: 8),
@@ -161,7 +163,7 @@ class _EditBioSheetState extends ConsumerState<_EditBioSheet> {
           ),
           const SizedBox(height: 4),
           OnboardingButton(
-            label: 'Save',
+            label: AppString.save,
             isLoading: _isSaving,
             onPressed: _save,
           ),
@@ -210,7 +212,7 @@ class _EditVibesSheetState extends ConsumerState<_EditVibesSheet> {
     final tags = ref.watch(tagsByCategoryProvider);
 
     return _SheetShell(
-      title: 'My vibe',
+      title: AppString.editVibesSheetTitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -270,7 +272,7 @@ class _EditVibesSheetState extends ConsumerState<_EditVibesSheet> {
           ),
           const SizedBox(height: 12),
           OnboardingButton(
-            label: 'Save',
+            label: AppString.save,
             isLoading: _isSaving,
             onPressed: _save,
           ),

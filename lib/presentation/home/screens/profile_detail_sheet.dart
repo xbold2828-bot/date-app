@@ -365,7 +365,7 @@ class _PinnedCloseButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Close',
+      label: AppString.close,
       excludeSemantics: true,
       child: Material(
         color: Colors.black.withValues(alpha: 0.45),

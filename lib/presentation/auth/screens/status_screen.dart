@@ -22,7 +22,7 @@ class StatusScreen extends ConsumerStatefulWidget {
 }
 
 class _StatusScreenState extends ConsumerState<StatusScreen> {
-  static const List<(String, String, String)> _options = [
+  static List<(String, String, String)> get _options => [
     (AppString.statusSingle, 'single', AppString.statusSingleBlurb),
     (AppString.statusSeeing, 'seeing_someone', AppString.statusSeeingBlurb),
     (AppString.statusOpen, 'open_relationship', AppString.statusOpenBlurb),
@@ -69,7 +69,7 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const OnboardingHeader(step: 4, label: AppString.sectionIdentity),
+            OnboardingHeader(step: 4, label: AppString.sectionIdentity),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),

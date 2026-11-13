@@ -5,6 +5,8 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../data/models/map_user_model.dart';
 import '../../common/widgets/widgets.dart';
 import 'explore_avatar.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// Everyone on the map as a searchable grid, opened from the strip.
 ///
@@ -118,7 +120,7 @@ class _ExplorePeopleGridState extends State<ExplorePeopleGrid> {
         children: [
           Semantics(
             button: true,
-            label: 'Back to the map',
+            label: AppString.exploreBackToMap,
             excludeSemantics: true,
             child: IconButton(
               onPressed: widget.onClose,
@@ -149,7 +151,7 @@ class _ExplorePeopleGridState extends State<ExplorePeopleGrid> {
         style: AppTextStyles.body,
         decoration: InputDecoration(
           isDense: true,
-          hintText: 'Search by name',
+          hintText: AppString.searchByName,
           hintStyle: AppTextStyles.body.copyWith(color: AppColors.textGrey),
           prefixIcon: Icon(Icons.search, size: 20, color: AppColors.iconMuted),
           suffixIcon: _query.isEmpty
@@ -221,7 +223,7 @@ class _AllTile extends StatelessWidget {
     return Semantics(
       button: true,
       selected: active,
-      label: 'Show everyone on the map',
+      label: AppString.showEveryoneOnMap,
       excludeSemantics: true,
       child: GestureDetector(
         onTap: onTap,

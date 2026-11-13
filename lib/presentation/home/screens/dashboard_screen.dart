@@ -19,6 +19,7 @@ import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
+import '../../../core/utils/app_snack_bar.dart';
 import '../../../data/models/message_model.dart';
 import '../../../providers/chat_provider.dart';
 import '../../../providers/core_providers.dart';
@@ -44,6 +45,34 @@ import './you_screen.dart';
 import './premium_screen.dart';
 
 // ============================================================================
+// Shared helpers
+// ============================================================================
+
+/// Opens a profile as the tall transparent bottom sheet used across the app.
+/// One place for the sheet settings instead of two copies.
+void _openProfileSheet(
+    BuildContext context, {
+      required String userId,
+      required ProfileSeed seed,
+    }) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: false,
+    showDragHandle: false,
+    backgroundColor: Colors.transparent,
+    elevation: 0,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+    ),
+    clipBehavior: Clip.none,
+    barrierColor: Colors.black54,
+    constraints: const BoxConstraints(maxWidth: double.infinity),
+    builder: (_) => ProfileDetailSheet(userId: userId, seed: seed),
+  );
+}
+
+// ============================================================================
 // Screen
 // ============================================================================
 
@@ -51,10 +80,10 @@ class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  ConsumerState<DashboardScreen> createState() => _HomeScreenState();
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<DashboardScreen>
+class _DashboardScreenState extends ConsumerState<DashboardScreen>
     with WidgetsBindingObserver {
   _Tab _current = _Tab.radar;
   Timer? _appOpenAdTimer;
@@ -64,11 +93,13 @@ class _HomeScreenState extends ConsumerState<DashboardScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     PushDeepLinks.pending.addListener(_onDeepLink);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _onDeepLink());
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _onDeepLink();
       ref.read(appOpenAdControllerProvider.notifier).showAdIfEligible();
     });
+
     _appOpenAdTimer = Timer.periodic(kMinGapBetweenAppOpenAds, (_) {
       if (!mounted) return;
       ref.read(appOpenAdControllerProvider.notifier).showAdIfEligible();
@@ -85,7 +116,11 @@ class _HomeScreenState extends ConsumerState<DashboardScreen>
 
   /// Switches tab and re-fetches the like quota, so a fresh purchase (or a
   /// used-up allowance) shows up as soon as the user comes back to a screen.
+  ///
+  /// The Radar tab re-fetches the nearby list itself when it opens (see
+  /// [_RadarTabState.initState]), because the body is rebuilt on every switch.
   void _selectTab(_Tab tab) {
+    if (tab == _current) return;
     setState(() => _current = tab);
     ref.read(likeQuotaProvider.notifier).refresh();
   }
@@ -105,23 +140,10 @@ class _HomeScreenState extends ConsumerState<DashboardScreen>
         setState(() => _current = _Tab.radar);
         final userId = link.userId;
         if (userId != null) {
-          showModalBottomSheet<void>(
-            context: context,
-            isScrollControlled: true,
-            useSafeArea: false,
-            showDragHandle: false,
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
-            ),
-            clipBehavior: Clip.none,
-            barrierColor: Colors.black54,
-            constraints: const BoxConstraints(maxWidth: double.infinity),
-            builder: (_) => ProfileDetailSheet(
-              userId: userId,
-              seed: const ProfileSeed(name: 'Someone', colorIndex: 0),
-            ),
+          _openProfileSheet(
+            context,
+            userId: userId,
+            seed: ProfileSeed(name: AppString.someoneFallback, colorIndex: 0),
           );
         }
       case PushDestination.url:
@@ -146,16 +168,17 @@ class _HomeScreenState extends ConsumerState<DashboardScreen>
       return;
     }
 
+    final found = summary;
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ChatDetailScreen(
-          conversationId: summary!.id,
-          userId: summary.otherUser.id,
-          userName: summary.otherUser.displayName ?? 'Someone',
-          userAge: summary.otherUser.age,
-          photoUrl: summary.otherUser.primaryPhotoUrl,
-          otherUser: summary.otherUser,
+          conversationId: found.id,
+          userId: found.otherUser.id,
+          userName: found.otherUser.displayName ?? AppString.someoneFallback,
+          userAge: found.otherUser.age,
+          photoUrl: found.otherUser.primaryPhotoUrl,
+          otherUser: found.otherUser,
         ),
       ),
     );
@@ -190,10 +213,7 @@ class _HomeScreenState extends ConsumerState<DashboardScreen>
           // Must stay true so the floating bottom nav works.
           extendBody: true,
           backgroundColor: AppColors.background,
-          body: SafeArea(
-            bottom: false,
-            child: _body(),
-          ),
+          body: SafeArea(bottom: false, child: _body()),
           // The banner sits directly above the floating bottom nav.
           bottomNavigationBar: Column(
             mainAxisSize: MainAxisSize.min,
@@ -253,7 +273,7 @@ class _BottomNav extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
           color: AppColors.isDark
-              ? AppColors.greyColor.withValues(alpha: 0.5)
+              ? AppColors.greyColor
               : AppColors.whiteColor,
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
@@ -298,8 +318,7 @@ class _BottomNav extends StatelessWidget {
                         child: Icon(
                           tab.icon,
                           size: 24,
-                          color:
-                          isActive ? Colors.white : AppColors.textDark,
+                          color: isActive ? Colors.white : AppColors.textDark,
                         ),
                       ),
                       if (badge > 0)
@@ -367,10 +386,22 @@ class _RadarTabState extends ConsumerState<_RadarTab> {
   @override
   void initState() {
     super.initState();
-    // Every time the radar opens, re-read the quota so the meter is current.
+
+    // The dashboard rebuilds this tab every time the user switches to it, so
+    // initState runs on each visit.
+    //
+    // If the nearby provider already exists, this is a return visit and the
+    // list is re-fetched. If it does not exist yet, this is the first visit:
+    // build() below will create it and load page 1 itself, so refreshing here
+    // as well would send the request twice.
+    final isReturnVisit = ref.exists(nearbyProvider);
+
+    // After the first frame: a provider must not be changed while the widget
+    // tree is being built.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref.read(likeQuotaProvider.notifier).refresh();
+      if (isReturnVisit) ref.read(nearbyProvider.notifier).refresh();
     });
   }
 
@@ -380,8 +411,26 @@ class _RadarTabState extends ConsumerState<_RadarTab> {
     await ref.read(nearbyProvider.notifier).refresh();
   }
 
+  /// The server answered 400: no location is set. Tell the user why the grid
+  /// is empty. AppSnackBar ignores a repeat of the same message while it is
+  /// still on screen, so back-to-back refreshes do not stack up.
+  void _warnLocationMissing() {
+    AppSnackBar.showWarningSnackBar(
+      title: AppString.dashboardSetLocation,
+      message: AppString.dashboardLocationPromptBody,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Fires when a load finishes (first load, tab revisit, pull-to-refresh,
+    // filter change). Skips the loading step, so the warning appears when the
+    // 400 result arrives and not before.
+    ref.listen<AsyncValue<NearbyState>>(nearbyProvider, (previous, next) {
+      if (next.isLoading) return;
+      if (next.valueOrNull?.needsLocation ?? false) _warnLocationMissing();
+    });
+
     final nearbyAsync = ref.watch(nearbyProvider);
     final filter = ref.watch(discoveryFilterProvider);
     final presence = ref.watch(presenceProvider);
@@ -411,6 +460,9 @@ class _RadarTabState extends ConsumerState<_RadarTab> {
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(20, 6, 20, 32),
                   sliver: nearbyAsync.when(
+                    // A revisit re-fetches in the background. Keep showing the
+                    // previous grid instead of flashing a spinner.
+                    skipLoadingOnReload: true,
                     loading: () => SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.only(top: 80),
@@ -421,14 +473,13 @@ class _RadarTabState extends ConsumerState<_RadarTab> {
                         ),
                       ),
                     ),
-                    error: (err, _) => const SliverToBoxAdapter(
+                    error: (err, _) => SliverToBoxAdapter(
                       child: EmptyWidget(
-                        title: "Couldn't load your radar",
-                        body:
-                        'Check your connection and pull down to try again.',
+                        title: AppString.dashboardLoadError,
+                        body: AppString.dashboardConnectionError,
                       ),
                     ),
-                    data: (state) => _grid(context, ref, state, presence),
+                    data: (state) => _grid(context, state, presence),
                   ),
                 ),
               ],
@@ -441,16 +492,14 @@ class _RadarTabState extends ConsumerState<_RadarTab> {
 
   Widget _grid(
       BuildContext context,
-      WidgetRef ref,
       NearbyState state,
       Map<String, bool> presence,
       ) {
     if (state.needsLocation) {
-      return const SliverToBoxAdapter(
+      return SliverToBoxAdapter(
         child: EmptyWidget(
-          title: 'Set your location',
-          body: 'cozune needs to know roughly where you are before it can '
-              'show you who is nearby.',
+          title: AppString.dashboardSetLocation,
+          body: AppString.dashboardLocationPromptBody,
         ),
       );
     }
@@ -465,7 +514,7 @@ class _RadarTabState extends ConsumerState<_RadarTab> {
       // bottom nav (and banner ad). Centring in the full area made the content
       // look low. Padding the bottom by the nav's height moves the centre up to
       // the middle of what the user can actually see.
-      final bottomInset = MediaQuery.of(context).padding.bottom;
+      final bottomInset = MediaQuery.paddingOf(context).bottom;
 
       return SliverFillRemaining(
         hasScrollBody: false,
@@ -474,10 +523,9 @@ class _RadarTabState extends ConsumerState<_RadarTab> {
           child: Center(
             child: EmptyWidget(
               compact: true,
-              title: 'Quiet in your radius right now',
-              body: 'Nobody nearby matches these filters. Clear a few and '
-                  'check back — who is around changes through the day.',
-              actionLabel: 'Open filters',
+              title: AppString.dashboardFilteredEmpty,
+              body: AppString.dashboardFilteredEmptyBody,
+              actionLabel: AppString.dashboardOpenFilters,
               onAction: () => showDiscoveryFilterSheet(context),
             ),
           ),
@@ -499,7 +547,7 @@ class _RadarTabState extends ConsumerState<_RadarTab> {
             final card = items[index];
             final online = presence[card.id] ?? card.isOnline;
             return ProfileGridCard(
-              name: card.displayName ?? 'Someone',
+              name: card.displayName ?? AppString.someoneFallback,
               age: card.age,
               distanceBand: card.distanceBand,
               distanceMeters: card.distanceMeters,
@@ -509,31 +557,16 @@ class _RadarTabState extends ConsumerState<_RadarTab> {
               colorIndex: index,
               onTap: () {
                 ref.read(recordProfileViewProvider)(card.id);
-
-                showModalBottomSheet<void>(
-                  context: context,
-                  isScrollControlled: true,
-                  useSafeArea: false,
-                  showDragHandle: false,
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius:
-                    BorderRadius.vertical(top: Radius.circular(26)),
-                  ),
-                  clipBehavior: Clip.none,
-                  barrierColor: Colors.black54,
-                  constraints: const BoxConstraints(maxWidth: double.infinity),
-                  builder: (_) => ProfileDetailSheet(
-                    userId: card.id,
-                    seed: ProfileSeed(
-                      name: card.displayName ?? 'Someone',
-                      age: card.age,
-                      photoUrl: card.primaryPhotoUrl,
-                      distanceBand: card.distanceBand,
-                      isOnline: online,
-                      colorIndex: index,
-                    ),
+                _openProfileSheet(
+                  context,
+                  userId: card.id,
+                  seed: ProfileSeed(
+                    name: card.displayName ?? AppString.someoneFallback,
+                    age: card.age,
+                    photoUrl: card.primaryPhotoUrl,
+                    distanceBand: card.distanceBand,
+                    isOnline: online,
+                    colorIndex: index,
                   ),
                 );
               },
@@ -545,10 +578,12 @@ class _RadarTabState extends ConsumerState<_RadarTab> {
             child: Padding(
               padding: const EdgeInsets.only(top: 24),
               child: RadiusButton(
-                label: state.loadingMore ? 'Loading' : 'Show more people',
+                label: state.loadingMore
+                    ? AppString.loading
+                    : AppString.dashboardShowMorePeople,
                 kind: RadiusButtonKind.ghost,
                 isLoading: state.loadingMore,
-                onPressed: () => _showDiscoveryLimitDialog(context, ref),
+                onPressed: () => _showDiscoveryLimitDialog(context),
               ),
             ),
           ),
@@ -559,17 +594,12 @@ class _RadarTabState extends ConsumerState<_RadarTab> {
               child: _UnlockCard(message: state.paywall?.message),
             ),
           ),
-          
-          SliverToBoxAdapter(
-            child: spacerH(100),
-          ),
-        
-        
+        SliverToBoxAdapter(child: spacerH(100)),
       ],
     );
   }
 
-  void _showDiscoveryLimitDialog(BuildContext context, WidgetRef ref) async {
+  Future<void> _showDiscoveryLimitDialog(BuildContext context) async {
     await AppDialogs.premiumOrAdDialog(
       context: context,
       ref: ref,
@@ -635,7 +665,7 @@ class RadarHeader extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  "Hi, ${hasName ? fullName : AppConstants.appName}",
+                  AppString.hiUser(hasName ? fullName : AppConstants.appName),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.title.copyWith(
@@ -726,13 +756,10 @@ class _NotificationButton extends StatelessWidget {
           padding: const EdgeInsets.all(8),
           constraints: const BoxConstraints(),
           onPressed: () {
-            AppLogger.d("Navigating to notifications...");
+            AppLogger.d('Navigating to notifications...');
             context.push(AppRoutes.notifications);
           },
-          icon: const Icon(
-            Icons.notifications_none_rounded,
-            size: 28,
-          ),
+          icon: const Icon(Icons.notifications_none_rounded, size: 28),
         ),
         if (unreadCount > 0)
           Positioned(
@@ -748,10 +775,7 @@ class _NotificationButton extends StatelessWidget {
                   width: 2,
                 ),
               ),
-              constraints: const BoxConstraints(
-                minWidth: 18,
-                minHeight: 18,
-              ),
+              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
               child: Center(
                 child: Text(
                   unreadCount > 99 ? '99+' : '$unreadCount',
@@ -777,7 +801,7 @@ class _FilterButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Filters',
+      label: AppString.dashboardFiltersLabel,
       excludeSemantics: true,
       child: Material(
         color: AppColors.card,
@@ -792,11 +816,7 @@ class _FilterButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.inputBorder, width: 1.5),
             ),
-            child: Icon(
-              Icons.tune,
-              size: 18,
-              color: AppColors.textDark,
-            ),
+            child: Icon(Icons.tune, size: 18, color: AppColors.textDark),
           ),
         ),
       ),
@@ -823,21 +843,23 @@ class _QuickFilters extends ConsumerWidget {
           // "All" is active only when no other filter is on; tapping it
           // resets the intent and both presence toggles.
           RadiusChip(
-            label: 'All',
+            label: AppString.all,
             dense: true,
             selected: filter.intent == null &&
                 !filter.onlineOnly &&
                 !filter.recentlyActive,
-            onTap: () => setFilter(filter.copyWith(
-              clearIntent: true,
-              onlineOnly: false,
-              recentlyActive: false,
-            )),
+            onTap: () => setFilter(
+              filter.copyWith(
+                clearIntent: true,
+                onlineOnly: false,
+                recentlyActive: false,
+              ),
+            ),
           ),
           const SizedBox(width: 8),
           _presenceChip(
             context,
-            label: 'Online now',
+            label: AppString.dashboardFilterOnlineNow,
             selected: filter.onlineOnly,
             onToggle: () =>
                 setFilter(filter.copyWith(onlineOnly: !filter.onlineOnly)),
@@ -845,7 +867,7 @@ class _QuickFilters extends ConsumerWidget {
           const SizedBox(width: 8),
           _presenceChip(
             context,
-            label: 'Active today',
+            label: AppString.dashboardFilterActiveToday,
             selected: filter.recentlyActive,
             onToggle: () => setFilter(
               filter.copyWith(recentlyActive: !filter.recentlyActive),
@@ -862,10 +884,12 @@ class _QuickFilters extends ConsumerWidget {
               label: entry.key,
               dense: true,
               selected: entry.value == filter.intent,
-              onTap: () => setFilter(filter.copyWith(
-                intent: entry.value,
-                clearIntent: entry.value == null,
-              )),
+              onTap: () => setFilter(
+                filter.copyWith(
+                  intent: entry.value,
+                  clearIntent: entry.value == null,
+                ),
+              ),
             ),
             if (entry != _filters.last) const SizedBox(width: 8),
           ],
@@ -916,8 +940,8 @@ class _UnlockCardState extends ConsumerState<_UnlockCard> {
       showRadiusToast(
         context,
         credits > 0
-            ? 'Unlocked — $credits credits added'
-            : 'That one was already counted',
+            ? AppString.dashboardUnlockedCredits(credits)
+            : AppString.dashboardAlreadyCounted,
         tone: credits > 0 ? ToastTone.success : ToastTone.neutral,
       );
     } on AppException catch (e) {
@@ -933,20 +957,19 @@ class _UnlockCardState extends ConsumerState<_UnlockCard> {
       child: Column(
         children: [
           Text(
-            'You have seen everyone for now',
+            AppString.dashboardSeenEveryone,
             textAlign: TextAlign.center,
             style: AppTextStyles.title.copyWith(fontSize: 18),
           ),
           const SizedBox(height: 6),
           Text(
-            widget.message ??
-                'Premium opens the rest of your radius, with no daily limit.',
+            widget.message ?? AppString.dashboardPremiumRadarBody,
             textAlign: TextAlign.center,
             style: AppTextStyles.caption,
           ),
           const SizedBox(height: 16),
           RadiusButton(
-            label: 'See everyone with Premium',
+            label: AppString.dashboardSeePremium,
             kind: RadiusButtonKind.premium,
             onPressed: () => Navigator.push(
               context,
@@ -955,7 +978,7 @@ class _UnlockCardState extends ConsumerState<_UnlockCard> {
           ),
           const SizedBox(height: 10),
           RadiusButton(
-            label: _watching ? 'Loading' : 'Watch an ad',
+            label: _watching ? AppString.loading : AppString.watchAnAd,
             kind: RadiusButtonKind.ghost,
             isLoading: _watching,
             onPressed: _watchAd,
@@ -970,14 +993,14 @@ class _UnlockCardState extends ConsumerState<_UnlockCard> {
 // Static data
 // ============================================================================
 
-const List<MapEntry<String, String?>> _filters = [
-  MapEntry('Right now', 'right_now'),
-  MapEntry('Casual', 'casual'),
-  MapEntry('Dating', 'dating'),
-  MapEntry('Serious', 'serious'),
-  MapEntry('Friends', 'friends'),
-  MapEntry('Just chatting', 'just_chatting'),
-  MapEntry('Open to anything', 'open_to_anything'),
+List<MapEntry<String, String?>> get _filters => [
+  MapEntry(AppString.filterIntentRightNow, 'right_now'),
+  MapEntry(AppString.filterIntentCasual, 'casual'),
+  MapEntry(AppString.filterIntentDating, 'dating'),
+  MapEntry(AppString.filterIntentSerious, 'serious'),
+  MapEntry(AppString.filterIntentFriends, 'friends'),
+  MapEntry(AppString.filterIntentJustChatting, 'just_chatting'),
+  MapEntry(AppString.filterIntentOpenToAnything, 'open_to_anything'),
 ];
 
 enum _Tab {
@@ -991,4 +1014,12 @@ enum _Tab {
 
   final IconData icon;
   final String label;
+
+  String get localizedLabel => switch (this) {
+    _Tab.radar => AppString.dashboardTabRadar,
+    _Tab.likes => AppString.dashboardTabLikes,
+    _Tab.explore => AppString.dashboardTabExplore,
+    _Tab.chats => AppString.dashboardTabChats,
+    _Tab.you => AppString.dashboardTabYou,
+  };
 }

@@ -1,5 +1,7 @@
 import 'package:dating_app/shared/widgets/dialogs/all_dialogs/radius_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// A confirmation in the app's alert style — see [RadiusAlert].
 ///
@@ -43,7 +45,7 @@ class CommonDialog2 extends StatelessWidget {
         ),
         if (isShowTwoButtons)
           RadiusAlertAction(
-            label: 'Cancel',
+            label: AppString.cancel,
             onPressed: () => Navigator.of(context).pop(false),
           ),
       ],

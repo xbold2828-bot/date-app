@@ -107,16 +107,22 @@ abstract final class AppDialogs {
     required BuildContext context,
     required RewardedUnlockType unlockType,
     required WidgetRef ref,
-    headingText = AppString.matchLimitTitle,
-    descriptionText = AppString.matchLimitDescription,
+    String? headingText,
+    String? descriptionText,
     VoidCallback? onBuyPremium,
     VoidCallback? onAdEarned,
-    String buyButtonText = AppString.buyPremium,
-    String watchAdButtonText = AppString.watchAd,
+    String? buyButtonText,
+    String? watchAdButtonText,
     IconData? iconData,
     String? vectorAsset,
     bool dismissible = false,
   }) async {
+    final effectiveHeading = headingText ?? AppString.matchLimitTitle;
+    final effectiveDescription =
+        descriptionText ?? AppString.matchLimitDescription;
+    final effectiveBuyText = buyButtonText ?? AppString.buyPremium;
+    final effectiveWatchText = watchAdButtonText ?? AppString.watchAd;
+
     // Premium users skip the paywall entirely — treat it as an
     // already-earned unlock.
     if (ref.read(isUserHavePremiumProvider)) {
@@ -129,13 +135,13 @@ abstract final class AppDialogs {
       barrierDismissible: dismissible,
       builder: (context) {
         return PremiumOrAdDialog(
-          headingText: headingText,
-          descriptionText: descriptionText,
+          headingText: effectiveHeading,
+          descriptionText: effectiveDescription,
           unlockType: unlockType,
           onBuyPremium: onBuyPremium ?? () => context.push(AppRoutes.buyPremium),
           onAdEarned: onAdEarned,
-          buyButtonText: buyButtonText,
-          watchAdButtonText: watchAdButtonText,
+          buyButtonText: effectiveBuyText,
+          watchAdButtonText: effectiveWatchText,
           iconData: iconData,
           vectorAsset: vectorAsset,
           dismissible: dismissible,

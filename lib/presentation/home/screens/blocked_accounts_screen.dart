@@ -9,6 +9,8 @@ import '../../../core/errors/app_exceptions.dart';
 import '../../../data/repositories/safety_repository.dart';
 import '../../../providers/chat_provider.dart';
 import '../../common/widgets/widgets.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// Everyone I have blocked, and the way back.
 ///
@@ -54,10 +56,10 @@ class BlockedAccountsScreen extends ConsumerWidget {
             ),
             error: (err, _) => ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              children: const [
+              children: [
                 EmptyWidget(
-                  title: "Couldn't load your blocked list",
-                  body: 'Pull down to try again.',
+                  title: AppString.blockedAccountsLoadError,
+                  body: AppString.pullDownToRetry,
                 ),
               ],
             ),
@@ -65,11 +67,10 @@ class BlockedAccountsScreen extends ConsumerWidget {
               if (blocked.isEmpty) {
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  children: const [
+                  children: [
                       EmptyWidget(
-                      title: 'Nobody blocked',
-                      body: 'People you block are listed here, so you can '
-                          'always let them back in.',
+                      title: AppString.blockedAccountsEmptyTitle,
+                      body: AppString.blockedAccountsEmptyBody,
                     ),
                   ],
                 );

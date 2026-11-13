@@ -7,6 +7,8 @@ import '../../../../core/utils/onboarding_maps.dart';
 import '../../../../data/models/profile_model.dart';
 import '../../../common/widgets/widgets.dart';
 import '../../models/profile_seed.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// Everything the person chose during onboarding, in the order it was asked.
 class ProfileInfoSection extends StatelessWidget {
@@ -169,23 +171,23 @@ class ProfileInfoSection extends StatelessWidget {
     return [
       if (p.intent.isNotEmpty)
         _TagSection(
-          label: 'Here for',
+          label: AppString.youFactHereFor,
           values: p.intent.map(intentLabel).toList(),
         ),
 
       if (identity.isNotEmpty)
-        _TagSection(label: 'Identity', values: identity, tone: TagTone.neutral),
+        _TagSection(label: AppString.identity, values: identity, tone: TagTone.neutral),
 
       if (p.relationshipStatus != null && p.relationshipStatus!.isNotEmpty)
         _TagSection(
-          label: 'Situation',
+          label: AppString.youFactSituation,
           values: [relationshipStatusLabel(p.relationshipStatus!)],
           tone: TagTone.neutral,
         ),
 
       if (p.personalityTags.isNotEmpty)
         _TagSection(
-          label: 'Interests & vibes',
+          label: AppString.interestsAndVibes,
           values: _tags(p.personalityTags),
         ),
 
@@ -193,13 +195,13 @@ class ProfileInfoSection extends StatelessWidget {
       // may not see them; it is off by default now that identity verification
       // is disabled, but the branch stays for when it returns.
       if (p.desiresLocked)
-        const _LockedSection(
-          label: 'Their vibe',
-          message: 'Verify your identity to see more about them.',
+        _LockedSection(
+          label: AppString.theirVibe,
+          message: AppString.verifyIdentityToSeeMore,
         )
       else if (_tags(p.preferenceTags ?? const []).isNotEmpty)
         _TagSection(
-          label: 'Their vibe',
+          label: AppString.theirVibe,
           values: _tags(p.preferenceTags ?? const []),
         ),
 
@@ -207,7 +209,7 @@ class ProfileInfoSection extends StatelessWidget {
       // selling points, and the owner chose to publish them.
       if ((p.hardNos ?? const []).isNotEmpty)
         _TagSection(
-          label: 'Hard no’s',
+          label: AppString.hardNos2,
           values: _tags(p.hardNos!),
           tone: TagTone.neutral,
         ),

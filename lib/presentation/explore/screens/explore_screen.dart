@@ -18,6 +18,8 @@ import '../widgets/explore_map.dart';
 import '../widgets/explore_people_grid.dart';
 import '../widgets/explore_people_strip.dart';
 import '../widgets/explore_states.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// Map of the people you are chatting with. Only conversations where the
 /// other person replied show up here.
@@ -265,7 +267,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       return ExploreNoticeCard(
         key: const ValueKey('notice.location'),
         icon: Icons.location_on_outlined,
-        title: 'Explore needs your location',
+        title: AppString.exploreNeedsLocation,
         body: locationError.message,
         primaryLabel: locationError.isRetryable ? 'Try again' : 'Open settings',
         onPrimary: () => locationError.isRetryable
@@ -279,7 +281,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       return ExploreNoticeCard(
         key: const ValueKey('notice.error'),
         icon: Icons.cloud_off_outlined,
-        title: "Couldn't load Explore",
+        title: AppString.exploreLoadError,
         body: error is AppException
             ? error.message
             : 'Check your connection and try again.',
@@ -297,10 +299,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       return ExploreNoticeCard(
         key: const ValueKey('notice.empty'),
         icon: Icons.forum_outlined,
-        title: 'Nobody on your map yet',
-        body: 'People show up here once you are both talking — when someone '
-            'replies to you, they appear on the map.',
-        primaryLabel: widget.onBrowsePeople == null ? null : 'Find people',
+        title: AppString.exploreEmptyTitle,
+        body: AppString.exploreEmptyBody,
+        primaryLabel: widget.onBrowsePeople == null ? null : AppString.findPeople,
         onPrimary: widget.onBrowsePeople,
       );
     }
@@ -348,9 +349,16 @@ class _ExploreTopPanel extends StatelessWidget {
                 : const SizedBox.shrink(),
           ),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              ExploreCountPill(count: count, isLoading: isLoading),
+              // Takes whatever width the toggle leaves, so a long translated label
+              // shrinks (and ellipsizes) instead of overflowing.
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: ExploreCountPill(count: count, isLoading: isLoading),
+                ),
+              ),
+              const SizedBox(width: 12),
               ExploreViewToggle(
                 mode: viewMode,
                 onChanged: onViewModeChanged,
@@ -408,14 +416,14 @@ class _MapControls extends StatelessWidget {
               children: [
                 _ControlButton(
                   icon: Icons.add,
-                  label: 'Zoom in',
+                  label: AppString.zoomIn,
                   color: AppColors.textDark,
                   onPressed: onZoomIn,
                 ),
                 Container(height: 1, color: AppColors.inputBorder),
                 _ControlButton(
                   icon: Icons.remove,
-                  label: 'Zoom out',
+                  label: AppString.zoomOut,
                   color: AppColors.textDark,
                   onPressed: onZoomOut,
                 ),
@@ -435,7 +443,7 @@ class _MapControls extends StatelessWidget {
           child: ClipOval(
             child: _ControlButton(
               icon: Icons.my_location,
-              label: 'Center map on your location',
+              label: AppString.exploreCenterMap,
               color: AppColors.blue,
               busy: locating,
               onPressed: locating ? null : onLocate,
@@ -498,9 +506,9 @@ class _MapPlaceholder extends StatelessWidget {
   const _MapPlaceholder();
 
   @override
-  Widget build(BuildContext context) => const ColoredBox(
+  Widget build(BuildContext context) => ColoredBox(
     color: AppMapColors.land,
-    child: Center(child: ExploreLoadingPill(message: 'Loading the map…')),
+    child: Center(child: ExploreLoadingPill(message: AppString.exploreLoadingMap)),
   );
 }
 
@@ -519,7 +527,7 @@ class _MapFailure extends StatelessWidget {
           padding: const EdgeInsets.all(24),
           child: ExploreNoticeCard(
             icon: Icons.map_outlined,
-            title: "Explore map couldn't load",
+            title: AppString.exploreMapLoadError,
             body: message,
             primaryLabel: 'Retry',
             onPrimary: onRetry,

@@ -3,6 +3,7 @@ import 'package:dating_app/core/constants/app_text_styles.dart';
 import 'package:dating_app/core/constants/static_assets/app_animation.dart';
 import 'package:dating_app/core/theme/app_colors.dart';
 import 'package:dating_app/core/utils/utils.dart';
+import 'package:dating_app/core/constants/app_string.dart';
 
 import '../../../common/widgets/step_header.dart';
 
@@ -19,7 +20,7 @@ class LoginHeader extends StatelessWidget {
         const VerifiedBadge(),
         spacerH(15),
         Text(
-          'Meet exactly\nwho you want.',
+          AppString.loginMeetExactly,
           style: AppTextStyles.display.copyWith(
             height: 1.1,
             fontSize: 34,
@@ -28,7 +29,7 @@ class LoginHeader extends StatelessWidget {
         ),
         spacerH(10),
         Text(
-          'An exclusive community of real people. No endless swiping, just meaningful connections.',
+          AppString.loginRealPeople,
           style: AppTextStyles.bodyMuted.copyWith(height: 1.4, fontSize: 13),
         ),
         spacerH(30),
@@ -85,7 +86,7 @@ class VerifiedBadge extends StatelessWidget {
             ),
           ),
           Text(
-            'VERIFIED ONLY',
+            AppString.loginVerifiedOnly,
             style: AppTextStyles.eyebrow.copyWith(
               color: AppColors.textGrey,
               fontWeight: FontWeight.w600,

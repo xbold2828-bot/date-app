@@ -40,7 +40,7 @@ class _BasicsScreen7State extends ConsumerState<BasicsScreen7> {
   Future<void> _onEnter() async {
     if (!_allChecked) {
       AppSnackBar.showWarningSnackBar(
-        message: "You must agree to all terms to continue",
+        message: AppString.agreeAllTermsWarning,
       );
       return;
     }
@@ -73,7 +73,7 @@ class _BasicsScreen7State extends ConsumerState<BasicsScreen7> {
       body: SafeArea(
         child: Column(
           children: [
-            const OnboardingHeader(step: 8, label: AppString.sectionAgreement),
+            OnboardingHeader(step: 8, label: AppString.sectionAgreement),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),

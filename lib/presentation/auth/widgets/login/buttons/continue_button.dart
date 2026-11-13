@@ -1,8 +1,8 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:dating_app/shared/widgets/buttons/common_button.dart';
+import 'package:dating_app/core/constants/app_string.dart';
 
 import '../../../../../providers/auth/login_provider/login_provider.dart';
 
@@ -17,7 +17,7 @@ class ContinueButton extends ConsumerWidget {
     final canContinue = ref.watch(loginProvider.select((s) => s.canContinue));
 
     return CommonButton(
-      text: 'Continue',
+      text: AppString.continueText,
       isLoading: isLoading,
       isDisableButton: !canContinue,
       // null => disabled until the number is complete for the selected country

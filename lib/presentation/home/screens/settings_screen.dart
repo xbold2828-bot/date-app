@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/ads/app_open/app_open_ad_provider.dart'; // adjust path
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/localization/app_language.dart';
+import '../../../core/localization/language_selection_sheet.dart';
+import '../../../core/localization/locale_provider.dart';
 import '../../../core/logger/app_logger.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
@@ -20,6 +23,8 @@ import '../../../shared/widgets/dialogs/app_dialogs.dart';
 import '../../common/widgets/widgets.dart';
 import 'blocked_accounts_screen.dart';
 import 'premium_screen.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// Everything about the account that is not the profile itself.
 ///
@@ -105,10 +110,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     final confirm = await AppDialogs.commonDialog2(
       context: context,
-      headingText: 'Sign out of cozune?',
-      descriptionText: 'Your profile and chats stay as they are. You just '
-          "won't get notifications until you sign back in.",
-      buttonText: 'Sign out',
+      headingText: AppString.settingsSignOutTitle,
+      descriptionText: AppString.settingsSignOutBody,
+      buttonText: AppString.settingsSignOutButton,
       isShowTwoButtons: true,
       destructive: true,
     );
@@ -134,10 +138,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     final confirm = await showRadiusConfirm(
       context,
-      title: 'Delete your account?',
-      message: 'This permanently deletes your account and all of its data. '
-          'It cannot be undone.',
-      confirmLabel: 'Delete account',
+      title: AppString.settingsDeleteTitle,
+      message: AppString.settingsDeleteBody,
+      confirmLabel: AppString.settingsDeleteAccountRow,
       destructive: true,
     );
 
@@ -182,57 +185,65 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         surfaceTintColor: Colors.transparent,
         leading: BackChevron(onTap: () => Navigator.of(context).maybePop()),
         titleSpacing: 0,
-        title: Text('Settings', style: AppTextStyles.title),
+        title: Text(AppString.settingsTitle, style: AppTextStyles.title),
       ),
       body: ListView(
         padding: EdgeInsets.only(
           bottom: 24 + MediaQuery.paddingOf(context).bottom,
         ),
         children: [
-          const _Section('Membership'),
+          _Section(AppString.membership),
           _Row(
             icon: Icons.workspace_premium_outlined,
             iconColor: AppColors.premium,
-            title: 'cozune Premium',
+            title: AppString.cozunePremium,
             subtitle: isPremium
-                ? 'Active — manage your plan'
-                : 'Unlimited likes, every filter, no ads',
+                ? AppString.activeManagePlan
+                : AppString.premiumBenefitSubtitle,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const PremiumScreen()),
             ),
           ),
-          const _Section('Profile'),
+          _Section(AppString.settingsSectionProfile),
           _Row(
             icon: Icons.verified_outlined,
-            title: 'Verification',
+            title: AppString.verification,
             subtitle: verified
-                ? 'Your profile shows the verified tick'
-                : 'Get the tick — a 30-second face check',
+                ? AppString.profileVerifiedSubtitle
+                : AppString.getVerifiedSubtitle,
             trailing: verified ? const VerificationTick(size: 22) : null,
             onTap: () => context.push(AppRoutes.verification),
           ),
-          const _Section('Privacy'),
+          _Section(AppString.privacy),
           _Row(
             icon: sharing.isSharingWithAnyone
                 ? Icons.near_me_rounded
                 : Icons.near_me_disabled_outlined,
-            title: 'Live location',
+            title: AppString.liveLocation,
             subtitle: _sharingLine(sharing),
             onTap: () => context.push(AppRoutes.locationSharing),
           ),
           _Row(
             icon: Icons.block_outlined,
-            title: 'Blocked accounts',
+            title: AppString.settingsBlockedAccounts,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const BlockedAccountsScreen()),
             ),
           ),
-          const _Section('Display'),
+          _Section(AppString.settingsSectionDisplay),
+          _Row(
+            icon: Icons.language_rounded,
+            title: AppString.language,
+            subtitle: AppLanguage.fromCode(
+              ref.watch(localeProvider).languageCode,
+            ).nativeName,
+            onTap: () => showLanguageSelectionSheet(context),
+          ),
           _Row(
             icon: dark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
-            title: 'Dark mode',
+            title: AppString.settingsDarkMode,
             toggled: dark,
             trailing: Switch.adaptive(
               value: dark,
@@ -242,16 +253,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: () =>
                 ref.read(themeModeProvider.notifier).toggle(dark: !dark),
           ),
-          const _Section('Account'),
+          _Section(AppString.settingsSectionAccount),
           _Row(
             icon: Icons.logout_rounded,
-            title: 'Sign out',
+            title: AppString.signOutText,
             showChevron: false,
             onTap: _onSignOut,
           ),
           _Row(
             icon: Icons.delete_outline_rounded,
-            title: 'Delete account',
+            title: AppString.settingsDeleteAccountRow,
             danger: true,
             showChevron: false,
             onTap: _onDeleteAccount,
@@ -262,15 +273,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   static String _sharingLine(LocationSharing s) {
-    if (!s.enabled) return "Off — you're not on anyone's map";
+    if (!s.enabled) return AppString.locationSharingOff;
     return switch (s.audience) {
-      LocationAudience.everyone => 'Shared with everyone',
-      LocationAudience.friends => 'Shared with all friends',
+      LocationAudience.everyone => AppString.locationSharingEveryone,
+      LocationAudience.friends => AppString.locationSharingAllFriends,
       LocationAudience.selected =>
       s.allowedUserIds.isEmpty
-          ? "Off — you're not on anyone's map"
-          : 'Shared with ${s.selectedCount} '
-          '${s.selectedCount == 1 ? 'friend' : 'friends'}',
+          ? AppString.locationSharingOff
+          : AppString.locationSharedWithCount(s.selectedCount),
     };
   }
 }

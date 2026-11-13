@@ -121,7 +121,7 @@ class _AgeScreenState extends ConsumerState<AgeScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const OnboardingHeader(step: 1, label: AppString.sectionIdentity,isShowBackButton: false),
+            OnboardingHeader(step: 1, label: AppString.sectionIdentity,isShowBackButton: false),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),

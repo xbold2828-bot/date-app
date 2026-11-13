@@ -2,6 +2,7 @@ import 'package:dating_app/core/constants/app_string.dart';
 import 'package:dating_app/core/extensions/unfocus_on_tap_extension.dart';
 import 'package:dating_app/core/utils/utils.dart';
 import 'package:dating_app/shared/widgets/buttons/common_button.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -30,22 +31,7 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
   final TextEditingController _nameController = TextEditingController();
   bool _seededFromServer = false;
 
-  final List<String> _genderOptions = const [
-    AppString.genderWoman,
-    AppString.genderMan,
-    AppString.genderNonBinary,
-    AppString.genderTransWoman,
-    AppString.genderTransMan,
-    AppString.genderIntersex,
-    AppString.genderSelfDescribe,
-  ];
-  final List<String> _pronounOptions = const [
-    AppString.pronounSheHer,
-    AppString.pronounHeHim,
-    AppString.pronounTheyThem,
-    AppString.pronounOther,
-  ];
-
+  /// Backend IDs (English, language-independent). Never labels.
   String? _selectedGender;
   String? _selectedPronoun;
   bool _isLoading = false;
@@ -66,41 +52,45 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
     if (_bioController.text.isEmpty) {
       _bioController.text = me.profile.bio ?? '';
     }
-    for (final entry in kGenderValues.entries) {
-      if (entry.value == me.profile.gender) {
-        _selectedGender = entry.key;
-        break;
-      }
+
+    final serverGender = me.profile.gender;
+    if (serverGender != null && kGenderIds.contains(serverGender)) {
+      _selectedGender = serverGender;
     }
+
     if (me.profile.pronouns.isNotEmpty) {
-      for (final entry in kPronounValues.entries) {
-        if (entry.value == me.profile.pronouns.first) {
-          _selectedPronoun = entry.key;
-          break;
-        }
+      final serverPronoun = me.profile.pronouns.first;
+      if (kPronounIds.contains(serverPronoun)) {
+        _selectedPronoun = serverPronoun;
       }
     }
   }
 
   Future<void> _onContinue() async {
+    if (_isLoading) return;
+
     final displayName = _nameController.text.trim();
     if (displayName.length < 2) {
       _showSnack(AppString.basicsNameTooShort);
       return;
     }
-    if (_selectedGender == null) {
+
+    final gender = _selectedGender;
+    if (gender == null) {
       _showSnack(AppString.basicsSelectGender);
       return;
     }
 
+    final pronoun = _selectedPronoun;
+    final bio = _bioController.text.trim();
+
     setState(() => _isLoading = true);
     try {
-      final pronounValue = kPronounValues[_selectedPronoun];
-      final bio = _bioController.text.trim();
+      // Payload is built from IDs only: always English, whatever the UI language.
       final me = await ref.read(onboardingRepositoryProvider).updateBasics(
         displayName: displayName,
-        gender: kGenderValues[_selectedGender]!,
-        pronouns: pronounValue == null ? const [] : [pronounValue],
+        gender: gender,
+        pronouns: pronoun == null ? const [] : [pronoun],
         showMe: const ['everyone'],
         bio: bio.isEmpty ? null : bio,
       );
@@ -109,12 +99,16 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
       if (mounted) context.push(AppRoutes.intent);
     } on AppException catch (e) {
       _showSnack(e.message);
+    } catch (e, st) {
+      debugPrint('BasicsScreen._onContinue error: $e\n$st');
+      _showSnack(AppString.chatDetailSendError);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _showSnack(String msg) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
@@ -155,6 +149,28 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
     style: TextStyle(fontSize: 13, color: AppColors.textGrey),
   );
 
+  /// Chips show a translated label but select/store the English ID.
+  Widget _chipGroup({
+    required List<String> ids,
+    required String Function(String id) labelOf,
+    required String? selectedId,
+    required ValueChanged<String> onSelected,
+  }) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: ids
+          .map(
+            (id) => _chip(
+          label: labelOf(id),
+          selected: selectedId == id,
+          onTap: () => setState(() => onSelected(id)),
+        ),
+      )
+          .toList(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final me = ref.watch(meProvider).valueOrNull;
@@ -165,7 +181,7 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const OnboardingHeader(step: 2, label: AppString.sectionIdentity),
+            OnboardingHeader(step: 2, label: AppString.sectionIdentity),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -192,32 +208,20 @@ class _BasicsScreenState extends ConsumerState<BasicsScreen> {
                     spacerH(28),
                     _label(AppString.iAmA),
                     spacerH(12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _genderOptions
-                          .map((g) => _chip(
-                        label: g,
-                        selected: _selectedGender == g,
-                        onTap: () =>
-                            setState(() => _selectedGender = g),
-                      ))
-                          .toList(),
+                    _chipGroup(
+                      ids: kGenderIds,
+                      labelOf: genderLabel,
+                      selectedId: _selectedGender,
+                      onSelected: (id) => _selectedGender = id,
                     ),
                     spacerH(28),
                     _label(AppString.pronounsLabel),
                     spacerH(12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _pronounOptions
-                          .map((p) => _chip(
-                        label: p,
-                        selected: _selectedPronoun == p,
-                        onTap: () =>
-                            setState(() => _selectedPronoun = p),
-                      ))
-                          .toList(),
+                    _chipGroup(
+                      ids: kPronounIds,
+                      labelOf: pronounLabel,
+                      selectedId: _selectedPronoun,
+                      onSelected: (id) => _selectedPronoun = id,
                     ),
                     spacerH(28),
                     _label(AppString.bioLabel),

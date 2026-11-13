@@ -407,9 +407,9 @@ class _BasicsScreen4State extends ConsumerState<BasicsScreen4> {
                     color: Colors.black.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Text(
+                  child: Text(
                     AppString.photoPrimaryBadge,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 10,
                       color: AppColors.onImage,
                       fontWeight: FontWeight.w600,

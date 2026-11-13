@@ -8,34 +8,36 @@ import '../../../data/models/tag_model.dart';
 import '../providers/match_provider/match_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../screens/premium_screen.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// "Show me" — `Gender` enum values, minus self-describe (not a useful filter).
-const List<({String label, String value})> _genderOptions = [
-  (label: 'Woman', value: 'woman'),
-  (label: 'Man', value: 'man'),
-  (label: 'Non-binary', value: 'non_binary'),
-  (label: 'Trans woman', value: 'trans_woman'),
-  (label: 'Trans man', value: 'trans_man'),
-  (label: 'Intersex', value: 'intersex'),
+List<({String label, String value})> get _genderOptions => [
+  (label: AppString.filterGenderWoman, value: 'woman'),
+  (label: AppString.genderMan, value: 'man'),
+  (label: AppString.filterGenderNonBinary, value: 'non_binary'),
+  (label: AppString.filterGenderTransWoman, value: 'trans_woman'),
+  (label: AppString.filterGenderTransMan, value: 'trans_man'),
+  (label: AppString.filterGenderIntersex, value: 'intersex'),
 ];
 
 /// Intent — `Intent` enum values.
-const List<({String label, String value})> _intentOptions = [
-  (label: 'Right now', value: 'right_now'),
-  (label: 'Casual', value: 'casual'),
-  (label: 'Dating', value: 'dating'),
-  (label: 'Serious', value: 'serious'),
-  (label: 'Friends', value: 'friends'),
-  (label: 'Just chatting', value: 'just_chatting'),
-  (label: 'Open to anything', value: 'open_to_anything'),
+List<({String label, String value})> get _intentOptions => [
+  (label: AppString.filterIntentRightNow, value: 'right_now'),
+  (label: AppString.filterIntentCasual, value: 'casual'),
+  (label: AppString.filterIntentDating, value: 'dating'),
+  (label: AppString.filterIntentSerious, value: 'serious'),
+  (label: AppString.filterIntentFriends, value: 'friends'),
+  (label: AppString.filterIntentJustChatting, value: 'just_chatting'),
+  (label: AppString.filterIntentOpenToAnything, value: 'open_to_anything'),
 ];
 
 /// Situation — `RelationshipStatus`, minus "prefer not to say".
-const List<({String label, String value})> _situationOptions = [
-  (label: 'Single', value: 'single'),
-  (label: 'Seeing someone', value: 'seeing_someone'),
-  (label: 'Open relationship', value: 'open_relationship'),
-  (label: 'Couple', value: 'couple'),
+List<({String label, String value})> get _situationOptions => [
+  (label: AppString.filterSituationSingle, value: 'single'),
+  (label: AppString.filterSituationSeeingSomeone, value: 'seeing_someone'),
+  (label: AppString.filterSituationOpenRelationship, value: 'open_relationship'),
+  (label: AppString.filterSituationCouple, value: 'couple'),
 ];
 
 /// Premium tag sections, in display order. Slugs come from `GET /tags`, never
@@ -116,11 +118,11 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
                 controller: scrollController,
                 padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
                 children: [
-                  _sectionHeader('Free', 'Available on every account'),
+                  _sectionHeader(AppString.filterFreeSectionLabel, AppString.filterFreeSubtitle),
                   const SizedBox(height: 18),
 
-                  _label('SHOW ME'),
-                  const _Hint('Leave all unselected to see everyone.'),
+                  _label(AppString.filterShowMeLabel),
+                  _Hint(AppString.filterShowMeHint),
                   const SizedBox(height: 12),
                   _chips(
                     options: _genderOptions,
@@ -133,7 +135,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
                   ),
 
                   const SizedBox(height: 24),
-                  _label('AGE RANGE'),
+                  _label(AppString.filterAgeRangeLabel),
                   const SizedBox(height: 4),
                   Text(
                     _draft.maxAge >= kAgeFilterMax
@@ -168,7 +170,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
                   ),
 
                   const SizedBox(height: 16),
-                  _label('INTENT'),
+                  _label(AppString.filterIntentLabel),
                   const SizedBox(height: 12),
                   _chips(
                     options: _intentOptions,
@@ -182,33 +184,33 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
 
                   const SizedBox(height: 32),
                   _sectionHeader(
-                    'Premium',
+                    AppString.filterPremiumLabel,
                     isPremium
-                        ? 'Included with your plan'
-                        : 'Unlock to filter by these',
+                        ? AppString.filterPremiumIncluded
+                        : AppString.filterPremiumLocked,
                     locked: !isPremium,
                     onUnlock: isPremium ? null : _goPremium,
                   ),
                   const SizedBox(height: 8),
 
                   _SwitchTile(
-                    title: 'Verified only',
-                    subtitle: 'People who passed the live check.',
+                    title: AppString.filterVerifiedOnly,
+                    subtitle: AppString.filterVerifiedOnlySubtitle,
                     value: _draft.verifiedOnly,
                     enabled: isPremium,
                     onChanged: (v) =>
                         _edit(_draft.copyWith(verifiedOnly: v)),
                   ),
                   _SwitchTile(
-                    title: 'Online now',
-                    subtitle: 'Active this moment.',
+                    title: AppString.filterOnlineNow,
+                    subtitle: AppString.filterOnlineNowSubtitle,
                     value: _draft.onlineOnly,
                     enabled: isPremium,
                     onChanged: (v) => _edit(_draft.copyWith(onlineOnly: v)),
                   ),
                   _SwitchTile(
-                    title: 'Recently active',
-                    subtitle: 'Seen in the last 24 hours.',
+                    title: AppString.filterRecentlyActive,
+                    subtitle: AppString.filterRecentlyActiveSubtitle,
                     value: _draft.recentlyActive,
                     enabled: isPremium,
                     onChanged: (v) =>
@@ -216,7 +218,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
                   ),
 
                   const SizedBox(height: 20),
-                  _label('SITUATION', locked: !isPremium),
+                  _label(AppString.filterPremiumSituationLabel, locked: !isPremium),
                   const SizedBox(height: 12),
                   _chips(
                     options: _situationOptions,
@@ -246,12 +248,12 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
                     ],
                     error: (err, _) => [
                       const SizedBox(height: 20),
-                      const _Hint("Couldn't load the tag options."),
+                      _Hint(AppString.tagCategoryLoadError),
                       TextButton(
                         onPressed: () =>
                             ref.invalidate(tagsByCategoryProvider),
                         child: Text(
-                          'Retry',
+                          AppString.retry,
                           style: TextStyle(color: AppColors.primary),
                         ),
                       ),
@@ -262,7 +264,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
                             .isNotEmpty) ...[
                           const SizedBox(height: 20),
                           _label(
-                            TagCategories.label(category).toUpperCase(),
+                            _getCategoryLabel(category).toUpperCase(),
                             locked: !isPremium,
                           ),
                           const SizedBox(height: 12),
@@ -287,6 +289,20 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
     );
   }
 
+  String _getCategoryLabel(String category) {
+    return switch (category) {
+      TagCategories.personality => AppString.tagCategoryAtmosphere,
+      TagCategories.roleEnergy => AppString.tagCategoryYourEnergy,
+      TagCategories.into => AppString.tagCategoryWhatYouAreDrawnTo,
+      TagCategories.scenario => AppString.tagCategoryWhatYouAreLookingFor,
+      TagCategories.intensity => AppString.tagCategoryYourPace,
+      TagCategories.experience => AppString.tagCategoryDatingExperience,
+      TagCategories.fantasySetting => AppString.tagCategoryYourKindOfDate,
+      TagCategories.hardNo => AppString.tagCategoryHardNos,
+      _ => TagCategories.label(category),
+    };
+  }
+
   // ── chrome ──────────────────────────────────────────────────────────────
 
   Widget _grabber() => Padding(
@@ -309,13 +325,13 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Filters',
+              AppString.filterSheetTitle,
               style: AppTextStyles.title,
             ),
             TextButton(
               onPressed: () => _edit(_draft.clearedToDefaults()),
               child: Text(
-                'Reset',
+                AppString.filterReset,
                 style: TextStyle(color: AppColors.textGrey),
               ),
             ),
@@ -332,9 +348,9 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
     final count = ref.watch(nearbyCountProvider(countFilter));
 
     final label = count.when(
-      loading: () => 'Show results',
-      error: (_, _) => 'Show results',
-      data: (total) => total == 1 ? 'Show 1 person' : 'Show $total people',
+      loading: () => AppString.filterShowResults,
+      error: (_, _) => AppString.filterShowResults,
+      data: (total) => AppString.filterShowCount(total),
     );
 
     return Container(
@@ -350,7 +366,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: Text(
-                'Premium filters are ignored until you upgrade.',
+                AppString.filterPremiumNudge,
                 style: TextStyle(fontSize: 12, color: AppColors.textGrey),
               ),
             ),
@@ -425,7 +441,7 @@ class _DiscoveryFilterSheetState extends ConsumerState<_DiscoveryFilterSheet> {
           TextButton(
             onPressed: onUnlock,
             child: Text(
-              'Upgrade',
+              AppString.filterUpgrade,
               style: TextStyle(
                 color: AppColors.primary,
                 fontWeight: FontWeight.w600,
@@ -619,7 +635,6 @@ class _SwitchTile extends StatelessWidget {
           Switch(
             value: value,
             onChanged: enabled ? onChanged : null,
-            activeThumbColor: AppColors.primary,
           ),
         ],
       ),

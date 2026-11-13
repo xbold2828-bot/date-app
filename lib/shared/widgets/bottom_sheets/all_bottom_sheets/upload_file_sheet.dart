@@ -7,6 +7,8 @@ import '../../../../core/enums/file_pick_option.dart';
 import '../../../../core/utils/utils.dart';
 import '../../app_text.dart';
 import '../../common_title_description.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 class UploadFileSheet extends StatelessWidget {
   final bool isImagePicker;
@@ -27,8 +29,8 @@ class UploadFileSheet extends StatelessWidget {
           children: [
             spacerH(10),
 
-            const CommonTitleDescription(
-              title: "Upload document",
+            CommonTitleDescription(
+              title: AppString.uploadDocument,
               description: "Choose how you want to upload your file",
               titleFontSize: 20,
             ),
@@ -39,8 +41,8 @@ class UploadFileSheet extends StatelessWidget {
             if (!kIsWeb)
               _BottomSheetOptionTile(
                 faIcon: FontAwesomeIcons.camera,
-                title: 'Camera',
-                subtitle: 'Click a photo using camera',
+                title: AppString.uploadCamera,
+                subtitle: AppString.uploadCameraSubtitle,
                 onTap: () => context.pop(FilePickOption.camera),
               ),
 
@@ -49,8 +51,8 @@ class UploadFileSheet extends StatelessWidget {
             /// 🖼️ Gallery Option
             _BottomSheetOptionTile(
               faIcon: FontAwesomeIcons.image,
-              title: 'Gallery',
-              subtitle: 'Select a photo from gallery',
+              title: AppString.uploadGallery,
+              subtitle: AppString.uploadGallerySubtitle,
               onTap: () => context.pop(FilePickOption.gallery),
             ),
           ],

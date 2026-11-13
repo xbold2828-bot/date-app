@@ -12,6 +12,8 @@ import '../../../data/models/user_model.dart';
 import '../../../providers/core_providers.dart';
 import '../../../providers/profile_provider.dart';
 import '../../common/widgets/widgets.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 class ProfileEditPanel extends ConsumerStatefulWidget {
   const ProfileEditPanel({super.key, required this.me, this.embedded = false});
@@ -214,7 +216,7 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
         children: [
           Row(
             children: [
-              Expanded(child: Text('Profile details', style: AppTextStyles.label)),
+              Expanded(child: Text(AppString.profileDetails, style: AppTextStyles.label)),
               _ShowMoreButton(
                 expanded: _expanded,
                 onTap: () => setState(() => _expanded = !_expanded),
@@ -246,7 +248,7 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _Field(
-          label: 'Display name',
+          label: AppString.displayName,
           child: TextField(
             controller: _name,
             maxLength: 40,
@@ -258,7 +260,7 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
         _IdentityField(profile: widget.me.profile),
 
         _Field(
-          label: 'Here for',
+          label: AppString.youFactHereFor,
           hint: selectionHint(SelectionLimits.intent),
           counter: SelectionCounter(
             count: _intent.length,
@@ -279,7 +281,7 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
         ),
 
         _Field(
-          label: 'Situation',
+          label: AppString.youFactSituation,
           hint: selectionHint(SelectionLimits.situation),
           child: LimitedLabelChipGroup(
             options: [
@@ -314,7 +316,7 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
           )
         else ...[
           _Field(
-            label: 'Interests & vibes',
+            label: AppString.interestsAndVibes,
             hint: selectionHint(SelectionLimits.vibes),
             counter: SelectionCounter(
               count: _vibes.length,
@@ -330,7 +332,7 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
             ),
           ),
           _Field(
-            label: 'Your vibe',
+            label: AppString.yourVibeTitle,
             hint: 'Every group, the same as when you signed up.',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,7 +350,7 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
             ),
           ),
           _Field(
-            label: "Hard no's",
+            label: AppString.hardNos,
             hint: 'Pick as many as you need',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -383,7 +385,7 @@ class _ProfileEditPanelState extends ConsumerState<ProfileEditPanel> {
 
         const SizedBox(height: 8),
         RadiusButton(
-          label: 'Save changes',
+          label: AppString.saveChanges,
           isLoading: _isSaving,
           onPressed: _dirty ? _save : null,
         ),
@@ -490,7 +492,7 @@ class _IdentityField extends StatelessWidget {
     ].join(' · ');
 
     return _Field(
-      label: 'Identity',
+      label: AppString.identity,
       hint: 'Set when you joined — this one is permanent',
       child: Semantics(
         readOnly: true,

@@ -96,7 +96,7 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
       body: SafeArea(
         child: Column(
           children: [
-            const OnboardingHeader(step: 5, label: AppString.sectionYourVibe),
+            OnboardingHeader(step: 5, label: AppString.sectionYourVibe),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -199,7 +199,7 @@ class _BasicsScreen3State extends ConsumerState<BasicsScreen3> {
         children: [
           Row(
             children: [
-              const Expanded(child: OnboardingSectionLabel(AppString.hardNos)),
+              Expanded(child: OnboardingSectionLabel(AppString.hardNos)),
               Switch(
                 value: _showHardNosOnProfile,
                 onChanged: (v) => setState(() => _showHardNosOnProfile = v),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dating_app/core/constants/app_text_styles.dart';
 import 'package:dating_app/core/theme/app_colors.dart';
+import 'package:dating_app/core/constants/app_string.dart';
 
 class OrDivider extends StatelessWidget {
   const OrDivider({super.key});
@@ -13,7 +14,7 @@ class OrDivider extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
-            'OR',
+            AppString.orText,
             style: AppTextStyles.label.copyWith(
               color: AppColors.textGrey,
               fontWeight: FontWeight.w600,

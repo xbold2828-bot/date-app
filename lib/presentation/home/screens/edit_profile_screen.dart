@@ -7,6 +7,8 @@ import '../../../providers/profile_provider.dart';
 import '../../common/widgets/widgets.dart';
 import '../widgets/profile_edit_panel.dart';
 import '../widgets/profile_edit_sheets.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// Every answer on the profile, editable in one place — what "Edit profile"
 /// opens. Like Instagram's edit screen: small grey label, value beneath, a
@@ -29,7 +31,7 @@ class EditProfileScreen extends ConsumerWidget {
         scrolledUnderElevation: 0,
         leading: BackChevron(onTap: () => Navigator.of(context).maybePop()),
         titleSpacing: 0,
-        title: Text('Edit profile', style: AppTextStyles.title),
+        title: Text(AppString.editProfileTitle, style: AppTextStyles.title),
       ),
       body: me == null
           ? Center(child: CircularProgressIndicator(color: AppColors.primary))
@@ -53,7 +55,7 @@ class EditProfileScreen extends ConsumerWidget {
                 if (saved && context.mounted) {
                   showRadiusToast(
                     context,
-                    'Bio updated',
+                    AppString.editProfileBioUpdated,
                     tone: ToastTone.success,
                   );
                 }
@@ -85,7 +87,7 @@ class _BioBlock extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                'Bio',
+                AppString.bioLabel,
                 style: AppTextStyles.label.copyWith(color: AppColors.textGrey),
               ),
             ),
@@ -100,7 +102,7 @@ class _BioBlock extends StatelessWidget {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: Text(
-                bio.isEmpty ? 'Write' : 'Edit',
+                bio.isEmpty ? AppString.write : AppString.edit,
                 style: AppTextStyles.bodyStrong.copyWith(
                   color: AppColors.primaryInk,
                   fontWeight: FontWeight.w700,
@@ -111,7 +113,7 @@ class _BioBlock extends StatelessWidget {
           ],
         ),
         Text(
-          bio.isEmpty ? 'Say something worth replying to.' : bio,
+          bio.isEmpty ? AppString.editProfileBioPlaceholder : bio,
           style: AppTextStyles.body.copyWith(
             fontSize: 14,
             height: 1.35,

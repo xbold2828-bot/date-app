@@ -5,6 +5,8 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/app_exceptions.dart';
 import '../../../core/theme/app_colors.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// Why a message did not go, in words somebody can act on.
 ///
@@ -53,9 +55,9 @@ class SendFailure {
     final who = name.trim().isEmpty ? 'them' : name.trim();
 
     return switch (e) {
-      ContentRejectedException() => const SendFailure(
+      ContentRejectedException() => SendFailure(
         kind: SendFailureKind.moderated,
-        title: 'Message not sent',
+        title: AppString.messageNotSent,
         body:
         "Offensive or abusive words aren't allowed on cozune. "
             'Reword it and try again.',
@@ -69,30 +71,30 @@ class SendFailure {
       ),
       RateLimitedException(:final retryAfterSeconds) => SendFailure(
         kind: SendFailureKind.slowDown,
-        title: 'Slow down a little',
+        title: AppString.sendFailureRateLimit,
         body: retryAfterSeconds != null && retryAfterSeconds > 0
             ? 'Too many messages at once. Try again in '
             '${retryAfterSeconds}s.'
             : 'Too many messages at once. Try again in a moment.',
       ),
-      NetworkException() || RequestTimeoutException() => const SendFailure(
+      NetworkException() || RequestTimeoutException() => SendFailure(
         kind: SendFailureKind.offline,
-        title: "Couldn't send",
-        body: 'Check your connection — your message is still here.',
+        title: AppString.sendFailureTitle,
+        body: AppString.sendFailureConnectionDesc,
       ),
       VerificationRequiredException() => SendFailure(
         kind: SendFailureKind.other,
-        title: 'Verify to send messages',
+        title: AppString.verifyToSendMessages,
         body: e.message,
       ),
       NotFoundException() => SendFailure(
         kind: SendFailureKind.other,
-        title: "Couldn't send",
+        title: AppString.sendFailureTitle,
         body: '$who is not available right now.',
       ),
       _ => SendFailure(
         kind: SendFailureKind.other,
-        title: "Couldn't send",
+        title: AppString.sendFailureTitle,
         body: e.message,
       ),
     };

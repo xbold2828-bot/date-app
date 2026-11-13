@@ -8,6 +8,8 @@ import '../../../core/errors/app_exceptions.dart';
 import '../providers/match_provider/match_provider.dart';
 import '../../common/widgets/widgets.dart';
 import '../screens/premium_screen.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// Shown when the daily opener allowance runs out.
 ///
@@ -116,7 +118,7 @@ class _MessageLimitSheetState extends ConsumerState<_MessageLimitSheet> {
           Text(body, style: AppTextStyles.bodyMuted),
           const SizedBox(height: 22),
           RadiusButton(
-            label: 'Unlimited new chats with Premium',
+            label: AppString.msgLimitUnlimitedLabel,
             kind: RadiusButtonKind.premium,
             onPressed: () {
               Navigator.pop(context);

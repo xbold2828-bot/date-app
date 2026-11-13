@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 /// The three numbers a profile carries: how many people opened it, how many
 /// liked it, and how many conversations came out of that.
@@ -48,21 +50,21 @@ class ProfileMetricsRow extends StatelessWidget {
       if (!(omitUnknown && visits == null))
         _Metric(
           value: visits,
-          label: 'Visits',
+          label: AppString.youHeaderVisits,
           icon: Icons.visibility_outlined,
           compact: compact,
         ),
       if (!(omitUnknown && likes == null))
         _Metric(
           value: likes,
-          label: 'Likes',
+          label: AppString.youHeaderLikes,
           icon: Icons.favorite_border,
           compact: compact,
         ),
       if (!(omitUnknown && friends == null))
         _Metric(
           value: friends,
-          label: 'Friends',
+          label: AppString.youHeaderFriends,
           icon: Icons.chat_bubble_outline,
           compact: compact,
         ),

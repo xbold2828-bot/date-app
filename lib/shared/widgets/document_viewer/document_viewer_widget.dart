@@ -8,6 +8,8 @@ import '../../../core/utils/app_loader.dart';
 import '../../../core/utils/utils.dart';
 import '../app_text.dart';
 import '../appbars/title_appbar.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 class DocumentViewerPage extends StatefulWidget {
   final String fileUrl;
@@ -93,14 +95,14 @@ class _DocumentViewerPageState extends State<DocumentViewerPage> {
                     return const Center(child: LoaderWidget());
                   },
                   errorBuilder: (context, error, stackTrace) {
-                    return const Center(child: Text("Failed to load image"));
+                    return Center(child: Text(AppString.failedToLoadImage));
                   },
                 )
               : Image.file(
                   File(widget.fileUrl),
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) {
-                    return const Center(child: Text("Failed to load image"));
+                    return Center(child: Text(AppString.failedToLoadImage));
                   },
                 ),
         ),

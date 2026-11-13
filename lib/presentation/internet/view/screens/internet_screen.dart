@@ -11,6 +11,8 @@ import '../../../../../shared/widgets/buttons/common_button.dart';
 import '../../../../../shared/widgets/buttons/common_outlined_button.dart';
 import '../../viewmodel/providers/internet_provider/internet_provider.dart';
 import '../../viewmodel/providers/internet_provider/internet_state.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 class InternetScreen extends ConsumerWidget {
   const InternetScreen({super.key});
@@ -34,7 +36,7 @@ class InternetScreen extends ConsumerWidget {
       },
       child: Scaffold(
         backgroundColor: Colors.white,
-        appBar: titleAppBar(context: context, title: "You're Offline"),
+        appBar: titleAppBar(context: context, title: AppString.youAreOffline),
         body: Column(
           children: [
             Container(

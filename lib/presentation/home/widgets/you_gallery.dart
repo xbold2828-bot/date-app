@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -10,11 +13,15 @@ import '../../../providers/core_providers.dart';
 import '../../../providers/profile_provider.dart';
 import '../../../shared/widgets/dialogs/all_dialogs/radius_dialog.dart';
 import '../../common/widgets/widgets.dart';
+import 'package:dating_app/core/constants/app_string.dart';
 
-/// My public photos as Instagram's grid — edge to edge, three across, 1px
+
+/// My public photos as Instagram's grid: edge to edge, three across, 1px
 /// gaps, 4:5 tiles.
 ///
-/// Tap a photo to make it the cover or delete it; the last tile adds one.
+/// Tap a photo to make it the cover or delete it; the last tile adds more.
+/// Several photos can be picked at once, but never more than the free slots
+/// (kMaxPublicPhotos minus the photos already uploaded).
 class YouGallery extends ConsumerStatefulWidget {
   const YouGallery({super.key, required this.primaryPhotoId});
   final String? primaryPhotoId;
@@ -23,8 +30,27 @@ class YouGallery extends ConsumerStatefulWidget {
   ConsumerState<YouGallery> createState() => YouGalleryState();
 }
 
+enum _UploadKind { success, rejected, failed }
+
+class _UploadOutcome {
+  const _UploadOutcome(this.kind, [this.message]);
+  final _UploadKind kind;
+  final String? message;
+}
+
 class YouGalleryState extends ConsumerState<YouGallery> {
-  bool _isUploading = false;
+  /// Uploads running at the same time: fast enough, light on memory.
+  static const int _maxConcurrentUploads = 3;
+
+  bool _isPicking = false;
+  int _uploadTotal = 0; // 0 = idle
+  int _uploadDone = 0;
+
+  bool get _isUploading => _uploadTotal > 0;
+  bool get _isBusy => _isPicking || _isUploading;
+
+  String get _progressLabel =>
+      _uploadTotal > 1 ? 'Uploading $_uploadDone/$_uploadTotal' : 'Uploading';
 
   void _toast(String msg, {ToastTone tone = ToastTone.neutral}) {
     if (mounted) showRadiusToast(context, msg, tone: tone);
@@ -35,23 +61,34 @@ class YouGalleryState extends ConsumerState<YouGallery> {
     final photos = (media ?? const <MediaAsset>[])
         .where((m) => m.isPublicPhoto)
         .toList();
-    photos.sort((a, b) {
-      if (a.id == widget.primaryPhotoId) return -1;
-      if (b.id == widget.primaryPhotoId) return 1;
-      return 0;
-    });
+    final primaryId = widget.primaryPhotoId;
+    if (primaryId != null) {
+      photos.sort((a, b) {
+        if (a.id == primaryId) return -1;
+        if (b.id == primaryId) return 1;
+        return 0;
+      });
+    }
     return photos;
   }
 
-  /// Pick and upload one gallery photo. Upload failures surface as a message
-  /// rather than an exception — object storage may be unreachable.
-  Future<void> addPhoto() async {
-    if (_isUploading) return;
-
-    // The server rejects the 6th photo, so say so here rather than letting the
-    // upload run and fail — and point at the way out.
+  /// Free slots right now. Always read fresh from the provider.
+  int _slotsLeft() {
     final current = _publicPhotos(ref.read(myMediaProvider).valueOrNull).length;
-    if (current >= kMaxPublicPhotos) {
+    return math.max(0, kMaxPublicPhotos - current);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Adding photos
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Pick several photos and upload them. Called by the grid's add tile, the
+  /// empty state, and (being public) by the parent screen.
+  Future<void> addPhoto() async {
+    if (_isBusy) return;
+
+    final remaining = _slotsLeft();
+    if (remaining <= 0) {
       _toast(
         'You can have $kMaxPublicPhotos photos. '
             'Tap one to delete it, then add a new one.',
@@ -59,63 +96,219 @@ class YouGalleryState extends ConsumerState<YouGallery> {
       return;
     }
 
+    final picked = await _pickImages(remaining);
+    if (picked.isEmpty || !mounted) return;
+
+    // HARD LIMIT. The system picker enforces `limit` only on some devices; on
+    // the rest the user can tick as many as they like. Whatever the picker
+    // allowed, nothing above the free slots is ever uploaded. An over-sized
+    // selection is rejected as a whole so the user picks again deliberately,
+    // instead of the app silently choosing which photos to drop.
+    if (picked.length > remaining) {
+      _toast(
+        'You selected ${picked.length} photos, but you can add only '
+            '$remaining more (max $kMaxPublicPhotos). Please select '
+            '$remaining or fewer.',
+        tone: ToastTone.error,
+      );
+      return;
+    }
+
+    // The gallery may have changed while the picker was open (another upload,
+    // a refresh). Check again right before uploading.
+    if (picked.length > _slotsLeft()) {
+      _toast(
+        'Your gallery changed. Please try adding again.',
+        tone: ToastTone.error,
+      );
+      return;
+    }
+
+    setState(() {
+      _uploadTotal = picked.length;
+      _uploadDone = 0;
+    });
+
     try {
-      final file = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
+      final outcomes = await _uploadAll(picked);
+      if (!mounted) return;
+
+      if (outcomes.any((o) => o.kind == _UploadKind.success)) {
+        ref.invalidate(myMediaProvider);
+      }
+      _reportResult(outcomes);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _uploadTotal = 0;
+          _uploadDone = 0;
+        });
+      }
+    }
+  }
+
+  /// Opens the system picker. Returns an empty list if cancelled or failed.
+  Future<List<XFile>> _pickImages(int remaining) async {
+    _isPicking = true;
+    try {
+      final picker = ImagePicker();
+
+      // pickMultiImage asserts limit >= 2, so one free slot uses the
+      // single-image picker, which can only return one photo.
+      if (remaining == 1) {
+        final file = await picker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 85,
+          maxWidth: 1080,
+        );
+        return file == null ? const [] : [file];
+      }
+
+      return await picker.pickMultiImage(
         imageQuality: 85,
         maxWidth: 1080,
+        limit: remaining, // honoured by the OS only where supported
       );
-      if (file == null) return;
+    } on PlatformException catch (e) {
+      debugPrint('Photo picker failed: $e');
+      _toast(
+        "Couldn't open your photos. Check the photo permission.",
+        tone: ToastTone.error,
+      );
+      return const [];
+    } on ArgumentError catch (e) {
+      debugPrint('Photo picker rejected its arguments: $e');
+      _toast("Couldn't open your photos. Please try again.",
+          tone: ToastTone.error);
+      return const [];
+    } finally {
+      _isPicking = false;
+    }
+  }
 
+  /// Uploads all files with bounded concurrency. One failure never stops the
+  /// others, and results keep the order of [files].
+  Future<List<_UploadOutcome>> _uploadAll(List<XFile> files) async {
+    final outcomes = List<_UploadOutcome>.filled(
+      files.length,
+      const _UploadOutcome(_UploadKind.failed),
+    );
+    var next = 0;
+
+    // Dart is single-threaded, so `next++` is race-free between workers.
+    Future<void> worker() async {
+      while (true) {
+        final i = next++;
+        if (i >= files.length) return;
+        outcomes[i] = await _uploadOne(files[i]);
+        if (mounted) setState(() => _uploadDone++);
+      }
+    }
+
+    await Future.wait(
+      List.generate(
+        math.min(_maxConcurrentUploads, files.length),
+            (_) => worker(),
+      ),
+    );
+    return outcomes;
+  }
+
+  Future<_UploadOutcome> _uploadOne(XFile file) async {
+    try {
+      // Bytes are read here, per file, so only the files currently uploading
+      // sit in memory.
       final bytes = await file.readAsBytes();
-      final name = file.name.toLowerCase();
-      final contentType = name.endsWith('.png')
-          ? 'image/png'
-          : name.endsWith('.webp')
-          ? 'image/webp'
-          : 'image/jpeg';
-
-      setState(() => _isUploading = true);
       final result = await ref
           .read(mediaRepositoryProvider)
           .uploadPhoto(
         bytes: bytes,
-        contentType: contentType,
+        contentType: _contentType(file),
         type: MediaKind.publicPhoto,
       );
 
-      if (!mounted) return;
-      if (result.succeeded) {
-        ref.invalidate(myMediaProvider);
-        _toast('Photo added', tone: ToastTone.success);
-      } else if (result.wasRejected) {
-        // Moderation refused it. Say what the server said and do NOT invite a
-        // retry — the same file will be refused again, and the photo is
-        // already gone from storage.
-        _toast(
-          result.failureReason ??
-              "This photo doesn't meet our content guidelines.",
-          tone: ToastTone.error,
-        );
-      } else {
-        _toast(
-          "Photo couldn't be uploaded. Please try again.",
-          tone: ToastTone.error,
-        );
+      if (result.succeeded) return const _UploadOutcome(_UploadKind.success);
+      if (result.wasRejected) {
+        // Moderation refused it. The same file would be refused again, so
+        // this is reported without inviting a retry.
+        return _UploadOutcome(_UploadKind.rejected, result.failureReason);
       }
+      return const _UploadOutcome(_UploadKind.failed);
     } on AppException catch (e) {
-      _toast(e.message, tone: ToastTone.error);
-    } finally {
-      if (mounted) setState(() => _isUploading = false);
+      return _UploadOutcome(_UploadKind.failed, e.message);
+    } catch (e, stack) {
+      debugPrint('Photo upload failed: $e');
+      debugPrintStack(stackTrace: stack);
+      return const _UploadOutcome(_UploadKind.failed);
     }
   }
+
+  String _contentType(XFile file) {
+    final mime = file.mimeType;
+    if (mime != null && mime.startsWith('image/')) return mime;
+
+    final name = file.name.toLowerCase();
+    if (name.endsWith('.png')) return 'image/png';
+    if (name.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
+  }
+
+  /// One toast summarising the whole batch.
+  void _reportResult(List<_UploadOutcome> outcomes) {
+    final ok = outcomes.where((o) => o.kind == _UploadKind.success).length;
+    final rejected = outcomes.where((o) => o.kind == _UploadKind.rejected);
+    final failed = outcomes.where((o) => o.kind == _UploadKind.failed);
+
+    if (rejected.isEmpty && failed.isEmpty) {
+      _toast(
+        ok == 1 ? 'Photo added' : '$ok photos added',
+        tone: ToastTone.success,
+      );
+      return;
+    }
+
+    // A single photo that went wrong: show the specific reason.
+    if (outcomes.length == 1) {
+      final o = outcomes.first;
+      _toast(
+        o.kind == _UploadKind.rejected
+            ? (o.message ?? "This photo doesn't meet our content guidelines.")
+            : (o.message ?? "Photo couldn't be uploaded. Please try again."),
+        tone: ToastTone.error,
+      );
+      return;
+    }
+
+    // A mixed or all-failed batch: counts, no per-file noise.
+    final parts = <String>[
+      if (ok > 0) '$ok added',
+      if (rejected.isNotEmpty)
+        '${rejected.length} not allowed by our content guidelines',
+      if (failed.isNotEmpty) '${failed.length} failed, please try again',
+    ];
+    _toast(
+      parts.join(' · '),
+      tone: ok > 0 ? ToastTone.neutral : ToastTone.error,
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Build
+  // ─────────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final photos = _publicPhotos(ref.watch(myMediaProvider).valueOrNull);
-    final atCap = photos.length >= kMaxPublicPhotos;
-
     if (photos.isEmpty) return _empty();
+
+    final slotsLeft = math.max(0, kMaxPublicPhotos - photos.length);
+
+    // Decode images at tile size instead of full resolution.
+    final cacheWidth =
+    (MediaQuery.sizeOf(context).width /
+        3 *
+        MediaQuery.devicePixelRatioOf(context))
+        .round();
 
     return GridView.count(
       crossAxisCount: 3,
@@ -127,8 +320,12 @@ class YouGalleryState extends ConsumerState<YouGallery> {
       childAspectRatio: 0.8,
       children: [
         for (final photo in photos)
-          _photoTile(photo, isPrimary: photo.id == widget.primaryPhotoId),
-        if (!atCap) _addTile(),
+          _photoTile(
+            photo,
+            isPrimary: photo.id == widget.primaryPhotoId,
+            cacheWidth: cacheWidth,
+          ),
+        if (slotsLeft > 0) _addTile(slotsLeft),
       ],
     );
   }
@@ -159,7 +356,8 @@ class YouGalleryState extends ConsumerState<YouGallery> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Your cover photo is the first thing people nearby see.',
+            'Your cover photo is the first thing people nearby see. '
+                'You can add up to $kMaxPublicPhotos.',
             textAlign: TextAlign.center,
             style: AppTextStyles.bodyMuted,
           ),
@@ -167,7 +365,7 @@ class YouGalleryState extends ConsumerState<YouGallery> {
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 240),
             child: RadiusButton(
-              label: _isUploading ? 'Uploading' : 'Add a photo',
+              label: _isUploading ? _progressLabel : 'Add photos',
               isLoading: _isUploading,
               onPressed: addPhoto,
             ),
@@ -177,8 +375,13 @@ class YouGalleryState extends ConsumerState<YouGallery> {
     );
   }
 
-  Widget _photoTile(MediaAsset photo, {required bool isPrimary}) {
+  Widget _photoTile(
+      MediaAsset photo, {
+        required bool isPrimary,
+        required int cacheWidth,
+      }) {
     return Semantics(
+      key: ValueKey(photo.id),
       button: true,
       label: isPrimary
           ? 'Cover photo. Tap for options'
@@ -194,6 +397,7 @@ class YouGalleryState extends ConsumerState<YouGallery> {
             Image.network(
               photo.url,
               fit: BoxFit.cover,
+              cacheWidth: cacheWidth,
               // Presigned URLs expire, and photos uploaded before storage was
               // configured point at keys that no longer exist. Show a quiet
               // placeholder instead of the broken-image glyph.
@@ -238,24 +442,40 @@ class YouGalleryState extends ConsumerState<YouGallery> {
     ),
   );
 
-  Widget _addTile() {
+  Widget _addTile(int slotsLeft) {
     return Semantics(
       button: true,
-      label: 'Add photo',
+      label: 'Add photos. $slotsLeft more allowed',
       excludeSemantics: true,
       child: Material(
         color: AppColors.inputBorder.withValues(alpha: 0.45),
         child: InkWell(
-          onTap: addPhoto,
+          // Ignored while picking/uploading, so a double tap cannot open two
+          // pickers.
+          onTap: _isBusy ? null : addPhoto,
           child: Center(
             child: _isUploading
-                ? SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.primary,
-              ),
+                ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.primary,
+                  ),
+                ),
+                if (_uploadTotal > 1) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    '$_uploadDone/$_uploadTotal',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                ],
+              ],
             )
                 : Column(
               mainAxisSize: MainAxisSize.min,
@@ -271,6 +491,15 @@ class YouGalleryState extends ConsumerState<YouGallery> {
                     color: AppColors.textDark,
                   ),
                 ),
+                // Tells the user how many they may pick before the
+                // system picker opens.
+                Text(
+                  '$slotsLeft left',
+                  style: AppTextStyles.caption.copyWith(
+                    fontSize: 10.5,
+                    color: AppColors.textGrey,
+                  ),
+                ),
               ],
             ),
           ),
@@ -279,7 +508,11 @@ class YouGalleryState extends ConsumerState<YouGallery> {
     );
   }
 
-  /// Set-as-profile / delete. Deleting is the way to make room once the gallery
+  // ─────────────────────────────────────────────────────────────────────────
+  // Photo actions
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Set-as-cover / delete. Deleting is the way to make room once the gallery
   /// is full, so the sheet is also where the cap gets resolved.
   Future<void> _showPhotoActions(
       MediaAsset photo, {
@@ -294,7 +527,7 @@ class YouGalleryState extends ConsumerState<YouGallery> {
             if (!isPrimary)
               _SheetAction(
                 icon: Icons.account_circle_outlined,
-                label: 'Make this my cover photo',
+                label: AppString.photoMakeCover,
                 detail: photo.isApproved
                     ? null
                     : 'Available once it has been reviewed',
@@ -307,13 +540,13 @@ class YouGalleryState extends ConsumerState<YouGallery> {
             else
               _SheetAction(
                 icon: Icons.check_circle_rounded,
-                label: 'This is your cover photo',
+                label: AppString.photoIsCover,
                 enabled: false,
                 onTap: () {},
               ),
             _SheetAction(
               icon: Icons.delete_outline_rounded,
-              label: 'Delete photo',
+              label: AppString.photoDelete,
               danger: true,
               onTap: () {
                 Navigator.pop(sheetContext);
@@ -329,8 +562,10 @@ class YouGalleryState extends ConsumerState<YouGallery> {
   Future<void> _setPrimary(MediaAsset photo) async {
     try {
       await ref.read(mediaRepositoryProvider).setPrimary(photo.id);
+      if (!mounted) return;
       // The primary id lives on the user, the badge on the media list.
       await ref.read(meProvider.notifier).refresh();
+      if (!mounted) return;
       ref.invalidate(myMediaProvider);
       _toast('Cover photo updated', tone: ToastTone.success);
     } on AppException catch (e) {
@@ -341,17 +576,18 @@ class YouGalleryState extends ConsumerState<YouGallery> {
   Future<void> _deletePhoto(MediaAsset photo) async {
     final confirmed = await showRadiusConfirm(
       context,
-      title: 'Delete photo?',
+      title: AppString.photoDeleteConfirmTitle,
       message:
       'This removes it from your profile and from storage. '
           'It cannot be undone.',
-      confirmLabel: 'Delete',
+      confirmLabel: AppString.delete,
       destructive: true,
     );
-    if (!confirmed) return;
+    if (!confirmed || !mounted) return;
 
     try {
       await ref.read(mediaRepositoryProvider).delete(photo.id);
+      if (!mounted) return;
       ref.invalidate(myMediaProvider);
       // Deleting the profile photo clears the pointer on the user.
       await ref.read(meProvider.notifier).refresh();

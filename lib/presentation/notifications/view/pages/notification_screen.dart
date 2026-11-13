@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import '../../models/notification_model.dart';
 import '../../viewmodel/providers/notification_provider/notification_provider.dart';
 import '../../viewmodel/providers/notification_provider/notification_state.dart';
+import 'package:dating_app/core/constants/app_string.dart';
+
 
 extension _LocalDateTime on DateTime? {
   DateTime? get orNullLocal => this?.toLocal();
@@ -57,7 +59,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       // marks everything read automatically right after a successful list
       // fetch (see notification_provider.dart), so a separate button here
       // would just be a redundant, confusing no-op most of the time.
-      appBar: AppBar(title: const Text('Notifications')),
+      appBar: AppBar(title: Text(AppString.notifications)),
       body: _buildBody(state),
     );
   }
@@ -225,7 +227,7 @@ class _ErrorView extends StatelessWidget {
             const SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 16),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
+            FilledButton(onPressed: onRetry, child: Text(AppString.retry)),
           ],
         ),
       ),
@@ -246,7 +248,7 @@ class _EmptyView extends StatelessWidget {
           children: [
             Icon(Icons.notifications_none, size: 48, color: Colors.grey),
             SizedBox(height: 12),
-            Text('You have no notifications yet.'),
+            Text('No notifications yet'),
           ],
         ),
       ),

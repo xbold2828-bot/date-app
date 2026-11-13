@@ -28,8 +28,7 @@ class BasicsScreen2 extends ConsumerStatefulWidget {
 }
 
 class _BasicsScreen2State extends ConsumerState<BasicsScreen2> {
-  final List<String> _intents = kIntentOptions.map((e) => e.key).toList();
-
+  /// Backend intent ID (English). Never a label.
   String? _selectedIntent;
   Set<String> _selectedPersonality = {};
   bool _isLoading = false;
@@ -41,12 +40,7 @@ class _BasicsScreen2State extends ConsumerState<BasicsScreen2> {
 
     if (me.profile.intent.isNotEmpty) {
       final saved = me.profile.intent.first;
-      for (final option in kIntentOptions) {
-        if (option.value == saved) {
-          _selectedIntent = option.key;
-          break;
-        }
-      }
+      if (kIntentIds.contains(saved)) _selectedIntent = saved;
     }
     _selectedPersonality.addAll(
       me.profile.personalityTags.take(SelectionLimits.vibes),
@@ -54,7 +48,8 @@ class _BasicsScreen2State extends ConsumerState<BasicsScreen2> {
   }
 
   Future<void> _onContinue() async {
-    if (_selectedIntent == null) {
+    final intent = _selectedIntent;
+    if (intent == null) {
       _showSnack(AppString.intentSelectError);
       return;
     }
@@ -62,10 +57,8 @@ class _BasicsScreen2State extends ConsumerState<BasicsScreen2> {
     setState(() => _isLoading = true);
     try {
       final repo = ref.read(onboardingRepositoryProvider);
-      final intentValue =
-          kIntentOptions.firstWhere((e) => e.key == _selectedIntent).value;
 
-      await repo.updateIntent([intentValue]);
+      await repo.updateIntent([intent]);
       final me = await repo.updatePersonality(_selectedPersonality.toList());
       ref.read(meProvider.notifier).setMe(me);
 
@@ -78,6 +71,7 @@ class _BasicsScreen2State extends ConsumerState<BasicsScreen2> {
   }
 
   void _showSnack(String msg) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
@@ -93,7 +87,7 @@ class _BasicsScreen2State extends ConsumerState<BasicsScreen2> {
       body: SafeArea(
         child: Column(
           children: [
-            const OnboardingHeader(step: 3, label: AppString.sectionIdentity),
+            OnboardingHeader(step: 3, label: AppString.sectionIdentity),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -121,13 +115,14 @@ class _BasicsScreen2State extends ConsumerState<BasicsScreen2> {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: _intents
-                          .map((intent) => OnboardingChip(
-                        label: intent,
-                        selected: _selectedIntent == intent,
-                        onTap: () =>
-                            setState(() => _selectedIntent = intent),
-                      ))
+                      children: kIntentIds
+                          .map(
+                            (id) => OnboardingChip(
+                          label: intentLabel(id),
+                          selected: _selectedIntent == id,
+                          onTap: () => setState(() => _selectedIntent = id),
+                        ),
+                      )
                           .toList(),
                     ),
                     spacerH(32),

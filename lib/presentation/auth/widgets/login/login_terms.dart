@@ -7,6 +7,7 @@ import 'package:dating_app/core/constants/app_text_styles.dart';
 import 'package:dating_app/core/theme/app_colors.dart';
 import 'package:dating_app/core/utils/utils.dart';
 import '../../../../providers/auth/login_provider/login_provider.dart';
+import 'package:dating_app/core/constants/app_string.dart';
 
 class LoginTerms extends ConsumerStatefulWidget {
   const LoginTerms({super.key});
@@ -78,15 +79,15 @@ class _LoginTermsState extends ConsumerState<LoginTerms> {
               ),
             ),
             WidgetSpan(child: spacerW(10)),
-            const TextSpan(text: 'By continuing you agree to our '),
+            TextSpan(text: AppString.agreePrefix),
             TextSpan(
-              text: 'Terms',
+              text: AppString.termsConditions,
               style: linkStyle,
               recognizer: _termsRecognizer,
             ),
-            const TextSpan(text: '\nand '),
+            TextSpan(text: '\n${AppString.and} '),
             TextSpan(
-              text: 'Privacy Policy',
+              text: AppString.privacyPolicy,
               style: linkStyle,
               recognizer: _privacyRecognizer,
             ),
