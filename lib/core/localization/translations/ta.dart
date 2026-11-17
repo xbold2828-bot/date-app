@@ -786,4 +786,17 @@ const Map<String, String> taTranslations = {
   'exploreCountNone': 'இங்கே இன்னும் யாரும் இல்லை',
   'exploreCountOne': '1 நபர் வைப் செய்கிறார்',
   'exploreCountMany': '{count} பேர் வைப் செய்கிறார்கள்',
+
+  // ---------- APP LOCK ----------
+  'appLockTitle': 'செயலி பூட்டு',
+  'appLockSettingSubtitle': 'cozune-ஐ மீண்டும் திறக்கும்போது கைரேகை, முகம் அல்லது சாதன பின் கேட்கவும்',
+  'appLockLockedTitle': 'Cozune பூட்டப்பட்டுள்ளது',
+  'appLockLockedBody': 'தொடர இது நீங்கள்தான் என்பதைச் சரிபார்க்கவும்.',
+  'appLockUnlockButton': 'திற',
+  'appLockUnlockReason': 'Cozune-ஐத் திறக்கவும்',
+  'appLockEnableReason': 'செயலி பூட்டை இயக்க உறுதிப்படுத்தவும்',
+  'appLockDisableReason': 'செயலி பூட்டை முடக்க உறுதிப்படுத்தவும்',
+  'appLockUnsupportedTitle': 'செயலி பூட்டு கிடைக்கவில்லை',
+  'appLockUnsupportedBody': 'முதலில் உங்கள் ஃபோன் அமைப்புகளில் திரைப் பூட்டை (பின், பேட்டர்ன் அல்லது பயோமெட்ரிக்ஸ்) அமைக்கவும்.',
+  'appLockSecuredNote': 'உங்கள் சாதனப் பூட்டால் பாதுகாக்கப்பட்டது',
 };

@@ -839,4 +839,17 @@ const Map<String, String> esTranslations = {
   'exploreCountNone': 'Aún nadie aquí',
   'exploreCountOne': '1 persona en sintonía',
   'exploreCountMany': '{count} personas en sintonía',
+
+  // ---------- APP LOCK ----------
+  'appLockTitle': 'Bloqueo de la app',
+  'appLockSettingSubtitle': 'Pide huella, rostro o PIN del dispositivo cuando vuelvas a abrir cozune',
+  'appLockLockedTitle': 'Cozune está bloqueado',
+  'appLockLockedBody': 'Verifica que eres tú para continuar.',
+  'appLockUnlockButton': 'Desbloquear',
+  'appLockUnlockReason': 'Desbloquear Cozune',
+  'appLockEnableReason': 'Confirma para activar el bloqueo de la app',
+  'appLockDisableReason': 'Confirma para desactivar el bloqueo de la app',
+  'appLockUnsupportedTitle': 'Bloqueo de la app no disponible',
+  'appLockUnsupportedBody': 'Primero configura un bloqueo de pantalla (PIN, patrón o biometría) en los ajustes de tu teléfono.',
+  'appLockSecuredNote': 'Protegido por el bloqueo de tu dispositivo',
 };

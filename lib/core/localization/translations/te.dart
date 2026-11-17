@@ -831,4 +831,17 @@ const Map<String, String> teTranslations = {
   'exploreCountNone': 'ఇక్కడ ఇంకా ఎవరూ లేరు',
   'exploreCountOne': '1 వ్యక్తి వైబ్ చేస్తున్నారు',
   'exploreCountMany': '{count} మంది వైబ్ చేస్తున్నారు',
+
+  // ---------- APP LOCK ----------
+  'appLockTitle': 'యాప్ లాక్',
+  'appLockSettingSubtitle': 'cozune ను మళ్లీ తెరిచినప్పుడు ఫింగర్‌ప్రింట్, ఫేస్ లేదా డివైస్ పిన్ అడగండి',
+  'appLockLockedTitle': 'Cozune లాక్ చేయబడింది',
+  'appLockLockedBody': 'కొనసాగడానికి ఇది మీరేనని ధృవీకరించండి.',
+  'appLockUnlockButton': 'అన్‌లాక్ చేయండి',
+  'appLockUnlockReason': 'Cozune ను అన్‌లాక్ చేయండి',
+  'appLockEnableReason': 'యాప్ లాక్‌ను ఆన్ చేయడానికి నిర్ధారించండి',
+  'appLockDisableReason': 'యాప్ లాక్‌ను ఆఫ్ చేయడానికి నిర్ధారించండి',
+  'appLockUnsupportedTitle': 'యాప్ లాక్ అందుబాటులో లేదు',
+  'appLockUnsupportedBody': 'ముందుగా మీ ఫోన్ సెట్టింగ్‌లలో స్క్రీన్ లాక్ (పిన్, ప్యాటర్న్ లేదా బయోమెట్రిక్స్) సెట్ చేయండి.',
+  'appLockSecuredNote': 'మీ డివైస్ లాక్ ద్వారా రక్షించబడింది',
 };

@@ -786,4 +786,17 @@ const Map<String, String> bnTranslations = {
   'exploreCountNone': 'এখানে এখনও কেউ নেই',
   'exploreCountOne': '1 জন ভাইব করছে',
   'exploreCountMany': '{count} জন ভাইব করছে',
+
+  // ---------- APP LOCK ----------
+  'appLockTitle': 'অ্যাপ লক',
+  'appLockSettingSubtitle': 'cozune আবার খুললে ফিঙ্গারপ্রিন্ট, ফেস বা ডিভাইস পিন চাইবে',
+  'appLockLockedTitle': 'Cozune লক করা আছে',
+  'appLockLockedBody': 'চালিয়ে যেতে যাচাই করুন যে এটি আপনি।',
+  'appLockUnlockButton': 'আনলক করুন',
+  'appLockUnlockReason': 'Cozune আনলক করুন',
+  'appLockEnableReason': 'অ্যাপ লক চালু করতে নিশ্চিত করুন',
+  'appLockDisableReason': 'অ্যাপ লক বন্ধ করতে নিশ্চিত করুন',
+  'appLockUnsupportedTitle': 'অ্যাপ লক উপলব্ধ নয়',
+  'appLockUnsupportedBody': 'প্রথমে আপনার ফোনের সেটিংসে একটি স্ক্রিন লক (পিন, প্যাটার্ন বা বায়োমেট্রিকস) সেট করুন।',
+  'appLockSecuredNote': 'আপনার ডিভাইস লক দ্বারা সুরক্ষিত',
 };

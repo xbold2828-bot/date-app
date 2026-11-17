@@ -831,4 +831,17 @@ const Map<String, String> hiTranslations = {
   'exploreCountNone': 'यहाँ अभी कोई नहीं',
   'exploreCountOne': '1 व्यक्ति वाइब कर रहा है',
   'exploreCountMany': '{count} लोग वाइब कर रहे हैं',
+
+  // ---------- APP LOCK ----------
+  'appLockTitle': 'ऐप लॉक',
+  'appLockSettingSubtitle': 'cozune दोबारा खोलने पर फ़िंगरप्रिंट, फ़ेस या डिवाइस पिन मांगें',
+  'appLockLockedTitle': 'Cozune लॉक है',
+  'appLockLockedBody': 'जारी रखने के लिए सत्यापित करें कि यह आप हैं।',
+  'appLockUnlockButton': 'अनलॉक करें',
+  'appLockUnlockReason': 'Cozune अनलॉक करें',
+  'appLockEnableReason': 'ऐप लॉक चालू करने के लिए पुष्टि करें',
+  'appLockDisableReason': 'ऐप लॉक बंद करने के लिए पुष्टि करें',
+  'appLockUnsupportedTitle': 'ऐप लॉक उपलब्ध नहीं है',
+  'appLockUnsupportedBody': 'पहले अपने फ़ोन की सेटिंग्स में स्क्रीन लॉक (पिन, पैटर्न या बायोमेट्रिक्स) सेट करें।',
+  'appLockSecuredNote': 'आपके डिवाइस लॉक द्वारा सुरक्षित',
 };

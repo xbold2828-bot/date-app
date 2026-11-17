@@ -1,7 +1,7 @@
 package com.cozune.app
 
 import android.view.WindowManager
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
@@ -9,13 +9,17 @@ import io.flutter.plugin.common.MethodChannel
  * Host activity, plus the one thing Flutter cannot do on its own: block
  * screenshots and screen recording of the window.
  *
+ * Extends [FlutterFragmentActivity] (not FlutterActivity) because the
+ * `local_auth` plugin shows the biometric prompt as a fragment dialog and
+ * needs a FragmentActivity host for the app lock.
+ *
  * `FLAG_SECURE` is a window flag, so it is all-or-nothing for the whole app and
  * has to be toggled around the screens that need it — see `ScreenGuard` on the
  * Dart side. Done natively through a channel rather than with a plugin: it is
  * four lines of platform code, and the packages that wrap it are a dependency
  * to audit and update for no gain.
  */
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() {
     private companion object {
         const val CHANNEL = "radius/screen_guard"
     }

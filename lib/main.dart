@@ -27,6 +27,8 @@ import 'core/notification/notification_helper.dart';
 import 'core/notification/push_deep_link.dart';
 import 'core/router/app_pages.dart';
 import 'core/router/app_router.dart';
+import 'core/security/app_lock_gate.dart';
+import 'core/security/app_lock_provider.dart';
 import 'core/security/security_breach_page.dart';
 import 'core/security/security_risk.dart';
 import 'core/security/security_service.dart';
@@ -48,6 +50,9 @@ Future<void> main() async {
 
   await ThemeController.preload();
   await LocaleController.preload();
+  // Read the saved app-lock setting before the first frame, so a locked app
+  // never shows its content before the lock screen.
+  await AppLockController.preload();
 
   try {
     await dotenv.load(fileName: ".env");
@@ -427,7 +432,10 @@ class MyApp extends ConsumerWidget {
               app = _InternetGate(child: appToWrap);
             }
 
-            return PaletteScope(child: app);
+            // The lock gate sits outside _InternetGate so the lock screen
+            // covers every route, and inside PaletteScope so it picks up the
+            // current AppColors palette.
+            return PaletteScope(child: AppLockGate(child: app));
           },
         );
       },

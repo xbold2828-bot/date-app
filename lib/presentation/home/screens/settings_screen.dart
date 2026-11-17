@@ -10,8 +10,10 @@ import '../../../core/localization/language_selection_sheet.dart';
 import '../../../core/localization/locale_provider.dart';
 import '../../../core/logger/app_logger.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/security/app_lock_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_controller.dart';
+import '../../../core/utils/app_snack_bar.dart';
 import '../../../data/models/location_sharing_model.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../providers/core_providers.dart';
@@ -86,6 +88,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             .onLoggedOut();
       } catch (e) {
         AppLogger.d('[$tag] app-open ad reset failed: $e');
+      }
+
+      // The app lock belongs to this session: reset it so the next account
+      // on this device doesn't inherit the lock.
+      try {
+        await container.read(appLockProvider.notifier).reset();
+      } catch (e) {
+        AppLogger.d('[$tag] app lock reset failed: $e');
       }
 
       try {
@@ -167,6 +177,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  /// Turns the app lock on or off. Both directions ask the device to
+  /// authenticate first (see [AppLockController.setEnabled]).
+  Future<void> _setAppLock(bool on) async {
+    final result = await ref.read(appLockProvider.notifier).setEnabled(
+      on,
+      reason: on
+          ? AppString.appLockEnableReason
+          : AppString.appLockDisableReason,
+    );
+    if (!mounted) return;
+    if (result == AppLockChange.unsupported) {
+      AppSnackBar.showErrorSnackBar(
+        title: AppString.appLockUnsupportedTitle,
+        message: AppString.appLockUnsupportedBody,
+        seconds: 4,
+      );
+    }
+    // `failed` (cancelled or wrong finger): the switch simply stays as it was.
+  }
+
   @override
   Widget build(BuildContext context) {
     final me = ref.watch(meProvider).valueOrNull;
@@ -177,6 +207,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             me?.locationSharing ??
             LocationSharing.initial;
     final dark = isDarkMode(context, ref.watch(themeModeProvider));
+    final lockEnabled = ref.watch(appLockProvider.select((s) => s.enabled));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -231,6 +262,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               context,
               MaterialPageRoute(builder: (_) => const BlockedAccountsScreen()),
             ),
+          ),
+          _Row(
+            icon: lockEnabled
+                ? Icons.lock_outline_rounded
+                : Icons.lock_open_outlined,
+            title: AppString.appLockTitle,
+            subtitle: AppString.appLockSettingSubtitle,
+            toggled: lockEnabled,
+            trailing: Switch.adaptive(
+              value: lockEnabled,
+              onChanged: _setAppLock,
+            ),
+            onTap: () => _setAppLock(!lockEnabled),
           ),
           _Section(AppString.settingsSectionDisplay),
           _Row(

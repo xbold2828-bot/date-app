@@ -104,11 +104,20 @@ const Map<SecurityRisk, _RiskInfo> _riskInfo = {
 class SecurityBreachPage extends StatefulWidget {
   final List<SecurityRisk> risks;
 
-  /// Called when the user taps "Check Again" — should re-run
-  /// [SecurityService.evaluate] and rebuild accordingly.
+  /// Called when the user taps "Check Again".
   final VoidCallback? onRecheck;
 
-  const SecurityBreachPage({super.key, required this.risks, this.onRecheck});
+  /// true when shown inside the running app (SecurityOverlay). The app
+  /// already has MaterialApp/ScreenUtil, so we must not create a second one
+  /// (a nested ScreenUtilInit would change the app-wide scaling).
+  final bool embedded;
+
+  const SecurityBreachPage({
+    super.key,
+    required this.risks,
+    this.onRecheck,
+    this.embedded = false,
+  });
 
   @override
   State<SecurityBreachPage> createState() => _SecurityBreachPageState();
@@ -140,6 +149,8 @@ class _SecurityBreachPageState extends State<SecurityBreachPage>
 
   @override
   Widget build(BuildContext context) {
+    if (widget.embedded) return _buildBody(context);
+
     return ScreenUtilInit(
       designSize: const Size(390, 844),
       minTextAdapt: true,
@@ -159,10 +170,10 @@ class _SecurityBreachPageState extends State<SecurityBreachPage>
         .toList();
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
+      value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: AppColors.isDark ? Brightness.light : Brightness.dark, // Android
-        statusBarBrightness: AppColors.isDark ? Brightness.dark : Brightness.light, // iOS
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
       ),
       child: Scaffold(
         backgroundColor: const Color(0xFFF4F6FA),
@@ -353,10 +364,10 @@ class _SecurityBreachPageState extends State<SecurityBreachPage>
                     AppText(
                       text: knownRisks.length == 1
                           ? 'We found a security issue that needs to be '
-                                'resolved before you can continue.'
+                          'resolved before you can continue.'
                           : 'We found ${knownRisks.length} security issues '
-                                'that need to be resolved before you can '
-                                'continue.',
+                          'that need to be resolved before you can '
+                          'continue.',
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
                       color: const Color(0xFF64748B),
@@ -389,9 +400,8 @@ class _SecurityBreachPageState extends State<SecurityBreachPage>
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(
-                                    0xFF0F172A,
-                                  ).withValues(alpha: 0.04),
+                                  color: const Color(0xFF0F172A)
+                                      .withValues(alpha: 0.04),
                                   blurRadius: 12,
                                   offset: const Offset(0, 4),
                                 ),
@@ -421,7 +431,7 @@ class _SecurityBreachPageState extends State<SecurityBreachPage>
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    CrossAxisAlignment.start,
                                     children: [
                                       AppText(
                                         text: info.title,
@@ -459,7 +469,7 @@ class _SecurityBreachPageState extends State<SecurityBreachPage>
 
                     const AppText(
                       text:
-                          'Resolve the issue(s) above, then tap "Check '
+                      'Resolve the issue(s) above, then tap "Check '
                           'Again" to continue.',
                       fontSize: 12,
                       fontWeight: FontWeight.w400,

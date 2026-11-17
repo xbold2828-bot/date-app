@@ -1111,4 +1111,18 @@ abstract final class AppString {
   static String get premiumBenefitSubtitle => _tr('premiumBenefitSubtitle', 'Unlimited likes, every filter, no ads');
   static String get profileVerifiedSubtitle => _tr('profileVerifiedSubtitle', 'Your profile shows the verified tick');
   static String get getVerifiedSubtitle => _tr('getVerifiedSubtitle', 'Get the tick — a 30-second face check');
+
+
+  // ---------- APP LOCK ----------
+  static String get appLockTitle => _tr('appLockTitle', 'App lock');
+  static String get appLockSettingSubtitle => _tr('appLockSettingSubtitle', 'Ask for fingerprint, face or device PIN when you reopen cozune');
+  static String get appLockLockedTitle => _tr('appLockLockedTitle', 'Cozune is locked');
+  static String get appLockLockedBody => _tr('appLockLockedBody', 'Verify it\u2019s you to continue.');
+  static String get appLockUnlockButton => _tr('appLockUnlockButton', 'Unlock');
+  static String get appLockUnlockReason => _tr('appLockUnlockReason', 'Unlock Cozune');
+  static String get appLockEnableReason => _tr('appLockEnableReason', 'Confirm to turn on app lock');
+  static String get appLockDisableReason => _tr('appLockDisableReason', 'Confirm to turn off app lock');
+  static String get appLockUnsupportedTitle => _tr('appLockUnsupportedTitle', 'App lock unavailable');
+  static String get appLockUnsupportedBody => _tr('appLockUnsupportedBody', 'Set a screen lock (PIN, pattern or biometrics) in your phone\u2019s settings first.');
+  static String get appLockSecuredNote => _tr('appLockSecuredNote', 'Protected by your device lock');
 }
